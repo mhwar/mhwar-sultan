@@ -30,7 +30,7 @@ export default function OverviewTab({ project, tasks, phases }: OverviewTabProps
         </div>
 
         {/* Tags */}
-        {project.tags.length > 0 && (
+        {(project.tags?.length ?? 0) > 0 && (
           <div className="glass-card p-5">
             <div className="flex items-center gap-2 mb-3">
               <Tag size={14} style={{ color: 'var(--color-text-muted)' }} />
@@ -39,7 +39,7 @@ export default function OverviewTab({ project, tasks, phases }: OverviewTabProps
               </h3>
             </div>
             <div className="flex flex-wrap gap-2">
-              {project.tags.map((tag) => (
+              {(project.tags ?? []).map((tag) => (
                 <span
                   key={tag}
                   className="text-xs px-3 py-1.5 rounded-full font-medium"

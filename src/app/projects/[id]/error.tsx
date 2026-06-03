@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { AlertTriangle, RefreshCw, ArrowRight } from 'lucide-react'
 
 export default function ProjectError({
+  error,
   reset,
 }: {
   error: Error & { digest?: string }
@@ -24,6 +25,14 @@ export default function ProjectError({
         <p className="text-sm max-w-xs" style={{ color: 'var(--color-text-secondary)' }}>
           حدث خطأ أثناء تحميل الصفحة. حاول مجدداً أو عد للمشاريع.
         </p>
+        {error?.message && (
+          <p
+            className="text-xs font-mono mt-2 px-3 py-2 rounded-lg max-w-sm break-all"
+            style={{ background: 'rgba(239,68,68,0.08)', color: '#EF4444' }}
+          >
+            {error.message}
+          </p>
+        )}
       </div>
 
       <div className="flex items-center gap-3">

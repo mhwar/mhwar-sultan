@@ -6,19 +6,30 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function hexToRgba(hex: string, alpha: number): string {
+export function hexToRgba(hex: string | undefined | null, alpha: number): string {
+  if (!hex || typeof hex !== 'string' || !hex.startsWith('#') || hex.length < 7) {
+    return `rgba(99, 102, 241, ${alpha})`
+  }
   const r = parseInt(hex.slice(1, 3), 16)
   const g = parseInt(hex.slice(3, 5), 16)
   const b = parseInt(hex.slice(5, 7), 16)
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return `rgba(99, 102, 241, ${alpha})`
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
-export function formatDateAr(iso: string): string {
-  return new Intl.DateTimeFormat('ar-SA', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  }).format(new Date(iso))
+export function formatDateAr(iso: string | undefined): string {
+  if (!iso) return '—'
+  try {
+    const d = new Date(iso)
+    if (isNaN(d.getTime())) return '—'
+    return new Intl.DateTimeFormat('ar-SA', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }).format(d)
+  } catch {
+    return '—'
+  }
 }
 
 export function timeAgoAr(iso: string): string {
