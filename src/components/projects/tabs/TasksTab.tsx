@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Plus, Trash2, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { useTaskStore } from '@/store/store'
 import type { Project, Task, TaskStatus, TaskPriority } from '@/types'
 import EmptyState from '@/components/shared/EmptyState'
@@ -11,10 +11,10 @@ interface TasksTabProps {
   tasks: Task[]
 }
 
-const COLUMNS: { status: TaskStatus; label: string }[] = [
-  { status: 'todo',        label: 'للتنفيذ' },
-  { status: 'in-progress', label: 'جارية' },
-  { status: 'done',        label: 'منجزة' },
+const COLUMNS: { status: TaskStatus; label: string; color: string }[] = [
+  { status: 'todo',        label: 'للتنفيذ', color: 'rgba(255,255,255,0.3)' },
+  { status: 'in-progress', label: 'جارية',  color: '#F59E0B'                },
+  { status: 'done',        label: 'منجزة',   color: '#10B981'                },
 ]
 
 const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
@@ -38,11 +38,8 @@ function TaskCard({
   const priorityColor = PRIORITY_COLORS[task.priority]
 
   return (
-    <div
-      className="glass-card p-3.5 relative group"
-      style={{ marginBottom: '0.5rem' }}
-    >
-      {/* Priority indicator */}
+    <div className="glass-card p-3.5 relative group">
+      {/* Priority bar */}
       <div
         className="absolute top-0 end-0 w-1 h-full rounded-e-xl"
         style={{ background: priorityColor, opacity: 0.6 }}
@@ -67,17 +64,21 @@ function TaskCard({
           <div className="flex items-center gap-2 mt-2">
             <span
               className="text-xs px-1.5 py-0.5 rounded-md font-medium"
-              style={{
-                background: `${priorityColor}15`,
-                color: priorityColor,
-              }}
+              style={{ background: `${priorityColor}15`, color: priorityColor }}
             >
               {PRIORITY_LABELS[task.priority]}
+            </span>
+            {/* Mobile: status badge */}
+            <span
+              className="md:hidden text-xs px-1.5 py-0.5 rounded-md font-medium"
+              style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-text-muted)' }}
+            >
+              {TASK_STATUS_LABELS[task.status]}
             </span>
           </div>
         </div>
 
-        <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex flex-col gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
           <div className="relative">
             <button
               onClick={() => setShowMove(!showMove)}
@@ -89,11 +90,7 @@ function TaskCard({
             {showMove && (
               <div
                 className="absolute end-0 top-8 z-10 rounded-xl overflow-hidden shadow-2xl"
-                style={{
-                  background: '#141422',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  minWidth: '120px',
-                }}
+                style={{ background: '#141422', border: '1px solid rgba(255,255,255,0.1)', minWidth: '120px' }}
               >
                 {COLUMNS.map((col) => (
                   <button
@@ -205,6 +202,90 @@ function AddTaskForm({
   )
 }
 
+// Mobile: collapsible group per status
+function MobileColumnGroup({
+  col,
+  tasks,
+  project,
+  addingTo,
+  setAddingTo,
+  onMove,
+  onDelete,
+}: {
+  col: typeof COLUMNS[0]
+  tasks: Task[]
+  project: Project
+  addingTo: TaskStatus | null
+  setAddingTo: (s: TaskStatus | null) => void
+  onMove: (id: string, s: TaskStatus) => void
+  onDelete: (id: string) => void
+}) {
+  const [collapsed, setCollapsed] = useState(col.status === 'done' && tasks.length === 0)
+
+  return (
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{ border: '1px solid rgba(255,255,255,0.06)' }}
+    >
+      {/* Group header */}
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="w-full flex items-center justify-between px-4 py-3 transition-colors hover:bg-white/3"
+        style={{ background: 'rgba(255,255,255,0.02)' }}
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="w-2 h-2 rounded-full shrink-0" style={{ background: col.color }} />
+          <span className="text-sm font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+            {col.label}
+          </span>
+          <span
+            className="text-xs px-1.5 py-0.5 rounded-full font-medium"
+            style={{ background: 'rgba(255,255,255,0.07)', color: 'var(--color-text-muted)' }}
+          >
+            {tasks.length}
+          </span>
+        </div>
+        {collapsed
+          ? <ChevronRight size={14} style={{ color: 'var(--color-text-muted)' }} />
+          : <ChevronDown size={14} style={{ color: 'var(--color-text-muted)' }} />
+        }
+      </button>
+
+      {!collapsed && (
+        <div className="p-3 space-y-2">
+          {tasks.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              projectColor={project.color}
+              onMove={(s) => onMove(task.id, s)}
+              onDelete={() => onDelete(task.id)}
+            />
+          ))}
+
+          {addingTo === col.status ? (
+            <AddTaskForm
+              projectId={project.id}
+              projectColor={project.color}
+              status={col.status}
+              onClose={() => setAddingTo(null)}
+            />
+          ) : (
+            <button
+              onClick={() => setAddingTo(col.status)}
+              className="w-full flex items-center gap-1.5 px-2 py-2 rounded-lg text-xs transition-colors"
+              style={{ color: 'var(--color-text-muted)' }}
+            >
+              <Plus size={12} />
+              إضافة مهمة
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function TasksTab({ project, tasks }: TasksTabProps) {
   const { moveTask, deleteTask } = useTaskStore()
   const [addingTo, setAddingTo] = useState<TaskStatus | null>(null)
@@ -229,76 +310,80 @@ export default function TasksTab({ project, tasks }: TasksTabProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {COLUMNS.map(({ status, label }) => {
-        const colTasks = tasks.filter((t) => t.status === status)
-        return (
-          <div key={status}>
-            {/* Column header */}
-            <div
-              className="flex items-center justify-between mb-3 px-1"
-            >
-              <div className="flex items-center gap-2">
-                <div
-                  className="w-2 h-2 rounded-full"
-                  style={{
-                    background:
-                      status === 'done' ? '#10B981' :
-                      status === 'in-progress' ? '#F59E0B' :
-                      'rgba(255,255,255,0.3)',
-                  }}
-                />
-                <span className="text-xs font-bold" style={{ color: 'var(--color-text-secondary)' }}>
-                  {label}
+    <>
+      {/* ── Mobile: collapsible list per status ── */}
+      <div className="md:hidden space-y-3">
+        {COLUMNS.map((col) => (
+          <MobileColumnGroup
+            key={col.status}
+            col={col}
+            tasks={tasks.filter((t) => t.status === col.status)}
+            project={project}
+            addingTo={addingTo}
+            setAddingTo={setAddingTo}
+            onMove={moveTask}
+            onDelete={deleteTask}
+          />
+        ))}
+      </div>
+
+      {/* ── Desktop: 3-column kanban ── */}
+      <div className="hidden md:grid md:grid-cols-3 gap-4">
+        {COLUMNS.map(({ status, label, color }) => {
+          const colTasks = tasks.filter((t) => t.status === status)
+          return (
+            <div key={status}>
+              <div className="flex items-center justify-between mb-3 px-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full" style={{ background: color }} />
+                  <span className="text-xs font-bold" style={{ color: 'var(--color-text-secondary)' }}>
+                    {label}
+                  </span>
+                </div>
+                <span
+                  className="text-xs w-5 h-5 rounded-full flex items-center justify-center"
+                  style={{ background: 'rgba(255,255,255,0.07)', color: 'var(--color-text-muted)' }}
+                >
+                  {colTasks.length}
                 </span>
               </div>
-              <span
-                className="text-xs w-5 h-5 rounded-full flex items-center justify-center"
-                style={{
-                  background: 'rgba(255,255,255,0.07)',
-                  color: 'var(--color-text-muted)',
-                }}
+
+              <div
+                className="min-h-32 rounded-xl p-2"
+                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}
               >
-                {colTasks.length}
-              </span>
-            </div>
+                {colTasks.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    projectColor={project.color}
+                    onMove={(s) => moveTask(task.id, s)}
+                    onDelete={() => deleteTask(task.id)}
+                  />
+                ))}
 
-            {/* Task cards */}
-            <div
-              className="min-h-32 rounded-xl p-2"
-              style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}
-            >
-              {colTasks.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  projectColor={project.color}
-                  onMove={(s) => moveTask(task.id, s)}
-                  onDelete={() => deleteTask(task.id)}
-                />
-              ))}
-
-              {addingTo === status ? (
-                <AddTaskForm
-                  projectId={project.id}
-                  projectColor={project.color}
-                  status={status}
-                  onClose={() => setAddingTo(null)}
-                />
-              ) : (
-                <button
-                  onClick={() => setAddingTo(status)}
-                  className="w-full flex items-center gap-1.5 px-2 py-2 rounded-lg text-xs transition-colors mt-1"
-                  style={{ color: 'var(--color-text-muted)' }}
-                >
-                  <Plus size={12} />
-                  إضافة مهمة
-                </button>
-              )}
+                {addingTo === status ? (
+                  <AddTaskForm
+                    projectId={project.id}
+                    projectColor={project.color}
+                    status={status}
+                    onClose={() => setAddingTo(null)}
+                  />
+                ) : (
+                  <button
+                    onClick={() => setAddingTo(status)}
+                    className="w-full flex items-center gap-1.5 px-2 py-2 rounded-lg text-xs transition-colors mt-1"
+                    style={{ color: 'var(--color-text-muted)' }}
+                  >
+                    <Plus size={12} />
+                    إضافة مهمة
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        )
-      })}
-    </div>
+          )
+        })}
+      </div>
+    </>
   )
 }
