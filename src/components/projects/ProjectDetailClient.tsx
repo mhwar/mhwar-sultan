@@ -11,6 +11,7 @@ import PlanTab from '@/components/projects/tabs/PlanTab'
 import TasksTab from '@/components/projects/tabs/TasksTab'
 import NotesTab from '@/components/projects/tabs/NotesTab'
 import { useProjectStore, useTaskStore, usePlanStore, useNoteStore } from '@/store/store'
+import { useShallow } from 'zustand/shallow'
 import { hexToRgba } from '@/lib/utils'
 
 type Tab = 'overview' | 'plan' | 'tasks' | 'notes'
@@ -30,17 +31,17 @@ export default function ProjectDetailClient({ id }: Props) {
   const router = useRouter()
   const project = useProjectStore((s) => s.projects.find((p) => p.id === id))
   const { deleteProject } = useProjectStore()
-  const tasks = useTaskStore((s) => s.tasks.filter((t) => t.projectId === id))
-  const phases = usePlanStore((s) =>
+  const tasks = useTaskStore(useShallow((s) => s.tasks.filter((t) => t.projectId === id)))
+  const phases = usePlanStore(useShallow((s) =>
     [...s.phases.filter((ph) => ph.projectId === id)].sort((a, b) => a.order - b.order)
-  )
-  const notes = useNoteStore((s) =>
+  ))
+  const notes = useNoteStore(useShallow((s) =>
     [...s.notes.filter((n) => n.projectId === id)].sort((a, b) => {
       if (a.pinned && !b.pinned) return -1
       if (!a.pinned && b.pinned) return 1
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     })
-  )
+  ))
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [showEdit, setShowEdit] = useState(false)
   const [showActions, setShowActions] = useState(false)
