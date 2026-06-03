@@ -48,10 +48,10 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
       */}
       <aside
         className={[
-          // positioning
-          'fixed inset-y-0 start-0 z-50 w-72 flex flex-col overflow-hidden',
-          // desktop overrides
-          'md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0',
+          // positioning — right-0 is explicit (= right side in RTL)
+          'fixed inset-y-0 right-0 z-50 w-72 flex flex-col overflow-hidden',
+          // desktop overrides — md:right-auto resets right-0 so sticky uses flex layout
+          'md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:right-auto',
           // slide animation — use Tailwind only (no inline transform)
           'transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
           open ? 'translate-x-0' : 'translate-x-full',
