@@ -28,11 +28,19 @@ interface Props {
 
 export default function ProjectDetailClient({ id }: Props) {
   const router = useRouter()
-  const project = useProjectStore((s) => s.getProject(id))
+  const project = useProjectStore((s) => s.projects.find((p) => p.id === id))
   const { deleteProject } = useProjectStore()
-  const tasks = useTaskStore((s) => s.getProjectTasks(id))
-  const phases = usePlanStore((s) => s.getProjectPhases(id))
-  const notes = useNoteStore((s) => s.getProjectNotes(id))
+  const tasks = useTaskStore((s) => s.tasks.filter((t) => t.projectId === id))
+  const phases = usePlanStore((s) =>
+    [...s.phases.filter((ph) => ph.projectId === id)].sort((a, b) => a.order - b.order)
+  )
+  const notes = useNoteStore((s) =>
+    [...s.notes.filter((n) => n.projectId === id)].sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1
+      if (!a.pinned && b.pinned) return 1
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    })
+  )
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [showEdit, setShowEdit] = useState(false)
   const [showActions, setShowActions] = useState(false)
