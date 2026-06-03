@@ -21,7 +21,7 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
   const pathname = usePathname()
   const projects = useProjectStore((s) => s.projects)
 
-  // Auto-close on navigation
+  // Auto-close on navigation (mobile only — md:hidden backdrop handles visual)
   useEffect(() => {
     onClose()
   }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -37,21 +37,33 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
         />
       )}
 
-      {/* Sidebar */}
+      {/*
+        Sidebar
+        Mobile  : fixed, right edge of screen (start-0 = right:0 in RTL),
+                  hidden via translate-x-full, shown via translate-x-0
+        Desktop : sticky in the flex layout — md:translate-x-0 overrides the
+                  base translate-x-full because it's inside a media-query block
+                  (higher cascade priority).  Inline styles are NOT used for
+                  transform so the md: override actually works.
+      */}
       <aside
-        className="
-          fixed inset-y-0 end-0 z-50 w-72 flex flex-col overflow-hidden
-          md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:translate-x-0
-        "
+        className={[
+          // positioning
+          'fixed inset-y-0 start-0 z-50 w-72 flex flex-col overflow-hidden',
+          // desktop overrides
+          'md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0',
+          // slide animation — use Tailwind only (no inline transform)
+          'transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          open ? 'translate-x-0' : 'translate-x-full',
+          'md:translate-x-0',
+        ].join(' ')}
         style={{
-          background: 'rgba(10, 10, 20, 0.97)',
-          borderInlineStart: '1px solid rgba(255,255,255,0.07)',
+          background: 'var(--sidebar-bg, rgba(10,10,20,0.97))',
+          borderInlineEnd: '1px solid rgba(255,255,255,0.07)',
           backdropFilter: 'blur(20px)',
-          transition: 'transform 0.3s cubic-bezier(0.16,1,0.3,1)',
-          transform: open ? 'translateX(0)' : 'translateX(100%)',
         }}
       >
-        {/* Logo + Close button */}
+        {/* Logo + close (mobile) */}
         <div className="px-5 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div
@@ -66,7 +78,6 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
             </div>
           </div>
 
-          {/* Theme toggle + Close (mobile) */}
           <div className="flex items-center gap-1.5">
             <ThemeToggle />
             <button
