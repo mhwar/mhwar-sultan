@@ -38,7 +38,7 @@ export const useProjectStore = create<ProjectStore>()(
 
       getProject: (id) => get().projects.find((p) => p.id === id),
     }),
-    { name: 'mhwar-projects', version: 1 }
+    { name: 'mhwar-projects', version: 1, skipHydration: true }
   )
 )
 
@@ -75,7 +75,7 @@ export const useTaskStore = create<TaskStore>()(
       getProjectTasks: (projectId) =>
         get().tasks.filter((t) => t.projectId === projectId),
     }),
-    { name: 'mhwar-tasks', version: 1 }
+    { name: 'mhwar-tasks', version: 1, skipHydration: true }
   )
 )
 
@@ -140,7 +140,7 @@ export const usePlanStore = create<PlanStore>()(
           .phases.filter((ph) => ph.projectId === projectId)
           .sort((a, b) => a.order - b.order),
     }),
-    { name: 'mhwar-plans', version: 1 }
+    { name: 'mhwar-plans', version: 1, skipHydration: true }
   )
 )
 
@@ -185,7 +185,7 @@ export const useNoteStore = create<NoteStore>()(
             return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
           }),
     }),
-    { name: 'mhwar-notes', version: 1 }
+    { name: 'mhwar-notes', version: 1, skipHydration: true }
   )
 )
 

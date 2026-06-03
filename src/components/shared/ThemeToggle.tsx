@@ -6,10 +6,10 @@ import { useThemeStore } from '@/store/themeStore'
 export default function ThemeToggle() {
   const { theme, toggle, apply } = useThemeStore()
 
-  // Apply stored theme on mount
+  // Apply theme whenever it changes (including after store rehydration)
   useEffect(() => {
-    apply()
-  }, [apply])
+    document.documentElement.classList.toggle('light', theme === 'light')
+  }, [theme])
 
   return (
     <button
