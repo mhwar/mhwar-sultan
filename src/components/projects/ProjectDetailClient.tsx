@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Edit2, Trash2, LayoutDashboard, Map, CheckSquare, FileText } from 'lucide-react'
 import Link from 'next/link'
@@ -35,6 +35,19 @@ export default function ProjectDetailClient({ id }: Props) {
   const notes = useNoteStore((s) => s.getProjectNotes(id))
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [showEdit, setShowEdit] = useState(false)
+  const [hydrated, setHydrated] = useState(false)
+
+  useEffect(() => { setHydrated(true) }, [])
+
+  if (!hydrated) {
+    return (
+      <div className="p-6 lg:p-8 animate-pulse space-y-4">
+        <div className="h-8 w-48 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)' }} />
+        <div className="h-4 w-80 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }} />
+        <div className="h-2 w-full rounded-full" style={{ background: 'rgba(255,255,255,0.04)' }} />
+      </div>
+    )
+  }
 
   if (!project) {
     return (
@@ -149,7 +162,7 @@ export default function ProjectDetailClient({ id }: Props) {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 -mb-px">
+        <div className="flex gap-1 -mb-px overflow-x-auto no-scrollbar">
           {TABS.map(({ id: tabId, label, icon: Icon }) => (
             <button
               key={tabId}

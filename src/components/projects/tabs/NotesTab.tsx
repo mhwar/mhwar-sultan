@@ -63,9 +63,9 @@ export default function NotesTab({ project, notes }: NotesTabProps) {
   }
 
   return (
-    <div className="grid md:grid-cols-3 gap-4 h-[calc(100vh-18rem)]">
+    <div className="flex flex-col md:grid md:grid-cols-3 gap-4 md:h-[calc(100vh-18rem)]">
       {/* Notes list — 1/3 */}
-      <div className="md:col-span-1 flex flex-col gap-2 overflow-y-auto pe-1">
+      <div className="md:col-span-1 flex flex-col gap-2 md:overflow-y-auto pe-1">
         <button
           onClick={handleNewNote}
           className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors"
@@ -116,7 +116,7 @@ export default function NotesTab({ project, notes }: NotesTabProps) {
 
       {/* Note editor — 2/3 */}
       {activeNote ? (
-        <div className="md:col-span-2 glass-card flex flex-col overflow-hidden">
+        <div className="md:col-span-2 glass-card flex flex-col min-h-64 md:overflow-hidden">
           {/* Editor header */}
           <div
             className="flex items-center justify-between px-5 py-3"
@@ -164,7 +164,7 @@ export default function NotesTab({ project, notes }: NotesTabProps) {
             onChange={(e) => setLocalContent(e.target.value)}
             onBlur={handleSave}
             placeholder="اكتب ملاحظاتك هنا..."
-            className="flex-1 bg-transparent resize-none outline-none p-5 text-sm leading-8"
+            className="flex-1 min-h-48 bg-transparent resize-none outline-none p-5 text-sm leading-8"
             style={{ color: 'var(--color-text-secondary)' }}
           />
 
