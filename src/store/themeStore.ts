@@ -22,6 +22,6 @@ export const useThemeStore = create<ThemeStore>()(
         document.documentElement.classList.toggle('light', get().theme === 'light')
       },
     }),
-    { name: 'mhwar-theme', version: 1 }
+    { name: 'mhwar-theme', version: 1, skipHydration: true }
   )
 )

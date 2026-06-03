@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Cairo } from 'next/font/google'
 import './globals.css'
 import SpaRedirect from '@/components/shared/SpaRedirect'
+import StoreHydration from '@/components/shared/StoreHydration'
 
 const cairo = Cairo({
   subsets: ['arabic', 'latin'],
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ar" dir="rtl" className={cairo.variable}>
       <body className="font-sans">
         <SpaRedirect />
+        <StoreHydration />
         {children}
       </body>
     </html>
