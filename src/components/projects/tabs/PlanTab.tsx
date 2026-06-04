@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Plus, Check, Map, ChevronDown, ChevronUp, Trash2, Pencil, X, ArrowUp, ArrowDown, ChevronRight, ChevronLeft, Rows3, Columns3, ChevronsDownUp, ChevronsUpDown, Link2, MoreVertical, Calendar, Target, Send, Rocket } from 'lucide-react'
+import { Plus, Check, Map, ChevronDown, ChevronUp, Trash2, Pencil, X, ArrowUp, ArrowDown, ChevronRight, ChevronLeft, Rows3, Columns3, ChevronsDownUp, ChevronsUpDown, Link2, MoreVertical, Calendar, Target, Send, Rocket, PanelRight } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import { usePlanStore, useTaskStore } from '@/store/store'
 import type { Project, PlanPhase, PhaseStatus } from '@/types'
@@ -12,6 +12,7 @@ import { PlanIcon } from '@/lib/icons'
 import { PLAN_TEMPLATES, type PlanTemplate } from '@/lib/plan-templates'
 import { planKindMeta } from '@/lib/plan-kinds'
 import { PHASE_STATUS_LABELS, TASK_STATUS_VAR, generateId, formatDateShort } from '@/lib/utils'
+import PhaseDrawer from '@/components/projects/PhaseDrawer'
 
 const PHASE_COLUMNS: PhaseStatus[] = ['upcoming', 'in-progress', 'completed']
 const toDateInput = (iso?: string) => (iso ? iso.slice(0, 10) : '')
@@ -29,7 +30,7 @@ const PHASE_STATUS_COLORS: Record<string, { dot: string; badge: string; badgeTex
 }
 
 /* ── Phase card (timeline node) ── */
-function PhaseCard({ phase, project, onMove, isFirst, isLast, expanded, onToggle }: { phase: PlanPhase; project: Project; onMove: (dir: -1 | 1) => void; isFirst: boolean; isLast: boolean; expanded: boolean; onToggle: () => void }) {
+function PhaseCard({ phase, project, onMove, isFirst, isLast, expanded, onToggle, onOpen }: { phase: PlanPhase; project: Project; onMove: (dir: -1 | 1) => void; isFirst: boolean; isLast: boolean; expanded: boolean; onToggle: () => void; onOpen: () => void }) {
   const [newMilestone, setNewMilestone] = useState('')
   const [showStatus, setShowStatus] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
@@ -129,6 +130,11 @@ function PhaseCard({ phase, project, onMove, isFirst, isLast, expanded, onToggle
               )}
             </div>
 
+            {/* Open drawer */}
+            <button onClick={(e) => { e.stopPropagation(); onOpen() }} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost" aria-label="فتح التفاصيل" title="فتح التفاصيل">
+              <PanelRight size={14} />
+            </button>
+
             {/* Kebab menu */}
             <div className="relative">
               <button onClick={(e) => { e.stopPropagation(); setShowMenu((v) => !v); setShowStatus(false) }} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost" aria-label="خيارات">
@@ -138,6 +144,9 @@ function PhaseCard({ phase, project, onMove, isFirst, isLast, expanded, onToggle
                 <>
                   <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowMenu(false) }} />
                   <div className="absolute end-0 top-8 z-20 axis-menu" style={{ minWidth: 160 }} onClick={(e) => e.stopPropagation()}>
+                    <button className="axis-menu__item" onClick={() => { onOpen(); setShowMenu(false) }}>
+                      <PanelRight size={13} /><span>فتح التفاصيل</span>
+                    </button>
                     <button className="axis-menu__item axis-menu__item--danger" onClick={() => { deletePhase(phase.id); setShowMenu(false) }}>
                       <Trash2 size={13} /><span>حذف المرحلة</span>
                     </button>
@@ -240,23 +249,43 @@ function PhaseCard({ phase, project, onMove, isFirst, isLast, expanded, onToggle
   )
 }
 
+const PHASE_STATUS_COLORS_BOARD: Record<string, { dot: string; badge: string; badgeText: string }> = {
+  completed:     { dot: 'var(--color-status-active)', badge: 'color-mix(in srgb, var(--color-status-active) 12%, transparent)', badgeText: 'var(--color-status-active)' },
+  'in-progress': { dot: 'var(--color-status-paused)', badge: 'color-mix(in srgb, var(--color-status-paused) 12%, transparent)', badgeText: 'var(--color-status-paused)' },
+  upcoming:      { dot: 'var(--color-text-muted)',    badge: 'var(--color-surface-muted)',                                     badgeText: 'var(--color-text-muted)' },
+}
+
 /* ── Compact card for the board view ── */
-function PhaseBoardCard({ phase, project }: { phase: PlanPhase; project: Project }) {
+function PhaseBoardCard({ phase, project, onOpen }: { phase: PlanPhase; project: Project; onOpen: () => void }) {
   const { updatePhase, deletePhase } = usePlanStore()
+  const [showStatus, setShowStatus] = useState(false)
   const linkedTasks = useTaskStore(useShallow((s) => s.tasks.filter((t) => t.phaseId === phase.id)))
   const standalone = linkedTasks.filter((t) => !t.milestoneId)
   const total = phase.milestones.length + standalone.length
   const done = phase.milestones.filter((m) => m.done).length + standalone.filter((t) => t.status === 'done').length
   const pct = total ? Math.round((done / total) * 100) : 0
+  const colors = PHASE_STATUS_COLORS_BOARD[phase.status]
 
   return (
     <div className="board-card group">
       <div className="board-card__head">
-        <span className="board-card__title" style={{ flex: 1 }}>{phase.title}</span>
-        <button onClick={() => deletePhase(phase.id)} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost opacity-0 group-hover:opacity-100 transition-opacity" aria-label="حذف">
-          <Trash2 size={12} />
+        <button
+          className="board-card__title text-start flex-1"
+          style={{ cursor: 'pointer' }}
+          onClick={onOpen}
+          title="فتح التفاصيل"
+        >
+          {phase.title}
+        </button>
+        <button onClick={onOpen} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost opacity-0 group-hover:opacity-100 transition-opacity" aria-label="فتح التفاصيل">
+          <PanelRight size={12} />
         </button>
       </div>
+
+      {phase.objective && (
+        <p className="text-xs mb-2 line-clamp-2" style={{ color: 'var(--fg-3)' }}>{phase.objective}</p>
+      )}
+
       <div className="progress-cell">
         <div className="progress-cell__bar"><div className="progress-cell__fill" style={{ width: `${pct}%`, background: project.color }} /></div>
         <span className="progress-cell__num">{pct}%</span>
@@ -265,19 +294,32 @@ function PhaseBoardCard({ phase, project }: { phase: PlanPhase; project: Project
         <span className="axis-num">{done}/{total}</span>
         {linkedTasks.length > 0 && <span className="board-card__meta axis-num">{linkedTasks.length} مهمة</span>}
       </div>
-      <div className="flex gap-1 flex-wrap">
-        {PHASE_COLUMNS.map((s) => (
-          <button
-            key={s}
-            onClick={() => updatePhase(phase.id, { status: s })}
-            className="text-xs px-1.5 py-0.5 rounded"
-            style={phase.status === s
-              ? { background: 'var(--color-brand-subtle)', color: 'var(--color-brand)' }
-              : { color: 'var(--fg-3)', background: 'var(--surface-2)' }}
-          >
-            {PHASE_STATUS_LABELS[s]}
-          </button>
-        ))}
+
+      {/* Single status control */}
+      <div className="relative mt-2">
+        <button
+          onClick={() => setShowStatus((v) => !v)}
+          className="text-xs px-2.5 py-1 rounded-full font-medium inline-flex items-center gap-1.5"
+          style={{ background: colors.badge, color: colors.badgeText }}
+        >
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: colors.dot }} />
+          {PHASE_STATUS_LABELS[phase.status]}
+          <ChevronDown size={10} />
+        </button>
+        {showStatus && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setShowStatus(false)} />
+            <div className="absolute start-0 top-8 z-20 axis-menu" style={{ minWidth: 150 }}>
+              {PHASE_COLUMNS.map((s) => (
+                <button key={s} className="axis-menu__item" onClick={() => { updatePhase(phase.id, { status: s }); setShowStatus(false) }}>
+                  <span className="w-2 h-2 rounded-full" style={{ background: PHASE_STATUS_COLORS_BOARD[s].dot }} />
+                  <span>{PHASE_STATUS_LABELS[s]}</span>
+                  {phase.status === s && <Check size={13} style={{ color: 'var(--iris-500)' }} />}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
@@ -291,6 +333,7 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
   const [showTemplates, setShowTemplates] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [renameVal, setRenameVal] = useState('')
+  const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null)
 
   const [showAddPhase, setShowAddPhase] = useState(false)
   const [newPhaseTitle, setNewPhaseTitle] = useState('')
@@ -581,6 +624,7 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
                 isLast={i === planPhases.length - 1}
                 expanded={!collapsed.has(phase.id)}
                 onToggle={() => togglePhase(phase.id)}
+                onOpen={() => setSelectedPhaseId(phase.id)}
               />
             )
           })}
@@ -599,7 +643,7 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
                   </div>
                 </div>
                 <div className="board-col__body">
-                  {colPhases.map((p) => <PhaseBoardCard key={p.id} phase={p} project={project} />)}
+                  {colPhases.map((p) => <PhaseBoardCard key={p.id} phase={p} project={project} onOpen={() => setSelectedPhaseId(p.id)} />)}
                   {colPhases.length === 0 && <div className="board-col__empty">لا مراحل</div>}
                 </div>
               </div>
@@ -607,6 +651,13 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
           })}
         </div>
       )}
+
+      {/* Phase detail drawer */}
+      <PhaseDrawer
+        phase={selectedPhaseId ? phases.find((ph) => ph.id === selectedPhaseId) ?? null : null}
+        project={project}
+        onClose={() => setSelectedPhaseId(null)}
+      />
 
       {/* Add phase */}
       {showAddPhase ? (
