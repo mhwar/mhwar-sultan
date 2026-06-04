@@ -1,9 +1,8 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { Clock } from 'lucide-react'
+import { Clock, CheckSquare } from 'lucide-react'
 import type { Project } from '@/types'
 import StatusBadge from '@/components/shared/StatusBadge'
-import ProgressBar from '@/components/shared/ProgressBar'
 import { hexToRgba, timeAgoAr } from '@/lib/utils'
 
 interface ProjectCardProps {
@@ -16,83 +15,93 @@ export default function ProjectCard({ project, taskCount = 0 }: ProjectCardProps
 
   return (
     <div
-      className="glass-card-hover relative overflow-hidden"
+      className="axis-card-hover p-4 flex flex-col gap-3"
       onClick={() => router.push(`/projects/${project.id}`)}
     >
-      <div className="p-5">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-11 h-11 rounded-xl flex items-center justify-center text-xl"
-              style={{ background: hexToRgba(project.color, 0.15) }}
-            >
-              {project.icon}
-            </div>
-            <div>
-              <h3 className="font-bold text-base leading-tight" style={{ color: 'var(--color-text-primary)' }}>
-                {project.name}
-              </h3>
-              {project.nameEn && (
-                <div className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                  {project.nameEn}
-                </div>
-              )}
-            </div>
+      {/* Header — logo, name, status */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div
+            className="w-10 h-10 flex items-center justify-center text-lg shrink-0"
+            style={{
+              background: hexToRgba(project.color, 0.15),
+              borderRadius: 'var(--radius-md)',
+            }}
+          >
+            {project.icon}
           </div>
-          <StatusBadge status={project.status} size="sm" />
-        </div>
-
-        {/* Description */}
-        <p className="text-sm leading-relaxed mb-4 line-clamp-2" style={{ color: 'var(--color-text-secondary)' }}>
-          {project.description}
-        </p>
-
-        {/* Progress */}
-        <div className="mb-4">
-          <div className="flex justify-between items-center mb-1.5">
-            <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>التقدم</span>
-            <span className="text-xs font-bold" style={{ color: project.color }}>{project.progress}%</span>
-          </div>
-          <ProgressBar value={project.progress} color={project.color} size="sm" />
-        </div>
-
-        {/* Tags */}
-        {project.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-4">
-            {project.tags.slice(0, 3).map((tag) => (
-              <span
-                key={tag}
-                className="text-xs px-2 py-0.5 rounded-full"
-                style={{
-                  background: hexToRgba(project.color, 0.08),
-                  color: project.color,
-                  border: `1px solid ${hexToRgba(project.color, 0.2)}`,
-                }}
-              >
-                {tag}
-              </span>
-            ))}
-            {project.tags.length > 3 && (
-              <span className="text-xs px-2 py-0.5 rounded-full" style={{ color: 'var(--color-text-muted)', background: 'rgba(255,255,255,0.04)' }}>
-                +{project.tags.length - 3}
-              </span>
+          <div className="min-w-0">
+            <h3 className="font-bold text-sm leading-tight truncate" style={{ color: 'var(--color-text-primary)' }}>
+              {project.name}
+            </h3>
+            {project.nameEn && (
+              <div className="text-xs mt-0.5 truncate" style={{ color: 'var(--color-text-muted)', direction: 'ltr' }}>
+                {project.nameEn}
+              </div>
             )}
           </div>
-        )}
+        </div>
+        <StatusBadge status={project.status} size="sm" />
+      </div>
 
-        {/* Footer */}
+      {/* Description */}
+      <p className="text-sm leading-relaxed line-clamp-2" style={{ color: 'var(--color-text-secondary)' }}>
+        {project.description}
+      </p>
+
+      {/* Progress — thin track + tabular number */}
+      <div className="flex items-center gap-2.5">
         <div
-          className="flex items-center justify-between pt-3"
-          style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+          className="flex-1 rounded-full overflow-hidden"
+          style={{ height: '5px', background: 'var(--color-surface-muted)' }}
         >
-          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {taskCount} مهمة
-          </span>
-          <div className="flex items-center gap-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            <Clock size={11} />
-            <span>{timeAgoAr(project.updatedAt)}</span>
-          </div>
+          <div
+            className="h-full rounded-full transition-all duration-[320ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+            style={{ width: `${project.progress}%`, background: project.color }}
+          />
+        </div>
+        <span className="axis-num text-xs font-semibold shrink-0" style={{ color: 'var(--color-text-secondary)', minWidth: '34px', textAlign: 'end' }}>
+          {project.progress}%
+        </span>
+      </div>
+
+      {/* Tags */}
+      {project.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {project.tags.slice(0, 3).map((tag) => (
+            <span
+              key={tag}
+              className="text-xs px-2 py-0.5 rounded-md"
+              style={{
+                background: 'var(--color-surface-muted)',
+                color: 'var(--color-text-secondary)',
+                border: '1px solid var(--color-surface-border)',
+              }}
+            >
+              {tag}
+            </span>
+          ))}
+          {project.tags.length > 3 && (
+            <span className="text-xs px-2 py-0.5 rounded-md" style={{ color: 'var(--color-text-muted)' }}>
+              +{project.tags.length - 3}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Footer — meta row */}
+      <div
+        className="flex items-center justify-between pt-3 mt-auto"
+        style={{ borderTop: '1px solid var(--color-surface-border)' }}
+      >
+        <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          <CheckSquare size={12} />
+          <span className="axis-num">{taskCount}</span>
+          <span>مهمة</span>
+        </div>
+        <div className="flex items-center gap-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          <Clock size={11} />
+          <span>{timeAgoAr(project.updatedAt)}</span>
         </div>
       </div>
     </div>
