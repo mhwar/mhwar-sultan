@@ -767,6 +767,48 @@
   .detail-row__value { flex: 1; font-size: 14px; color: var(--fg-1); min-width: 0; }
 }
 
+@layer components {
+  /* ════════════════════════ GANTT ════════════════════════ */
+  .axis-gantt {
+    background: var(--surface-1);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .axis-gantt__scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .axis-gantt__grid { display: grid; grid-template-columns: 160px 1fr; min-width: 640px; }
+  .axis-gantt__corner { height: 40px; background: var(--neutral-50); border-bottom: 1px solid var(--border-subtle); border-inline-end: 1px solid var(--border-subtle); }
+  [data-theme="dark"] .axis-gantt__corner { background: var(--neutral-900); }
+  .axis-gantt__header { position: relative; height: 40px; background: var(--neutral-50); border-bottom: 1px solid var(--border-subtle); }
+  [data-theme="dark"] .axis-gantt__header { background: var(--neutral-900); }
+  .axis-gantt__tick { position: absolute; top: 0; bottom: 0; padding-inline-start: 6px; display: flex; align-items: center; }
+  .axis-gantt__tick span { font-family: var(--font-mono); font-size: 10px; font-weight: 500; color: var(--fg-3); text-transform: uppercase; letter-spacing: 0.04em; unicode-bidi: isolate; }
+  .axis-gantt__row-label {
+    padding: 0 12px; display: flex; align-items: center; height: 44px;
+    font-size: 13px; font-weight: 500; color: var(--fg-1);
+    border-inline-end: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .axis-gantt__track { position: relative; height: 44px; border-bottom: 1px solid var(--border-subtle); }
+  .axis-gantt__gridline { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--border-subtle); opacity: 0.6; }
+  .axis-gantt__today-line { position: absolute; top: 0; bottom: 0; width: 1.5px; background: var(--danger-500); z-index: 1; pointer-events: none; }
+  .axis-gantt__bar {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    height: 26px; border: 0; border-radius: var(--radius-sm);
+    background: var(--iris-100); cursor: pointer;
+    display: flex; align-items: center; padding: 0 8px; overflow: hidden;
+    text-align: start; z-index: 2;
+    transition: box-shadow var(--duration-micro) var(--ease-out), transform var(--duration-micro) var(--ease-out);
+  }
+  .axis-gantt__bar:hover { box-shadow: var(--shadow-sm); }
+  .axis-gantt__progress { position: absolute; top: 0; bottom: 0; inset-inline-start: 0; background: var(--iris-500); z-index: -1; }
+  .axis-gantt__bar-label { font-size: 11px; font-weight: 600; color: var(--fg-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; z-index: 2; }
+  .axis-gantt__bar--iris { background: var(--iris-100); } .axis-gantt__bar--iris .axis-gantt__progress { background: var(--iris-500); }
+  .axis-gantt__bar--success { background: var(--feedback-success-bg); } .axis-gantt__bar--success .axis-gantt__progress { background: var(--success-500); }
+  .axis-gantt__bar--warning { background: var(--feedback-warning-bg); } .axis-gantt__bar--warning .axis-gantt__progress { background: var(--warning-500); }
+  [data-theme="dark"] .axis-gantt__bar-label { color: var(--neutral-50); }
+}
+
 /* ── Honor reduced-motion: collapse Axis durations ── */
 @media (prefers-reduced-motion: reduce) {
   :root {
