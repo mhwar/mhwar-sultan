@@ -4,25 +4,23 @@ import { Sun, Moon } from 'lucide-react'
 import { useThemeStore } from '@/store/themeStore'
 
 export default function ThemeToggle() {
-  const { theme, toggle, apply } = useThemeStore()
+  const { theme, toggle } = useThemeStore()
 
   // Apply theme whenever it changes (including after store rehydration)
   useEffect(() => {
-    document.documentElement.classList.toggle('light', theme === 'light')
+    const el = document.documentElement
+    el.classList.toggle('light', theme === 'light')
+    el.setAttribute('data-theme', theme)
   }, [theme])
 
   return (
     <button
       onClick={toggle}
-      className="w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:scale-105"
-      style={{
-        background: theme === 'light' ? 'var(--color-brand-subtle)' : 'rgba(255,255,255,0.06)',
-        border: '1px solid rgba(128,128,128,0.15)',
-        color: theme === 'light' ? 'var(--color-brand)' : 'var(--color-text-secondary)',
-      }}
+      className="axis-iconbtn axis-iconbtn--md axis-iconbtn--ghost"
       title={theme === 'dark' ? 'تفعيل الثيم الفاتح' : 'تفعيل الثيم الداكن'}
+      aria-label={theme === 'dark' ? 'تفعيل الثيم الفاتح' : 'تفعيل الثيم الداكن'}
     >
-      {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+      {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
     </button>
   )
 }
