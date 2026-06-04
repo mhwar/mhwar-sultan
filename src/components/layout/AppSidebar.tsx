@@ -4,7 +4,6 @@ import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
 import { LayoutDashboard, FolderKanban, Settings, Plus, X } from 'lucide-react'
 import { useProjectStore } from '@/store/store'
-import { hexToRgba } from '@/lib/utils'
 import ThemeToggle from '@/components/shared/ThemeToggle'
 
 const navItems = [
@@ -32,147 +31,132 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
       {open && (
         <div
           className="fixed inset-0 z-40 md:hidden"
-          style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)' }}
+          style={{ background: 'oklch(0.10 0.01 260 / 0.45)', backdropFilter: 'blur(2px)' }}
           onClick={onClose}
         />
       )}
 
       {/*
-        Sidebar
-        Mobile  : fixed, right edge of screen (start-0 = right:0 in RTL),
-                  hidden via translate-x-full, shown via translate-x-0
-        Desktop : sticky in the flex layout — md:translate-x-0 overrides the
-                  base translate-x-full because it's inside a media-query block
-                  (higher cascade priority).  Inline styles are NOT used for
-                  transform so the md: override actually works.
+        Sidebar — Axis glassmorphic floating panel
+        Mobile  : fixed drawer, slides in from the start edge (right in RTL)
+        Desktop : sticky floating card with a 12px gutter on all sides
       */}
       <aside
         className={[
-          // positioning — right-0 is explicit (= right side in RTL)
-          'fixed inset-y-0 right-0 z-50 w-72 flex flex-col overflow-hidden',
-          // desktop overrides — md:right-auto resets right-0 so sticky uses flex layout
-          'md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:right-auto',
-          // slide animation — use Tailwind only (no inline transform)
+          'fixed inset-y-0 right-0 z-50 w-72 flex flex-col p-3',
+          'md:sticky md:top-0 md:h-dvh md:w-64 md:shrink-0 md:right-auto',
           'transition-transform duration-[320ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]',
           open ? 'translate-x-0' : 'translate-x-full',
           'md:translate-x-0',
         ].join(' ')}
-        style={{
-          background: 'var(--sidebar-bg, rgba(10,10,20,0.97))',
-          borderInlineEnd: '1px solid rgba(255,255,255,0.07)',
-          backdropFilter: 'blur(20px)',
-        }}
       >
-        {/* Logo + close (mobile) */}
-        <div className="px-5 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="app-sidebar-panel flex flex-col flex-1 min-h-0 p-2.5">
+          {/* Brand row */}
+          <div className="flex items-center gap-2.5 px-2 pt-1 pb-3" style={{ minHeight: '44px' }}>
             <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-lg"
-              style={{ background: 'var(--color-brand)' }}
+              className="w-7 h-7 flex items-center justify-center text-white font-bold text-base shrink-0"
+              style={{
+                background: 'var(--color-iris-500)',
+                borderRadius: '7px',
+                boxShadow: 'inset 0 1px 0 0 oklch(0.40 0.16 275 / 0.4)',
+              }}
             >
               م
             </div>
-            <div>
-              <div className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>محور</div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-bold leading-tight" style={{ color: 'var(--color-text-primary)' }}>محور</div>
               <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>إدارة المشاريع</div>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <ThemeToggle />
+              <button
+                onClick={onClose}
+                className="md:hidden w-9 h-9 rounded-lg flex items-center justify-center transition-colors hover:bg-white/10"
+                style={{ color: 'var(--color-text-muted)' }}
+              >
+                <X size={16} />
+              </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <ThemeToggle />
-            <button
-              onClick={onClose}
-              className="md:hidden w-9 h-9 rounded-xl flex items-center justify-center transition-colors hover:bg-white/10"
-              style={{ color: 'var(--color-text-muted)' }}
-            >
-              <X size={16} />
-            </button>
-          </div>
-        </div>
-
-        <div className="mx-4 mb-3" style={{ height: '1px', background: 'rgba(255,255,255,0.06)' }} />
-
-        {/* Navigation */}
-        <nav className="px-3 space-y-1 mb-2">
-          {navItems.map(({ href, label, icon: Icon }) => {
-            const isActive = href === '/' ? pathname === '/' : pathname.startsWith(href)
-            return (
-              <Link
-                key={href}
-                href={href}
-                className="sidebar-nav-item"
-                style={isActive ? {
-                  background: 'var(--color-brand-subtle)',
-                  color: 'var(--color-brand)',
-                  border: '1px solid rgba(99, 102, 241, 0.2)',
-                } : {}}
-              >
-                <Icon size={17} />
-                <span>{label}</span>
-              </Link>
-            )
-          })}
-        </nav>
-
-        <div className="mx-4 my-3" style={{ height: '1px', background: 'rgba(255,255,255,0.06)' }} />
-
-        {/* Projects quick list */}
-        <div className="px-3 flex-1 overflow-y-auto">
-          <div
-            className="flex items-center justify-between px-2 mb-2"
-            style={{ color: 'var(--color-text-muted)', fontSize: '0.7rem', fontWeight: 600 }}
-          >
-            <span>المشاريع</span>
-            <Link href="/projects" className="hover:text-iris-400 transition-colors" title="مشروع جديد">
-              <Plus size={14} />
-            </Link>
-          </div>
-
-          <div className="space-y-0.5">
-            {projects.map((project) => {
-              const isActive = pathname === `/projects/${project.id}`
+          {/* Primary navigation */}
+          <nav className="flex flex-col gap-1">
+            {navItems.map(({ href, label, icon: Icon }) => {
+              const isActive = href === '/' ? pathname === '/' : pathname.startsWith(href)
               return (
                 <Link
-                  key={project.id}
-                  href={`/projects/${project.id}`}
-                  className="flex items-center gap-2.5 px-2 py-2 rounded-lg transition-all duration-200 group"
-                  style={{
-                    background: isActive ? hexToRgba(project.color, 0.1) : 'transparent',
-                    color: isActive ? project.color : 'var(--color-text-secondary)',
-                  }}
+                  key={href}
+                  href={href}
+                  className={`sidebar-nav-item${isActive ? ' active' : ''}`}
                 >
-                  <div
-                    className="w-2 h-2 rounded-full shrink-0"
-                    style={{ background: project.color, opacity: isActive ? 1 : 0.6 }}
-                  />
-                  <span className="text-sm font-medium truncate flex-1">{project.name}</span>
-                  <span
-                    className="text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ color: 'var(--color-text-muted)' }}
-                  >
-                    {project.progress}%
-                  </span>
+                  <Icon size={17} />
+                  <span>{label}</span>
                 </Link>
               )
             })}
-          </div>
-        </div>
+          </nav>
 
-        {/* Settings */}
-        <div className="p-3 mt-auto">
-          <div className="mx-1 mb-3" style={{ height: '1px', background: 'rgba(255,255,255,0.06)' }} />
-          <Link
-            href="/settings"
-            className="sidebar-nav-item"
-            style={pathname === '/settings' ? {
-              background: 'var(--color-brand-subtle)',
-              color: 'var(--color-brand)',
-              border: '1px solid rgba(99, 102, 241, 0.2)',
-            } : {}}
-          >
-            <Settings size={17} />
-            <span>الإعدادات</span>
-          </Link>
+          {/* Projects section */}
+          <div className="flex-1 overflow-y-auto mt-4 min-h-0">
+            <div
+              className="flex items-center justify-between px-2.5 pb-1.5"
+              style={{
+                color: 'var(--color-text-muted)',
+                fontSize: '0.625rem',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+              }}
+            >
+              <span>المشاريع</span>
+              <Link href="/projects" className="hover:text-iris-400 transition-colors" title="مشروع جديد">
+                <Plus size={14} />
+              </Link>
+            </div>
+
+            <div className="space-y-0.5">
+              {projects.map((project) => {
+                const isActive = pathname === `/projects/${project.id}`
+                return (
+                  <Link
+                    key={project.id}
+                    href={`/projects/${project.id}`}
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-md transition-all duration-[120ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] group"
+                    style={{
+                      background: isActive ? 'var(--color-surface-overlay)' : 'transparent',
+                      color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                      border: isActive ? '1px solid var(--color-surface-border)' : '1px solid transparent',
+                      boxShadow: isActive ? 'var(--shadow-xs)' : 'none',
+                    }}
+                  >
+                    <div
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ background: project.color, opacity: isActive ? 1 : 0.6 }}
+                    />
+                    <span className="text-sm font-medium truncate flex-1">{project.name}</span>
+                    <span
+                      className="text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ color: 'var(--color-text-muted)' }}
+                    >
+                      {project.progress}%
+                    </span>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Footer — settings */}
+          <div className="pt-2 mt-2" style={{ borderTop: '1px solid var(--color-surface-border)' }}>
+            <Link
+              href="/settings"
+              className={`sidebar-nav-item${pathname === '/settings' ? ' active' : ''}`}
+            >
+              <Settings size={17} />
+              <span>الإعدادات</span>
+            </Link>
+          </div>
         </div>
       </aside>
     </>
