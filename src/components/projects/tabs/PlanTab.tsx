@@ -1,12 +1,15 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Plus, Check, Map, ChevronDown, ChevronUp, Trash2, Pencil, X, ArrowUp, ArrowDown, ChevronRight, ChevronLeft } from 'lucide-react'
+import { Plus, Check, Map, ChevronDown, ChevronUp, Trash2, Pencil, X, ArrowUp, ArrowDown, ChevronRight, ChevronLeft, Rows3, Columns3, ChevronsDownUp, ChevronsUpDown } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import { usePlanStore, useTaskStore } from '@/store/store'
-import type { Project, PlanPhase } from '@/types'
+import type { Project, PlanPhase, PhaseStatus } from '@/types'
 import EmptyState from '@/components/shared/EmptyState'
 import Button from '@/components/ui/Button'
+import Segmented from '@/components/ui/Segmented'
 import { PHASE_STATUS_LABELS, TASK_STATUS_VAR } from '@/lib/utils'
+
+const PHASE_COLUMNS: PhaseStatus[] = ['upcoming', 'in-progress', 'completed']
 
 interface PlanTabProps {
   project: Project
@@ -20,8 +23,7 @@ const PHASE_STATUS_COLORS: Record<string, { dot: string; badge: string; badgeTex
 }
 
 /* ── Phase card (timeline node) ── */
-function PhaseCard({ phase, project, onMove, isFirst, isLast }: { phase: PlanPhase; project: Project; onMove: (dir: -1 | 1) => void; isFirst: boolean; isLast: boolean }) {
-  const [expanded, setExpanded] = useState(true)
+function PhaseCard({ phase, project, onMove, isFirst, isLast, expanded, onToggle }: { phase: PlanPhase; project: Project; onMove: (dir: -1 | 1) => void; isFirst: boolean; isLast: boolean; expanded: boolean; onToggle: () => void }) {
   const [newMilestone, setNewMilestone] = useState('')
   const { toggleMilestone, addMilestone, deletePhase, updatePhase } = usePlanStore()
   const linkedTasks = useTaskStore(useShallow((s) => s.tasks.filter((t) => t.phaseId === phase.id)))
@@ -53,7 +55,7 @@ function PhaseCard({ phase, project, onMove, isFirst, isLast }: { phase: PlanPha
         {/* Phase header */}
         <div
           className="flex items-center justify-between p-4 cursor-pointer gap-3"
-          onClick={() => setExpanded(!expanded)}
+          onClick={onToggle}
           style={{ borderBottom: expanded ? '1px solid var(--border-subtle)' : 'none' }}
         >
           <div className="min-w-0">
@@ -153,6 +155,47 @@ function PhaseCard({ phase, project, onMove, isFirst, isLast }: { phase: PlanPha
   )
 }
 
+/* ── Compact card for the board view ── */
+function PhaseBoardCard({ phase, project }: { phase: PlanPhase; project: Project }) {
+  const { updatePhase, deletePhase } = usePlanStore()
+  const linked = useTaskStore(useShallow((s) => s.tasks.filter((t) => t.phaseId === phase.id).length))
+  const done = phase.milestones.filter((m) => m.done).length
+  const pct = phase.milestones.length ? Math.round((done / phase.milestones.length) * 100) : 0
+
+  return (
+    <div className="board-card group">
+      <div className="board-card__head">
+        <span className="board-card__title" style={{ flex: 1 }}>{phase.title}</span>
+        <button onClick={() => deletePhase(phase.id)} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost opacity-0 group-hover:opacity-100 transition-opacity" aria-label="حذف">
+          <Trash2 size={12} />
+        </button>
+      </div>
+      <div className="progress-cell">
+        <div className="progress-cell__bar"><div className="progress-cell__fill" style={{ width: `${pct}%`, background: project.color }} /></div>
+        <span className="progress-cell__num">{pct}%</span>
+      </div>
+      <div className="board-card__foot">
+        <span className="axis-num">{done}/{phase.milestones.length} إنجاز</span>
+        {linked > 0 && <span className="board-card__meta axis-num">{linked} مهمة</span>}
+      </div>
+      <div className="flex gap-1 flex-wrap">
+        {PHASE_COLUMNS.map((s) => (
+          <button
+            key={s}
+            onClick={() => updatePhase(phase.id, { status: s })}
+            className="text-xs px-1.5 py-0.5 rounded"
+            style={phase.status === s
+              ? { background: 'var(--color-brand-subtle)', color: 'var(--color-brand)' }
+              : { color: 'var(--fg-3)', background: 'var(--surface-2)' }}
+          >
+            {PHASE_STATUS_LABELS[s]}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function PlanTab({ project, phases }: PlanTabProps) {
   const plans = usePlanStore(useShallow((s) => s.plans.filter((p) => p.projectId === project.id).sort((a, b) => a.order - b.order)))
   const { addPlan, renamePlan, deletePlan, reorderPlans, addPhase, reorderPhases } = usePlanStore()
@@ -166,6 +209,10 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
   const [showAddPhase, setShowAddPhase] = useState(false)
   const [newPhaseTitle, setNewPhaseTitle] = useState('')
   const [newPhaseDesc, setNewPhaseDesc] = useState('')
+
+  const [view, setView] = useState<'timeline' | 'board'>('timeline')
+  const [statusFilter, setStatusFilter] = useState<PhaseStatus | 'all'>('all')
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
   // Keep an active plan selected
   useEffect(() => {
@@ -181,6 +228,11 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
   const totalMs = planPhases.reduce((a, ph) => a + ph.milestones.length, 0)
   const doneMs = planPhases.reduce((a, ph) => a + ph.milestones.filter((m) => m.done).length, 0)
   const planPct = totalMs ? Math.round((doneMs / totalMs) * 100) : 0
+
+  const timelinePhases = statusFilter === 'all' ? planPhases : planPhases.filter((p) => p.status === statusFilter)
+  const allCollapsed = planPhases.length > 0 && planPhases.every((p) => collapsed.has(p.id))
+  const toggleAll = () => setCollapsed(allCollapsed ? new Set() : new Set(planPhases.map((p) => p.id)))
+  const togglePhase = (id: string) => setCollapsed((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
 
   const submitPlan = () => {
     if (!planName.trim()) return
@@ -354,23 +406,76 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
         <p className="axis-num text-xs mt-2" style={{ color: 'var(--fg-3)' }}>{planPhases.length} مرحلة · {doneMs}/{totalMs} إنجاز</p>
       </div>
 
-      {/* Timeline */}
-      {planPhases.length > 0 ? (
+      {/* Plan toolbar */}
+      {planPhases.length > 0 && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <Segmented
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[{ value: 'all', label: 'الكل' }, ...PHASE_COLUMNS.map((s) => ({ value: s, label: PHASE_STATUS_LABELS[s] }))]}
+          />
+          <div className="ms-auto flex items-center gap-2">
+            {view === 'timeline' && (
+              <Button variant="ghost" size="sm" onClick={toggleAll}>
+                {allCollapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
+                {allCollapsed ? 'توسيع الكل' : 'طي الكل'}
+              </Button>
+            )}
+            <Segmented
+              value={view}
+              onChange={setView}
+              options={[
+                { value: 'timeline', icon: <Rows3 size={15} />, title: 'الخط الزمني' },
+                { value: 'board', icon: <Columns3 size={15} />, title: 'لوحة' },
+              ]}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Phases */}
+      {planPhases.length === 0 ? (
+        <p className="text-sm text-center py-6" style={{ color: 'var(--fg-3)' }}>لا مراحل في هذه الخطة بعد</p>
+      ) : view === 'timeline' ? (
         <div className="relative">
           <div className="absolute start-1.5 top-6 bottom-6" style={{ width: '2px', background: 'var(--border-subtle)' }} />
-          {planPhases.map((phase, i) => (
-            <PhaseCard
-              key={phase.id}
-              phase={phase}
-              project={project}
-              onMove={(dir) => movePhase(i, dir)}
-              isFirst={i === 0}
-              isLast={i === planPhases.length - 1}
-            />
-          ))}
+          {timelinePhases.map((phase) => {
+            const i = planPhases.indexOf(phase)
+            return (
+              <PhaseCard
+                key={phase.id}
+                phase={phase}
+                project={project}
+                onMove={(dir) => movePhase(i, dir)}
+                isFirst={i === 0}
+                isLast={i === planPhases.length - 1}
+                expanded={!collapsed.has(phase.id)}
+                onToggle={() => togglePhase(phase.id)}
+              />
+            )
+          })}
+          {timelinePhases.length === 0 && <p className="text-sm text-center py-6" style={{ color: 'var(--fg-3)' }}>لا مراحل بهذه الحالة</p>}
         </div>
       ) : (
-        <p className="text-sm text-center py-6" style={{ color: 'var(--fg-3)' }}>لا مراحل في هذه الخطة بعد</p>
+        <div className="board-grid">
+          {PHASE_COLUMNS.map((col) => {
+            const colPhases = planPhases.filter((p) => p.status === col)
+            return (
+              <div key={col} className="board-col">
+                <div className="board-col__head">
+                  <div className="board-col__title">
+                    <span className="text-xs font-bold" style={{ color: 'var(--fg-2)' }}>{PHASE_STATUS_LABELS[col]}</span>
+                    <span className="board-col__count">{colPhases.length}</span>
+                  </div>
+                </div>
+                <div className="board-col__body">
+                  {colPhases.map((p) => <PhaseBoardCard key={p.id} phase={p} project={project} />)}
+                  {colPhases.length === 0 && <div className="board-col__empty">لا مراحل</div>}
+                </div>
+              </div>
+            )
+          })}
+        </div>
       )}
 
       {/* Add phase */}
