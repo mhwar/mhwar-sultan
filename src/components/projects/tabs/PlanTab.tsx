@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Plus, Check, Map, ChevronDown, ChevronUp, Trash2, Pencil, X, ArrowUp, ArrowDown, ChevronRight, ChevronLeft, Rows3, Columns3, ChevronsDownUp, ChevronsUpDown, Link2, MoreVertical, Calendar, Target, Send } from 'lucide-react'
+import { Plus, Check, Map, ChevronDown, ChevronUp, Trash2, Pencil, X, ArrowUp, ArrowDown, ChevronRight, ChevronLeft, Rows3, Columns3, ChevronsDownUp, ChevronsUpDown, Link2, MoreVertical, Calendar, Target, Send, Rocket } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import { usePlanStore, useTaskStore } from '@/store/store'
 import type { Project, PlanPhase, PhaseStatus } from '@/types'
@@ -285,7 +285,7 @@ function PhaseBoardCard({ phase, project }: { phase: PlanPhase; project: Project
 
 export default function PlanTab({ project, phases }: PlanTabProps) {
   const plans = usePlanStore(useShallow((s) => s.plans.filter((p) => p.projectId === project.id).sort((a, b) => a.order - b.order)))
-  const { addPlan, renamePlan, deletePlan, reorderPlans, addPhase, reorderPhases } = usePlanStore()
+  const { addPlan, renamePlan, updatePlan, deletePlan, reorderPlans, addPhase, reorderPhases } = usePlanStore()
 
   const [activePlanId, setActivePlanId] = useState<string | null>(null)
   const [showTemplates, setShowTemplates] = useState(false)
@@ -343,6 +343,9 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
   const planPhases = phases.filter((ph) => ph.planId === activePlanId || (isFirst && !ph.planId))
   const activePlan = plans.find((p) => p.id === activePlanId)
   const kindMeta = planKindMeta(activePlan?.kind)
+  const launchCountdown = activePlan?.kind === 'launch' && activePlan.targetDate
+    ? Math.ceil((new Date(activePlan.targetDate).getTime() - Date.now()) / 86400000)
+    : null
 
   const totalMs = planPhases.reduce((a, ph) => a + ph.milestones.length, 0)
   const doneMs = planPhases.reduce((a, ph) => a + ph.milestones.filter((m) => m.done).length, 0)
@@ -361,6 +364,7 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
         planId: id,
         title: ph.title,
         description: ph.description ?? '',
+        objective: ph.objective,
         status: ph.status ?? 'upcoming',
         order: i + 1,
         milestones: ph.milestones.map((m) => ({ id: generateId(), title: m, done: false })),
@@ -502,7 +506,34 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
         <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-2)' }}>
           <div className="h-full rounded-full transition-all duration-[320ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]" style={{ width: `${planPct}%`, background: project.color }} />
         </div>
-        <p className="axis-num text-xs mt-2" style={{ color: 'var(--fg-3)' }}>{planPhases.length} مرحلة · {doneMs}/{totalMs} إنجاز</p>
+        <p className="axis-num text-xs mt-2" style={{ color: 'var(--fg-3)' }}>{planPhases.length} {kindMeta.unit} · {doneMs}/{totalMs} إنجاز</p>
+
+        {/* Launch target + countdown */}
+        {activePlan?.kind === 'launch' && (
+          <div className="flex items-center justify-between gap-3 mt-3 pt-3 flex-wrap" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+            <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--fg-2)' }}>
+              <Rocket size={13} style={{ color: 'var(--color-brand)' }} />
+              تاريخ الإطلاق المستهدف
+            </span>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                dir="ltr"
+                value={toDateInput(activePlan.targetDate)}
+                onChange={(e) => updatePlan(activePlan.id, { targetDate: fromDateInput(e.target.value) })}
+                className="axis-num text-xs px-2 py-1 outline-none"
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', color: 'var(--fg-1)' }}
+              />
+              {launchCountdown !== null && (
+                <span className="axis-num text-xs font-bold px-2 py-1 rounded-full" style={launchCountdown >= 0
+                  ? { background: 'var(--color-brand-subtle)', color: 'var(--color-brand)' }
+                  : { background: 'var(--feedback-danger-bg)', color: 'var(--danger-600)' }}>
+                  {launchCountdown >= 0 ? `${launchCountdown} يوم متبقٍ` : `متأخر ${-launchCountdown} يوم`}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Plan toolbar */}
