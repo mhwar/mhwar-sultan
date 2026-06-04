@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Plus, Check, Map, ChevronDown, ChevronUp, Trash2, Pencil, X } from 'lucide-react'
+import { Plus, Check, Map, ChevronDown, ChevronUp, Trash2, Pencil, X, ArrowUp, ArrowDown, ChevronRight, ChevronLeft } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import { usePlanStore, useTaskStore } from '@/store/store'
 import type { Project, PlanPhase } from '@/types'
@@ -20,7 +20,7 @@ const PHASE_STATUS_COLORS: Record<string, { dot: string; badge: string; badgeTex
 }
 
 /* ── Phase card (timeline node) ── */
-function PhaseCard({ phase, project }: { phase: PlanPhase; project: Project }) {
+function PhaseCard({ phase, project, onMove, isFirst, isLast }: { phase: PlanPhase; project: Project; onMove: (dir: -1 | 1) => void; isFirst: boolean; isLast: boolean }) {
   const [expanded, setExpanded] = useState(true)
   const [newMilestone, setNewMilestone] = useState('')
   const { toggleMilestone, addMilestone, deletePhase, updatePhase } = usePlanStore()
@@ -60,8 +60,14 @@ function PhaseCard({ phase, project }: { phase: PlanPhase; project: Project }) {
             <h3 className="font-semibold text-sm truncate" style={{ color: 'var(--fg-1)' }}>{phase.title}</h3>
             <p className="axis-num text-xs mt-0.5" style={{ color: 'var(--fg-3)' }}>{doneMilestones} / {phase.milestones.length} إنجاز · {pct}%{linkedTasks.length > 0 ? ` · ${linkedTasks.length} مهمة` : ''}</p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: colors.badge, color: colors.badgeText }}>
+          <div className="flex items-center gap-1 shrink-0">
+            <button onClick={(e) => { e.stopPropagation(); onMove(-1) }} disabled={isFirst} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost" style={{ opacity: isFirst ? 0.3 : 1 }} aria-label="نقل لأعلى">
+              <ArrowUp size={12} />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); onMove(1) }} disabled={isLast} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost" style={{ opacity: isLast ? 0.3 : 1 }} aria-label="نقل لأسفل">
+              <ArrowDown size={12} />
+            </button>
+            <span className="text-xs px-2.5 py-1 rounded-full font-medium ms-1" style={{ background: colors.badge, color: colors.badgeText }}>
               {PHASE_STATUS_LABELS[phase.status]}
             </span>
             {expanded ? <ChevronUp size={14} style={{ color: 'var(--fg-3)' }} /> : <ChevronDown size={14} style={{ color: 'var(--fg-3)' }} />}
@@ -149,7 +155,7 @@ function PhaseCard({ phase, project }: { phase: PlanPhase; project: Project }) {
 
 export default function PlanTab({ project, phases }: PlanTabProps) {
   const plans = usePlanStore(useShallow((s) => s.plans.filter((p) => p.projectId === project.id).sort((a, b) => a.order - b.order)))
-  const { addPlan, renamePlan, deletePlan, addPhase } = usePlanStore()
+  const { addPlan, renamePlan, deletePlan, reorderPlans, addPhase, reorderPhases } = usePlanStore()
 
   const [activePlanId, setActivePlanId] = useState<string | null>(null)
   const [addingPlan, setAddingPlan] = useState(false)
@@ -182,6 +188,23 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
     setActivePlanId(id)
     setPlanName('')
     setAddingPlan(false)
+  }
+
+  const movePhase = (index: number, dir: -1 | 1) => {
+    const arr = [...planPhases]
+    const j = index + dir
+    if (j < 0 || j >= arr.length) return
+    ;[arr[index], arr[j]] = [arr[j], arr[index]]
+    reorderPhases(arr.map((p) => p.id))
+  }
+
+  const moveActivePlan = (dir: -1 | 1) => {
+    const idx = plans.findIndex((p) => p.id === activePlanId)
+    const j = idx + dir
+    if (idx < 0 || j < 0 || j >= plans.length) return
+    const arr = [...plans]
+    ;[arr[idx], arr[j]] = [arr[j], arr[idx]]
+    reorderPlans(arr.map((p) => p.id))
   }
 
   const handleAddPhase = () => {
@@ -277,6 +300,16 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
         {/* Active plan actions */}
         {activePlan && (
           <div className="flex items-center gap-1">
+            {plans.length > 1 && (
+              <>
+                <button onClick={() => moveActivePlan(-1)} disabled={plans[0]?.id === activePlanId} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost" style={{ opacity: plans[0]?.id === activePlanId ? 0.3 : 1 }} aria-label="نقل الخطة للبداية">
+                  <ChevronRight size={14} data-flip-rtl />
+                </button>
+                <button onClick={() => moveActivePlan(1)} disabled={plans[plans.length - 1]?.id === activePlanId} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost" style={{ opacity: plans[plans.length - 1]?.id === activePlanId ? 0.3 : 1 }} aria-label="نقل الخطة للنهاية">
+                  <ChevronLeft size={14} data-flip-rtl />
+                </button>
+              </>
+            )}
             <button onClick={() => { setRenaming(true); setRenameVal(activePlan.name) }} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost" aria-label="إعادة تسمية">
               <Pencil size={13} />
             </button>
@@ -325,8 +358,15 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
       {planPhases.length > 0 ? (
         <div className="relative">
           <div className="absolute start-1.5 top-6 bottom-6" style={{ width: '2px', background: 'var(--border-subtle)' }} />
-          {planPhases.map((phase) => (
-            <PhaseCard key={phase.id} phase={phase} project={project} />
+          {planPhases.map((phase, i) => (
+            <PhaseCard
+              key={phase.id}
+              phase={phase}
+              project={project}
+              onMove={(dir) => movePhase(i, dir)}
+              isFirst={i === 0}
+              isLast={i === planPhases.length - 1}
+            />
           ))}
         </div>
       ) : (
