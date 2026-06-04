@@ -4,6 +4,7 @@ import { Plus, Trash2, ChevronDown, Check, LayoutGrid, List, Table2 } from 'luci
 import { useTaskStore } from '@/store/store'
 import type { Project, Task, TaskStatus, TaskPriority } from '@/types'
 import EmptyState from '@/components/shared/EmptyState'
+import TaskDrawer from '@/components/projects/TaskDrawer'
 import Pill from '@/components/ui/Pill'
 import Button from '@/components/ui/Button'
 import Segmented from '@/components/ui/Segmented'
@@ -71,7 +72,7 @@ function AddTaskForm({ projectId, status, onClose }: { projectId: string; status
 }
 
 /* ── Board card ── */
-function BoardCard({ task, onMove, onDelete }: { task: Task; onMove: (s: TaskStatus) => void; onDelete: () => void }) {
+function BoardCard({ task, onMove, onDelete, onOpen }: { task: Task; onMove: (s: TaskStatus) => void; onDelete: () => void; onOpen: () => void }) {
   const [showMove, setShowMove] = useState(false)
   return (
     <div className="board-card group">
@@ -101,7 +102,11 @@ function BoardCard({ task, onMove, onDelete }: { task: Task; onMove: (s: TaskSta
           )}
         </div>
       </div>
-      <p className={`board-card__title ${task.status === 'done' ? 'line-through' : ''}`} style={task.status === 'done' ? { color: 'var(--fg-3)' } : undefined}>
+      <p
+        className={`board-card__title ${task.status === 'done' ? 'line-through' : ''}`}
+        style={{ cursor: 'pointer', ...(task.status === 'done' ? { color: 'var(--fg-3)' } : {}) }}
+        onClick={onOpen}
+      >
         {task.title}
       </p>
       {task.description && <p className="text-xs leading-relaxed" style={{ color: 'var(--fg-3)' }}>{task.description}</p>}
@@ -121,8 +126,10 @@ export default function TasksTab({ project, tasks }: TasksTabProps) {
   const [view, setView] = useState<View>('board')
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | 'all'>('all')
   const [addingTo, setAddingTo] = useState<TaskStatus | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const visible = priorityFilter === 'all' ? tasks : tasks.filter((t) => t.priority === priorityFilter)
+  const selected = selectedId ? tasks.find((t) => t.id === selectedId) ?? null : null
 
   if (tasks.length === 0 && !addingTo) {
     return (
@@ -174,7 +181,7 @@ export default function TasksTab({ project, tasks }: TasksTabProps) {
                 </div>
                 <div className="board-col__body">
                   {colTasks.map((task) => (
-                    <BoardCard key={task.id} task={task} onMove={(s) => moveTask(task.id, s)} onDelete={() => deleteTask(task.id)} />
+                    <BoardCard key={task.id} task={task} onMove={(s) => moveTask(task.id, s)} onDelete={() => deleteTask(task.id)} onOpen={() => setSelectedId(task.id)} />
                   ))}
                   {addingTo === col.status && <AddTaskForm projectId={project.id} status={col.status} onClose={() => setAddingTo(null)} />}
                   {colTasks.length === 0 && addingTo !== col.status && <div className="board-col__empty">لا مهام</div>}
@@ -207,7 +214,7 @@ export default function TasksTab({ project, tasks }: TasksTabProps) {
                       >
                         {task.status === 'done' && <Check size={12} strokeWidth={3} />}
                       </span>
-                      <div className="axis-tasklist__body">
+                      <div className="axis-tasklist__body" onClick={() => setSelectedId(task.id)}>
                         <div className="axis-tasklist__title-row">
                           <span className="axis-tasklist__title">{task.title}</span>
                           <Pill variant={PRIORITY_PILL[task.priority]}>{PRIORITY_LABELS[task.priority]}</Pill>
@@ -239,8 +246,8 @@ export default function TasksTab({ project, tasks }: TasksTabProps) {
             </thead>
             <tbody>
               {visible.map((task) => (
-                <tr key={task.id}>
-                  <td>
+                <tr key={task.id} className="is-clickable">
+                  <td onClick={() => setSelectedId(task.id)}>
                     <span className="font-medium" style={{ color: task.status === 'done' ? 'var(--fg-3)' : 'var(--fg-1)', textDecoration: task.status === 'done' ? 'line-through' : 'none' }}>
                       {task.title}
                     </span>
@@ -275,6 +282,8 @@ export default function TasksTab({ project, tasks }: TasksTabProps) {
           <Button variant="ghost" size="sm" onClick={() => setAddingTo('todo')}><Plus size={14} />إضافة مهمة</Button>
         )
       )}
+
+      <TaskDrawer task={selected} onClose={() => setSelectedId(null)} />
     </div>
   )
 }

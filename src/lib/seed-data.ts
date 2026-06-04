@@ -50,24 +50,24 @@ export const SEED_PROJECTS: Project[] = [
 
 export const SEED_TASKS: Task[] = [
   // محور
-  { id: 't1', projectId: 'mehwar', title: 'تصميم الواجهة الرئيسية', description: 'تصميم Figma كامل للمنصة', status: 'done', priority: 'high', createdAt: '2026-01-05T00:00:00Z' },
-  { id: 't2', projectId: 'mehwar', title: 'إعداد البنية التحتية', description: 'Next.js + Tailwind + Zustand', status: 'done', priority: 'high', createdAt: '2026-01-10T00:00:00Z' },
-  { id: 't3', projectId: 'mehwar', title: 'تطوير صفحة المشاريع', status: 'in-progress', priority: 'high', createdAt: '2026-02-01T00:00:00Z' },
-  { id: 't4', projectId: 'mehwar', title: 'تطوير نظام المهام', status: 'in-progress', priority: 'medium', createdAt: '2026-02-15T00:00:00Z' },
-  { id: 't5', projectId: 'mehwar', title: 'نظام الإشعارات', status: 'todo', priority: 'low', createdAt: '2026-03-01T00:00:00Z' },
-  { id: 't6', projectId: 'mehwar', title: 'تصدير البيانات', status: 'todo', priority: 'low', createdAt: '2026-03-10T00:00:00Z' },
+  { id: 't1', projectId: 'mehwar', title: 'تصميم الواجهة الرئيسية', description: 'تصميم Figma كامل للمنصة', status: 'done', priority: 'high', startDate: '2026-01-05T00:00:00Z', dueDate: '2026-01-20T00:00:00Z', createdAt: '2026-01-05T00:00:00Z' },
+  { id: 't2', projectId: 'mehwar', title: 'إعداد البنية التحتية', description: 'Next.js + Tailwind + Zustand', status: 'done', priority: 'high', startDate: '2026-01-10T00:00:00Z', dueDate: '2026-01-25T00:00:00Z', createdAt: '2026-01-10T00:00:00Z' },
+  { id: 't3', projectId: 'mehwar', title: 'تطوير صفحة المشاريع', status: 'in-progress', priority: 'high', startDate: '2026-02-01T00:00:00Z', dueDate: '2026-06-20T00:00:00Z', createdAt: '2026-02-01T00:00:00Z' },
+  { id: 't4', projectId: 'mehwar', title: 'تطوير نظام المهام', status: 'in-progress', priority: 'medium', startDate: '2026-02-15T00:00:00Z', dueDate: '2026-06-30T00:00:00Z', createdAt: '2026-02-15T00:00:00Z' },
+  { id: 't5', projectId: 'mehwar', title: 'نظام الإشعارات', status: 'todo', priority: 'low', startDate: '2026-06-10T00:00:00Z', dueDate: '2026-07-15T00:00:00Z', createdAt: '2026-03-01T00:00:00Z' },
+  { id: 't6', projectId: 'mehwar', title: 'تصدير البيانات', status: 'todo', priority: 'low', startDate: '2026-06-20T00:00:00Z', dueDate: '2026-07-30T00:00:00Z', createdAt: '2026-03-10T00:00:00Z' },
 
   // ملصق
-  { id: 't7', projectId: 'mellasaq', title: 'تحديد متطلبات المشروع', status: 'done', priority: 'high', createdAt: '2026-03-05T00:00:00Z' },
-  { id: 't8', projectId: 'mellasaq', title: 'بحث المنافسين والسوق', status: 'done', priority: 'medium', createdAt: '2026-03-10T00:00:00Z' },
-  { id: 't9', projectId: 'mellasaq', title: 'تصميم نماذج الملصقات', status: 'todo', priority: 'high', createdAt: '2026-03-15T00:00:00Z' },
-  { id: 't10', projectId: 'mellasaq', title: 'محرر الملصقات التفاعلي', status: 'todo', priority: 'high', createdAt: '2026-04-01T00:00:00Z' },
+  { id: 't7', projectId: 'mellasaq', title: 'تحديد متطلبات المشروع', status: 'done', priority: 'high', startDate: '2026-03-05T00:00:00Z', dueDate: '2026-03-15T00:00:00Z', createdAt: '2026-03-05T00:00:00Z' },
+  { id: 't8', projectId: 'mellasaq', title: 'بحث المنافسين والسوق', status: 'done', priority: 'medium', startDate: '2026-03-10T00:00:00Z', dueDate: '2026-03-20T00:00:00Z', createdAt: '2026-03-10T00:00:00Z' },
+  { id: 't9', projectId: 'mellasaq', title: 'تصميم نماذج الملصقات', status: 'todo', priority: 'high', startDate: '2026-06-15T00:00:00Z', dueDate: '2026-07-10T00:00:00Z', createdAt: '2026-03-15T00:00:00Z' },
+  { id: 't10', projectId: 'mellasaq', title: 'محرر الملصقات التفاعلي', status: 'todo', priority: 'high', startDate: '2026-07-01T00:00:00Z', dueDate: '2026-08-15T00:00:00Z', createdAt: '2026-04-01T00:00:00Z' },
 
   // بوصلة
-  { id: 't11', projectId: 'bawsala', title: 'بحث مزودي الخرائط', status: 'done', priority: 'high', createdAt: '2026-02-05T00:00:00Z' },
-  { id: 't12', projectId: 'bawsala', title: 'واجهة الخريطة الأساسية', status: 'in-progress', priority: 'high', createdAt: '2026-02-20T00:00:00Z' },
-  { id: 't13', projectId: 'bawsala', title: 'نظام البحث عن الأماكن', status: 'todo', priority: 'high', createdAt: '2026-04-01T00:00:00Z' },
-  { id: 't14', projectId: 'bawsala', title: 'حفظ المفضلات', status: 'todo', priority: 'medium', createdAt: '2026-04-15T00:00:00Z' },
+  { id: 't11', projectId: 'bawsala', title: 'بحث مزودي الخرائط', status: 'done', priority: 'high', startDate: '2026-02-05T00:00:00Z', dueDate: '2026-02-15T00:00:00Z', createdAt: '2026-02-05T00:00:00Z' },
+  { id: 't12', projectId: 'bawsala', title: 'واجهة الخريطة الأساسية', status: 'in-progress', priority: 'high', startDate: '2026-02-20T00:00:00Z', dueDate: '2026-06-25T00:00:00Z', createdAt: '2026-02-20T00:00:00Z' },
+  { id: 't13', projectId: 'bawsala', title: 'نظام البحث عن الأماكن', status: 'todo', priority: 'high', startDate: '2026-06-05T00:00:00Z', dueDate: '2026-07-05T00:00:00Z', createdAt: '2026-04-01T00:00:00Z' },
+  { id: 't14', projectId: 'bawsala', title: 'حفظ المفضلات', status: 'todo', priority: 'medium', startDate: '2026-06-15T00:00:00Z', dueDate: '2026-07-20T00:00:00Z', createdAt: '2026-04-15T00:00:00Z' },
 ]
 
 export const SEED_PHASES: PlanPhase[] = [
