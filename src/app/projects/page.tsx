@@ -1,10 +1,14 @@
 'use client'
 import { useState } from 'react'
-import { Plus, Search, LayoutGrid, List } from 'lucide-react'
+import { Plus, Search, LayoutGrid, List, Table2 } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
+import PageHeader from '@/components/shared/PageHeader'
 import ProjectCard from '@/components/projects/ProjectCard'
+import ProjectsTable from '@/components/projects/ProjectsTable'
 import ProjectForm from '@/components/projects/ProjectForm'
 import EmptyState from '@/components/shared/EmptyState'
+import Button from '@/components/ui/Button'
+import Segmented from '@/components/ui/Segmented'
 import { useProjectStore, useTaskStore } from '@/store/store'
 import type { ProjectStatus } from '@/types'
 
@@ -16,13 +20,15 @@ const STATUS_FILTERS: { value: ProjectStatus | 'all'; label: string }[] = [
   { value: 'completed', label: 'مكتمل' },
 ]
 
+type View = 'grid' | 'list' | 'table'
+
 export default function ProjectsPage() {
   const projects = useProjectStore((s) => s.projects)
   const tasks = useTaskStore((s) => s.tasks)
   const [showForm, setShowForm] = useState(false)
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'all'>('all')
   const [search, setSearch] = useState('')
-  const [view, setView] = useState<'grid' | 'list'>('grid')
+  const [view, setView] = useState<View>('grid')
 
   const filtered = projects.filter((p) => {
     const matchesStatus = statusFilter === 'all' || p.status === statusFilter
@@ -30,122 +36,83 @@ export default function ProjectsPage() {
     return matchesStatus && matchesSearch
   })
 
+  const taskCounts = tasks.reduce<Record<string, number>>((acc, t) => {
+    acc[t.projectId] = (acc[t.projectId] ?? 0) + 1
+    return acc
+  }, {})
+
   return (
     <AppLayout>
-      <div className="p-6 lg:p-8 animate-fade-up">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold mb-0.5" style={{ color: 'var(--color-text-primary)' }}>
-              المشاريع
-            </h1>
-            <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-              {projects.length} مشروع
-            </p>
-          </div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
-            style={{ background: 'var(--color-brand)' }}
-          >
-            <Plus size={16} />
-            مشروع جديد
-          </button>
-        </div>
+      <div className="p-4 md:p-6 lg:p-8 animate-fade-up">
+        <PageHeader
+          title="المشاريع"
+          sub={`${projects.length} مشروع`}
+          actions={
+            <Button variant="primary" size="md" onClick={() => setShowForm(true)}>
+              <Plus size={16} />
+              مشروع جديد
+            </Button>
+          }
+        />
 
-        {/* Filters bar */}
-        <div className="flex items-center gap-3 mb-6 flex-wrap">
-          {/* Search */}
+        {/* Filter bar */}
+        <div
+          className="flex items-center gap-3 mb-6 flex-wrap"
+          style={{
+            background: 'var(--surface-1)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '10px 12px',
+          }}
+        >
           <div
-            className="flex items-center gap-2 px-3 py-2 rounded-xl flex-1 min-w-48"
-            style={{
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.08)',
-            }}
+            className="flex items-center gap-2 px-3 flex-1 min-w-48"
+            style={{ background: 'var(--surface-0)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', height: '32px' }}
           >
-            <Search size={15} style={{ color: 'var(--color-text-muted)' }} />
+            <Search size={15} style={{ color: 'var(--fg-3)' }} />
             <input
               type="text"
-              placeholder="بحث في المشاريع..."
+              placeholder="بحث في المشاريع"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="bg-transparent text-sm outline-none flex-1"
-              style={{ color: 'var(--color-text-primary)' }}
+              style={{ color: 'var(--fg-1)' }}
             />
           </div>
 
-          {/* Status filter pills */}
-          <div
-            className="flex gap-1 p-1 rounded-xl"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
-          >
-            {STATUS_FILTERS.map((f) => (
-              <button
-                key={f.value}
-                onClick={() => setStatusFilter(f.value)}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                style={{
-                  background: statusFilter === f.value ? 'var(--color-brand-subtle)' : 'transparent',
-                  color: statusFilter === f.value ? 'var(--color-brand-light)' : 'var(--color-text-muted)',
-                  border: statusFilter === f.value ? '1px solid rgba(99,102,241,0.3)' : '1px solid transparent',
-                }}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={STATUS_FILTERS.map((f) => ({ value: f.value, label: f.label }))}
+          />
 
-          {/* View toggle */}
-          <div
-            className="flex gap-1 p-1 rounded-xl"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
-          >
-            {([['grid', LayoutGrid], ['list', List]] as const).map(([v, Icon]) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-                style={{
-                  background: view === v ? 'var(--color-brand-subtle)' : 'transparent',
-                  color: view === v ? 'var(--color-brand-light)' : 'var(--color-text-muted)',
-                }}
-              >
-                <Icon size={15} />
-              </button>
-            ))}
-          </div>
+          <Segmented
+            value={view}
+            onChange={setView}
+            options={[
+              { value: 'grid', icon: <LayoutGrid size={15} />, title: 'شبكة' },
+              { value: 'list', icon: <List size={15} />, title: 'قائمة' },
+              { value: 'table', icon: <Table2 size={15} />, title: 'جدول' },
+            ]}
+          />
         </div>
 
-        {/* Projects grid/list */}
+        {/* Content */}
         {filtered.length === 0 ? (
           <EmptyState
             icon={Plus}
             title="لا توجد مشاريع"
             description={search ? 'جرب بحثاً مختلفاً' : 'ابدأ بإنشاء مشروعك الأول'}
             action={
-              <button
-                onClick={() => setShowForm(true)}
-                className="px-4 py-2 rounded-xl text-sm font-semibold text-white"
-                style={{ background: 'var(--color-brand)' }}
-              >
-                مشروع جديد
-              </button>
+              <Button variant="primary" size="md" onClick={() => setShowForm(true)}>مشروع جديد</Button>
             }
           />
+        ) : view === 'table' ? (
+          <ProjectsTable projects={filtered} taskCounts={taskCounts} />
         ) : (
-          <div
-            className={
-              view === 'grid'
-                ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5'
-                : 'flex flex-col gap-3'
-            }
-          >
+          <div className={view === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5' : 'flex flex-col gap-3'}>
             {filtered.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                taskCount={tasks.filter((t) => t.projectId === project.id).length}
-              />
+              <ProjectCard key={project.id} project={project} taskCount={taskCounts[project.id] ?? 0} />
             ))}
           </div>
         )}
