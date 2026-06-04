@@ -1,0 +1,112 @@
+/* Axis Design System — Tailwind v4 theme integration
+   Source: design-system/Axis Design System/colors_and_type.css
+
+   Adds Axis color scales, radii, and shadows as Tailwind utilities.
+   Preserves existing --color-brand, --color-surface-*, --color-text-* tokens
+   defined in globals.css.
+*/
+
+@theme {
+  /* ── Neutral palette — 13-step, faint cool cast (hue 260) ──── */
+  --color-neutral-0:    oklch(1.00  0      0);
+  --color-neutral-50:   oklch(0.985 0.003 260);
+  --color-neutral-100:  oklch(0.97  0.004 260);
+  --color-neutral-200:  oklch(0.93  0.005 260);
+  --color-neutral-300:  oklch(0.88  0.006 260);
+  --color-neutral-400:  oklch(0.74  0.008 260);
+  --color-neutral-500:  oklch(0.60  0.010 260);
+  --color-neutral-600:  oklch(0.48  0.012 260);
+  --color-neutral-700:  oklch(0.38  0.012 260);
+  --color-neutral-800:  oklch(0.27  0.012 260);
+  --color-neutral-900:  oklch(0.20  0.012 260);
+  --color-neutral-950:  oklch(0.14  0.012 260);
+  --color-neutral-1000: oklch(0.08  0.012 260);
+
+  /* ── Iris — single accent, built around #6366F1 ─────────────
+     Use ONLY on: primary action, focus ring, selection.
+     Never on borders, body text, or decorative backgrounds.    */
+  --color-iris-50:  oklch(0.97  0.025 275);
+  --color-iris-100: oklch(0.93  0.05  275);
+  --color-iris-200: oklch(0.86  0.10  275);
+  --color-iris-300: oklch(0.78  0.15  275);
+  --color-iris-400: oklch(0.70  0.19  275);
+  --color-iris-500: oklch(0.62  0.21  275);
+  --color-iris-600: oklch(0.56  0.21  275);
+  --color-iris-700: oklch(0.48  0.19  275);
+  --color-iris-800: oklch(0.40  0.16  275);
+  --color-iris-900: oklch(0.32  0.13  275);
+
+  /* ── Success (hue 155) ───────────────────────────────────── */
+  --color-success-50:  oklch(0.96 0.03 155);
+  --color-success-500: oklch(0.68 0.16 155);
+  --color-success-600: oklch(0.60 0.16 155);
+
+  /* ── Warning (hue 75) ────────────────────────────────────── */
+  --color-warning-50:  oklch(0.96 0.04  75);
+  --color-warning-500: oklch(0.78 0.16  75);
+  --color-warning-600: oklch(0.70 0.16  75);
+
+  /* ── Danger (hue 25) ─────────────────────────────────────── */
+  --color-danger-50:  oklch(0.96 0.04  25);
+  --color-danger-500: oklch(0.62 0.21  25);
+  --color-danger-600: oklch(0.55 0.21  25);
+
+  /* ── Info (hue 230) ──────────────────────────────────────── */
+  --color-info-50:  oklch(0.96 0.03 230);
+  --color-info-500: oklch(0.68 0.14 230);
+  --color-info-600: oklch(0.60 0.14 230);
+
+  /* ── Radii ───────────────────────────────────────────────── */
+  --radius-xs:   4px;
+  --radius-sm:   6px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
+  --radius-2xl:  24px;
+  --radius-full: 9999px;
+
+  /* ── Shadows — soft, tinted toward neutral-1000 ─────────── */
+  --shadow-xs: 0 1px 2px 0 oklch(0.14 0.012 260 / 0.06);
+  --shadow-sm: 0 1px 3px 0 oklch(0.14 0.012 260 / 0.08),
+               0 1px 2px -1px oklch(0.14 0.012 260 / 0.04);
+  --shadow-md: 0 4px 8px -2px oklch(0.14 0.012 260 / 0.10),
+               0 2px 4px -2px oklch(0.14 0.012 260 / 0.06);
+  --shadow-lg: 0 12px 24px -6px oklch(0.14 0.012 260 / 0.12),
+               0 4px 8px -4px oklch(0.14 0.012 260 / 0.08);
+  --shadow-xl: 0 24px 48px -12px oklch(0.14 0.012 260 / 0.18),
+               0 8px 16px -8px oklch(0.14 0.012 260 / 0.10);
+
+  /* ── Motion — one easing, three durations, no bounce ─────── */
+  --ease-out:    cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Raw tokens — not Tailwind utilities, available in CSS ── */
+:root {
+  --axis-duration-micro: 120ms;
+  --axis-duration-small: 200ms;
+  --axis-duration-large: 320ms;
+
+  --axis-touch-min:       44px;
+  --axis-touch-min-dense: 32px;
+
+  /* 8-pt spacing grid */
+  --axis-space-1:  4px;
+  --axis-space-2:  8px;
+  --axis-space-3:  12px;
+  --axis-space-4:  16px;
+  --axis-space-5:  20px;
+  --axis-space-6:  24px;
+  --axis-space-8:  32px;
+  --axis-space-10: 40px;
+  --axis-space-12: 48px;
+  --axis-space-16: 64px;
+  --axis-space-20: 80px;
+  --axis-space-24: 96px;
+  --axis-space-32: 128px;
+}
+
+/* ── Dark-mode shadow overrides ─────────────────────────────── */
+html.light {
+  /* Light mode shadows are already soft — keep as defined above */
+}

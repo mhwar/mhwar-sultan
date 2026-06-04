@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./axis-theme.css";
 
 @theme {
   --font-family-sans: 'Cairo', 'system-ui', sans-serif;
