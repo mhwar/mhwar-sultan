@@ -33,7 +33,7 @@ export default function ProgressBar({
         style={{ height, background: 'rgba(255,255,255,0.06)' }}
       >
         <div
-          className="h-full rounded-full transition-all duration-700 ease-out"
+          className="h-full rounded-full transition-all duration-[320ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]"
           style={{ width: `${width}%`, background: color }}
         />
       </div>

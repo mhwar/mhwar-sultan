@@ -32,7 +32,7 @@ export default function ProjectsPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 lg:p-8 animate-[fade-up_0.4s_cubic-bezier(0.16,1,0.3,1)]">
+      <div className="p-6 lg:p-8 animate-fade-up">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -46,7 +46,7 @@ export default function ProjectsPage() {
           <button
             onClick={() => setShowForm(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)' }}
+            style={{ background: 'var(--color-brand)' }}
           >
             <Plus size={16} />
             مشروع جديد
@@ -85,8 +85,8 @@ export default function ProjectsPage() {
                 onClick={() => setStatusFilter(f.value)}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
                 style={{
-                  background: statusFilter === f.value ? 'rgba(99,102,241,0.2)' : 'transparent',
-                  color: statusFilter === f.value ? '#818CF8' : 'var(--color-text-muted)',
+                  background: statusFilter === f.value ? 'var(--color-brand-subtle)' : 'transparent',
+                  color: statusFilter === f.value ? 'var(--color-brand-light)' : 'var(--color-text-muted)',
                   border: statusFilter === f.value ? '1px solid rgba(99,102,241,0.3)' : '1px solid transparent',
                 }}
               >
@@ -106,8 +106,8 @@ export default function ProjectsPage() {
                 onClick={() => setView(v)}
                 className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
                 style={{
-                  background: view === v ? 'rgba(99,102,241,0.2)' : 'transparent',
-                  color: view === v ? '#818CF8' : 'var(--color-text-muted)',
+                  background: view === v ? 'var(--color-brand-subtle)' : 'transparent',
+                  color: view === v ? 'var(--color-brand-light)' : 'var(--color-text-muted)',
                 }}
               >
                 <Icon size={15} />
@@ -126,7 +126,7 @@ export default function ProjectsPage() {
               <button
                 onClick={() => setShowForm(true)}
                 className="px-4 py-2 rounded-xl text-sm font-semibold text-white"
-                style={{ background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)' }}
+                style={{ background: 'var(--color-brand)' }}
               >
                 مشروع جديد
               </button>

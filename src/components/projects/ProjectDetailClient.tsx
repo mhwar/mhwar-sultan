@@ -89,7 +89,7 @@ export default function ProjectDetailClient({ id }: Props) {
 
   return (
     <div
-      className="animate-[fade-up_0.4s_cubic-bezier(0.16,1,0.3,1)]"
+      className="animate-fade-up"
       style={{ '--project-color': project.color } as React.CSSProperties}
     >
       {/* Hero */}

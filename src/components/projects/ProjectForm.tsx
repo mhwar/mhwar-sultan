@@ -82,7 +82,7 @@ export default function ProjectForm({ onClose, initialData }: ProjectFormProps) 
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
-        className="glass-card w-full max-w-lg max-h-[90vh] overflow-y-auto animate-[fade-up_0.3s_ease-out]"
+        className="glass-card w-full max-w-lg max-h-[90vh] overflow-y-auto animate-fade-up"
         style={{ background: 'rgba(14, 14, 24, 0.98)' }}
       >
         {/* Header */}
@@ -192,8 +192,8 @@ export default function ProjectForm({ onClose, initialData }: ProjectFormProps) 
                   onClick={() => setForm({ ...form, icon })}
                   className="w-9 h-9 rounded-xl text-lg transition-all"
                   style={{
-                    background: form.icon === icon ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)',
-                    border: form.icon === icon ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(255,255,255,0.08)',
+                    background: form.icon === icon ? 'var(--color-brand-subtle)' : 'rgba(255,255,255,0.04)',
+                    border: form.icon === icon ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.08)',
                   }}
                 >
                   {icon}
@@ -261,7 +261,7 @@ export default function ProjectForm({ onClose, initialData }: ProjectFormProps) 
             <button
               type="submit"
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)' }}
+              style={{ background: 'var(--color-brand)' }}
             >
               {isEditing ? 'حفظ التغييرات' : 'إنشاء المشروع'}
             </button>

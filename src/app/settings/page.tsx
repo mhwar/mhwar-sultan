@@ -60,13 +60,13 @@ export default function SettingsPage() {
     display: 'inline-flex',
     alignItems: 'center',
     gap: '0.375rem',
-    transition: 'opacity 0.2s',
+    transition: `opacity var(--axis-duration-micro) cubic-bezier(0.2, 0.8, 0.2, 1)`,
     border: 'none',
   }
 
   return (
     <AppLayout>
-      <div className="p-6 lg:p-8 max-w-2xl animate-[fade-up_0.4s_cubic-bezier(0.16,1,0.3,1)]">
+      <div className="p-6 lg:p-8 max-w-2xl animate-fade-up">
         <div className="mb-8">
           <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--color-text-primary)' }}>
             الإعدادات
@@ -81,9 +81,9 @@ export default function SettingsPage() {
           <div className="flex items-center gap-2 mb-4">
             <div
               className="w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ background: 'rgba(99,102,241,0.15)' }}
+              style={{ background: 'var(--color-brand-subtle)' }}
             >
-              <Download size={15} style={{ color: '#818CF8' }} />
+              <Download size={15} style={{ color: 'var(--color-brand-light)' }} />
             </div>
             <h2 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>
               البيانات
@@ -103,8 +103,8 @@ export default function SettingsPage() {
               onClick={exportData}
               style={{
                 ...btnBase,
-                background: 'rgba(99,102,241,0.15)',
-                color: '#818CF8',
+                background: 'var(--color-brand-subtle)',
+                color: 'var(--color-brand-light)',
               } as React.CSSProperties}
             >
               <Download size={13} />
@@ -140,9 +140,9 @@ export default function SettingsPage() {
           <div className="flex items-center gap-2 mb-4">
             <div
               className="w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ background: 'rgba(16,185,129,0.15)' }}
+              style={{ background: 'color-mix(in srgb, var(--color-status-active) 15%, transparent)' }}
             >
-              <Shield size={15} style={{ color: '#10B981' }} />
+              <Shield size={15} style={{ color: 'var(--color-status-active)' }} />
             </div>
             <h2 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>
               إحصائيات التخزين
@@ -170,9 +170,9 @@ export default function SettingsPage() {
           <div className="flex items-center gap-2 mb-4">
             <div
               className="w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ background: 'rgba(139,92,246,0.15)' }}
+              style={{ background: 'var(--color-brand-subtle)' }}
             >
-              <Info size={15} style={{ color: '#8B5CF6' }} />
+              <Info size={15} style={{ color: 'var(--color-brand-light)' }} />
             </div>
             <h2 className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>
               عن المنصة

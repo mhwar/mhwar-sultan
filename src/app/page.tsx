@@ -22,7 +22,7 @@ export default function DashboardPage() {
 
   return (
     <AppLayout>
-      <div className="p-6 lg:p-8 animate-[fade-up_0.4s_cubic-bezier(0.16,1,0.3,1)]">
+      <div className="p-6 lg:p-8 animate-fade-up">
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
           <div>
@@ -37,7 +37,7 @@ export default function DashboardPage() {
             href="/projects"
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
             style={{
-              background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
+              background: 'var(--color-brand)',
               color: 'white',
             }}
           >
@@ -98,7 +98,7 @@ export default function DashboardPage() {
                       <div key={task.id} className="flex items-center gap-2.5 py-2">
                         <div
                           className="w-1.5 h-1.5 rounded-full shrink-0"
-                          style={{ background: project?.color ?? '#6366F1' }}
+                          style={{ background: project?.color ?? 'var(--color-brand)' }}
                         />
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium truncate" style={{ color: 'var(--color-text-secondary)', textDecoration: 'line-through' }}>
