@@ -39,9 +39,18 @@ export interface Task {
   createdAt: string
 }
 
+export interface Plan {
+  id: string
+  projectId: string
+  name: string
+  order: number
+  createdAt: string
+}
+
 export interface PlanPhase {
   id: string
   projectId: string
+  planId?: string
   title: string
   description: string
   status: PhaseStatus

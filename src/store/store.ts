@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Project, Task, PlanPhase, Note, TaskStatus, ProjectStatus } from '@/types'
-import { SEED_PROJECTS, SEED_TASKS, SEED_PHASES, SEED_NOTES } from '@/lib/seed-data'
+import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, ProjectStatus } from '@/types'
+import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES } from '@/lib/seed-data'
 import { generateId, now } from '@/lib/utils'
 
 // ── Project Store ─────────────────────────────────────────
@@ -81,7 +81,12 @@ export const useTaskStore = create<TaskStore>()(
 
 // ── Plan Store ────────────────────────────────────────────
 interface PlanStore {
+  plans: Plan[]
   phases: PlanPhase[]
+  addPlan: (projectId: string, name: string) => string
+  renamePlan: (id: string, name: string) => void
+  deletePlan: (id: string) => void
+  getProjectPlans: (projectId: string) => Plan[]
   addPhase: (data: Omit<PlanPhase, 'id'>) => void
   updatePhase: (id: string, data: Partial<PlanPhase>) => void
   deletePhase: (id: string) => void
@@ -93,7 +98,29 @@ interface PlanStore {
 export const usePlanStore = create<PlanStore>()(
   persist(
     (set, get) => ({
+      plans: SEED_PLANS,
       phases: SEED_PHASES,
+
+      addPlan: (projectId, name) => {
+        const id = generateId()
+        set((s) => {
+          const order = s.plans.filter((p) => p.projectId === projectId).length + 1
+          return { plans: [...s.plans, { id, projectId, name, order, createdAt: now() }] }
+        })
+        return id
+      },
+
+      renamePlan: (id, name) =>
+        set((s) => ({ plans: s.plans.map((p) => (p.id === id ? { ...p, name } : p)) })),
+
+      deletePlan: (id) =>
+        set((s) => ({
+          plans: s.plans.filter((p) => p.id !== id),
+          phases: s.phases.filter((ph) => ph.planId !== id),
+        })),
+
+      getProjectPlans: (projectId) =>
+        get().plans.filter((p) => p.projectId === projectId).sort((a, b) => a.order - b.order),
 
       addPhase: (data) =>
         set((s) => ({ phases: [...s.phases, { ...data, id: generateId() }] })),
@@ -140,7 +167,38 @@ export const usePlanStore = create<PlanStore>()(
           .phases.filter((ph) => ph.projectId === projectId)
           .sort((a, b) => a.order - b.order),
     }),
-    { name: 'mhwar-plans', version: 1, skipHydration: true }
+    {
+      name: 'mhwar-plans',
+      version: 2,
+      skipHydration: true,
+      // v1 → v2: introduce named plans; assign each legacy phase to a default plan
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as { plans?: Plan[]; phases?: PlanPhase[] } | undefined
+        if (!state) return state as never
+        if (version < 2) {
+          const phases = state.phases ?? []
+          const plans = state.plans ?? []
+          const byProject: Record<string, string> = {}
+          for (const ph of phases) {
+            if (!ph.projectId) continue
+            if (!byProject[ph.projectId]) {
+              const existing = plans.find((p) => p.projectId === ph.projectId)
+              if (existing) {
+                byProject[ph.projectId] = existing.id
+              } else {
+                const id = `pl-${ph.projectId}-default`
+                byProject[ph.projectId] = id
+                plans.push({ id, projectId: ph.projectId, name: 'خطة المراحل', order: 1, createdAt: new Date().toISOString() })
+              }
+            }
+            if (!ph.planId) ph.planId = byProject[ph.projectId]
+          }
+          state.plans = plans
+          state.phases = phases
+        }
+        return state as never
+      },
+    }
   )
 )
 

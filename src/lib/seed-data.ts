@@ -1,4 +1,10 @@
-import type { Project, Task, PlanPhase, Note } from '@/types'
+import type { Project, Task, Plan, PlanPhase, Note } from '@/types'
+
+export const SEED_PLANS: Plan[] = [
+  { id: 'pl-mehwar', projectId: 'mehwar', name: 'خطة المراحل', order: 1, createdAt: '2026-01-01T00:00:00Z' },
+  { id: 'pl-mellasaq', projectId: 'mellasaq', name: 'خطة المراحل', order: 1, createdAt: '2026-03-01T00:00:00Z' },
+  { id: 'pl-bawsala', projectId: 'bawsala', name: 'خطة المراحل', order: 1, createdAt: '2026-02-01T00:00:00Z' },
+]
 
 export const SEED_PROJECTS: Project[] = [
   {
@@ -73,7 +79,7 @@ export const SEED_TASKS: Task[] = [
 export const SEED_PHASES: PlanPhase[] = [
   // محور
   {
-    id: 'ph1', projectId: 'mehwar', title: 'المرحلة الأولى: التأسيس',
+    id: 'ph1', projectId: 'mehwar', planId: 'pl-mehwar', title: 'المرحلة الأولى: التأسيس',
     description: 'إعداد البنية التحتية والتصميم الأساسي للمنصة',
     status: 'completed', order: 1,
     milestones: [
@@ -83,7 +89,7 @@ export const SEED_PHASES: PlanPhase[] = [
     ],
   },
   {
-    id: 'ph2', projectId: 'mehwar', title: 'المرحلة الثانية: المحتوى الأساسي',
+    id: 'ph2', projectId: 'mehwar', planId: 'pl-mehwar', title: 'المرحلة الثانية: المحتوى الأساسي',
     description: 'تطوير صفحات المشاريع والمهام وإدارة البيانات',
     status: 'in-progress', order: 2,
     milestones: [
@@ -94,7 +100,7 @@ export const SEED_PHASES: PlanPhase[] = [
     ],
   },
   {
-    id: 'ph3', projectId: 'mehwar', title: 'المرحلة الثالثة: التحسين والتوسع',
+    id: 'ph3', projectId: 'mehwar', planId: 'pl-mehwar', title: 'المرحلة الثالثة: التحسين والتوسع',
     description: 'تحسين الأداء وإضافة ميزات متقدمة',
     status: 'upcoming', order: 3,
     milestones: [
@@ -106,7 +112,7 @@ export const SEED_PHASES: PlanPhase[] = [
 
   // ملصق
   {
-    id: 'ph4', projectId: 'mellasaq', title: 'مرحلة الاستكشاف والتخطيط',
+    id: 'ph4', projectId: 'mellasaq', planId: 'pl-mellasaq', title: 'مرحلة الاستكشاف والتخطيط',
     description: 'بحث السوق وتحديد المتطلبات وتصميم الحل',
     status: 'in-progress', order: 1,
     milestones: [
@@ -116,7 +122,7 @@ export const SEED_PHASES: PlanPhase[] = [
     ],
   },
   {
-    id: 'ph5', projectId: 'mellasaq', title: 'مرحلة التطوير',
+    id: 'ph5', projectId: 'mellasaq', planId: 'pl-mellasaq', title: 'مرحلة التطوير',
     description: 'بناء محرر الملصقات التفاعلي',
     status: 'upcoming', order: 2,
     milestones: [
@@ -127,7 +133,7 @@ export const SEED_PHASES: PlanPhase[] = [
 
   // بوصلة
   {
-    id: 'ph6', projectId: 'bawsala', title: 'مرحلة البحث والتأسيس',
+    id: 'ph6', projectId: 'bawsala', planId: 'pl-bawsala', title: 'مرحلة البحث والتأسيس',
     description: 'اختيار التقنيات وإعداد البيئة',
     status: 'completed', order: 1,
     milestones: [
@@ -136,7 +142,7 @@ export const SEED_PHASES: PlanPhase[] = [
     ],
   },
   {
-    id: 'ph7', projectId: 'bawsala', title: 'مرحلة التطوير الأساسي',
+    id: 'ph7', projectId: 'bawsala', planId: 'pl-bawsala', title: 'مرحلة التطوير الأساسي',
     description: 'بناء الميزات الجوهرية للتطبيق',
     status: 'in-progress', order: 2,
     milestones: [
