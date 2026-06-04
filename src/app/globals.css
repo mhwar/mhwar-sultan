@@ -152,6 +152,43 @@ body {
     background: var(--color-brand);
   }
 
+  /* ── Axis card — solid raised surface (projects view pattern) ── */
+  .axis-card {
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-surface-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+  .axis-card-hover {
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-surface-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: border-color var(--axis-duration-micro) cubic-bezier(0.2, 0.8, 0.2, 1),
+                box-shadow   var(--axis-duration-micro) cubic-bezier(0.2, 0.8, 0.2, 1),
+                transform    var(--axis-duration-micro) cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .axis-card-hover:hover {
+    border-color: var(--color-text-muted);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+  }
+
+  /* Mono uppercase micro-label (Axis caption) */
+  .axis-label {
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+  /* Tabular numerals for metrics */
+  .axis-num {
+    font-variant-numeric: tabular-nums;
+    unicode-bidi: isolate;
+  }
+
   .sidebar-nav-item {
     display: flex;
     align-items: center;
