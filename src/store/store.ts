@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, ProjectStatus } from '@/types'
+import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, ProjectStatus, Feature } from '@/types'
 import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES } from '@/lib/seed-data'
 import { generateId, now } from '@/lib/utils'
 
@@ -105,6 +105,9 @@ interface PlanStore {
   setMilestoneDone: (phaseId: string, milestoneId: string, done: boolean) => void
   addMilestone: (phaseId: string, title: string) => void
   getProjectPhases: (projectId: string) => PlanPhase[]
+  addFeature: (phaseId: string, title: string) => void
+  toggleFeature: (phaseId: string, featureId: string) => void
+  deleteFeature: (phaseId: string, featureId: string) => void
 }
 
 export const usePlanStore = create<PlanStore>()(
@@ -211,6 +214,33 @@ export const usePlanStore = create<PlanStore>()(
         get()
           .phases.filter((ph) => ph.projectId === projectId)
           .sort((a, b) => a.order - b.order),
+
+      addFeature: (phaseId, title) =>
+        set((s) => ({
+          phases: s.phases.map((ph) =>
+            ph.id === phaseId
+              ? { ...ph, features: [...(ph.features ?? []), { id: generateId(), title, done: false } as Feature] }
+              : ph
+          ),
+        })),
+
+      toggleFeature: (phaseId, featureId) =>
+        set((s) => ({
+          phases: s.phases.map((ph) =>
+            ph.id === phaseId
+              ? { ...ph, features: (ph.features ?? []).map((f) => f.id === featureId ? { ...f, done: !f.done } : f) }
+              : ph
+          ),
+        })),
+
+      deleteFeature: (phaseId, featureId) =>
+        set((s) => ({
+          phases: s.phases.map((ph) =>
+            ph.id === phaseId
+              ? { ...ph, features: (ph.features ?? []).filter((f) => f.id !== featureId) }
+              : ph
+          ),
+        })),
     }),
     {
       name: 'mhwar-plans',

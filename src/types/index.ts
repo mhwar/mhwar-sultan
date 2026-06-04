@@ -55,6 +55,12 @@ export interface Plan {
   createdAt: string
 }
 
+export interface Feature {
+  id: string
+  title: string
+  done: boolean
+}
+
 export interface PlanPhase {
   id: string
   projectId: string
@@ -67,6 +73,8 @@ export interface PlanPhase {
   status: PhaseStatus
   order: number
   milestones: Milestone[]
+  notes?: string
+  features?: Feature[]
 }
 
 export interface Note {
