@@ -1,8 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import {
-  X, Trash2, Calendar, Clock, Target, Check, Send, Link2,
-  Plus, ChevronDown, Hash, Flag, ListChecks, StickyNote, Layers,
+  X, Trash2, Calendar, Clock, Target, Check, Link2,
+  Plus, Hash, Flag, ListChecks, StickyNote, Layers,
 } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import { usePlanStore, useTaskStore } from '@/store/store'
@@ -11,6 +11,7 @@ import Segmented from '@/components/ui/Segmented'
 import Field from '@/components/ui/Field'
 import Button from '@/components/ui/Button'
 import Pill from '@/components/ui/Pill'
+import SendToSprintMenu from '@/components/projects/SendToSprintMenu'
 import { PlanIcon } from '@/lib/icons'
 import { planKindMeta } from '@/lib/plan-kinds'
 import { PHASE_STATUS_LABELS, TASK_STATUS_VAR, TASK_STATUS_LABELS, generateId, formatDateAr, formatDateShort } from '@/lib/utils'
@@ -43,7 +44,6 @@ export default function PhaseDrawer({ phase, project, onClose }: PhaseDrawerProp
     toggleMilestone, addMilestone,
     addFeature, toggleFeature, deleteFeature,
   } = usePlanStore()
-  const addTask = useTaskStore((s) => s.addTask)
   const linkedTasks = useTaskStore(useShallow((s) =>
     phase ? s.tasks.filter((t) => t.phaseId === phase.id) : []
   ))
@@ -57,7 +57,6 @@ export default function PhaseDrawer({ phase, project, onClose }: PhaseDrawerProp
 
   useEffect(() => {
     if (phase) requestAnimationFrame(() => setOpen(true))
-    else setOpen(false)
   }, [phase])
 
   const close = () => {
@@ -82,18 +81,6 @@ export default function PhaseDrawer({ phase, project, onClose }: PhaseDrawerProp
     phase.startDate && phase.dueDate
       ? Math.max(1, Math.round((new Date(phase.dueDate).getTime() - new Date(phase.startDate).getTime()) / DAY) + 1)
       : null
-
-  const sendToExecution = (m: { id: string; title: string }) =>
-    addTask({
-      projectId: phase.projectId,
-      phaseId: phase.id,
-      milestoneId: m.id,
-      title: m.title,
-      status: 'todo',
-      priority: 'medium',
-      startDate: phase.startDate,
-      dueDate: phase.dueDate,
-    })
 
   const handleAddMilestone = () => {
     if (!newMilestone.trim()) return
@@ -266,13 +253,16 @@ export default function PhaseDrawer({ phase, project, onClose }: PhaseDrawerProp
                   >
                     {f.title}
                   </span>
-                  <button
-                    onClick={() => deleteFeature(phase.id, f.id)}
-                    className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                    aria-label="حذف"
-                  >
-                    <X size={12} />
-                  </button>
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <SendToSprintMenu projectId={phase.projectId} title={f.title} done={f.done} />
+                    <button
+                      onClick={() => deleteFeature(phase.id, f.id)}
+                      className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost"
+                      aria-label="حذف"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -325,7 +315,7 @@ export default function PhaseDrawer({ phase, project, onClose }: PhaseDrawerProp
                     >
                       {m.title}
                     </span>
-                    {mTaskCount > 0 ? (
+                    {mTaskCount > 0 && (
                       <span
                         className="inline-flex items-center gap-1 axis-num text-xs px-1.5 py-0.5 rounded-full shrink-0"
                         style={{ background: 'var(--surface-2)', color: 'var(--fg-3)' }}
@@ -333,15 +323,10 @@ export default function PhaseDrawer({ phase, project, onClose }: PhaseDrawerProp
                       >
                         <Link2 size={11} />{mTaskCount}
                       </span>
-                    ) : (
-                      <button
-                        onClick={() => sendToExecution(m)}
-                        className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                        title="أرسل للتنفيذ"
-                      >
-                        <Send size={12} />
-                      </button>
                     )}
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      <SendToSprintMenu projectId={phase.projectId} title={m.title} phaseId={phase.id} milestoneId={m.id} done={m.done} />
+                    </div>
                   </div>
                 )
               })}

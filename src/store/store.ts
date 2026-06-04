@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, ProjectStatus, Feature, Sprint, SprintStatus } from '@/types'
+import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, Feature, Sprint, SprintStatus } from '@/types'
 import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES, SEED_SPRINTS } from '@/lib/seed-data'
 import { domainForKind } from '@/lib/plan-kinds'
 import { generateId, now } from '@/lib/utils'

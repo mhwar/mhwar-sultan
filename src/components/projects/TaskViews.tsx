@@ -5,7 +5,6 @@ import { useShallow } from 'zustand/shallow'
 import { useTaskStore, usePlanStore } from '@/store/store'
 import { PlanIcon } from '@/lib/icons'
 import type { Project, Task, TaskStatus, TaskPriority } from '@/types'
-import EmptyState from '@/components/shared/EmptyState'
 import TaskDrawer from '@/components/projects/TaskDrawer'
 import GanttView from '@/components/projects/GanttView'
 import CalendarView from '@/components/projects/CalendarView'
@@ -16,11 +15,6 @@ import {
   TASK_STATUS_LABELS, PRIORITY_LABELS, PRIORITY_PILL, PRIORITY_VAR, TASK_STATUS_VAR,
   formatDateAr,
 } from '@/lib/utils'
-
-interface TasksTabProps {
-  project: Project
-  tasks: Task[]
-}
 
 type View = 'board' | 'list' | 'table' | 'gantt' | 'calendar'
 
@@ -37,14 +31,14 @@ const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
 ]
 
 /* ── Inline add-task form ── */
-function AddTaskForm({ projectId, status, onClose }: { projectId: string; status: TaskStatus; onClose: () => void }) {
+function AddTaskForm({ projectId, status, sprintId, onClose }: { projectId: string; status: TaskStatus; sprintId?: string; onClose: () => void }) {
   const { addTask } = useTaskStore()
   const [title, setTitle] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('medium')
 
   const handleAdd = () => {
     if (!title.trim()) return
-    addTask({ projectId, title: title.trim(), status, priority })
+    addTask({ projectId, sprintId, title: title.trim(), status, priority })
     onClose()
   }
 
@@ -135,7 +129,19 @@ function BoardCard({ task, onMove, onDelete, onOpen, planIcon }: { task: Task; o
   )
 }
 
-export default function TasksTab({ project, tasks }: TasksTabProps) {
+interface TaskViewsProps {
+  project: Project
+  /** Tasks already scoped (e.g. to a sprint, the backlog, or all). */
+  tasks: Task[]
+  /** Sprint that newly-created tasks are assigned to (undefined → backlog). */
+  addSprintId?: string
+  /** Placeholder shown when there are no tasks in scope. */
+  emptyLabel?: string
+}
+
+/** The five task views (board/list/table/gantt/calendar) + drawer, over a
+ *  pre-filtered task set. Reused by the Execution tab across sprint scopes. */
+export default function TaskViews({ project, tasks, addSprintId, emptyLabel = 'لا مهام' }: TaskViewsProps) {
   const { moveTask, deleteTask, updateTask } = useTaskStore()
   const plans = usePlanStore(useShallow((s) => s.plans.filter((p) => p.projectId === project.id)))
   const projectPhases = usePlanStore(useShallow((s) => s.phases.filter((p) => p.projectId === project.id)))
@@ -153,17 +159,6 @@ export default function TasksTab({ project, tasks }: TasksTabProps) {
 
   const visible = priorityFilter === 'all' ? tasks : tasks.filter((t) => t.priority === priorityFilter)
   const selected = selectedId ? tasks.find((t) => t.id === selectedId) ?? null : null
-
-  if (tasks.length === 0 && !addingTo) {
-    return (
-      <EmptyState
-        icon={Plus}
-        title="لا توجد مهام بعد"
-        description="أضف مهامك لهذا المشروع"
-        action={<Button variant="primary" size="md" onClick={() => setAddingTo('todo')}>إضافة مهمة</Button>}
-      />
-    )
-  }
 
   return (
     <div className="space-y-4">
@@ -215,8 +210,8 @@ export default function TasksTab({ project, tasks }: TasksTabProps) {
                   {colTasks.map((task) => (
                     <BoardCard key={task.id} task={task} onMove={(s) => moveTask(task.id, s)} onDelete={() => deleteTask(task.id)} onOpen={() => setSelectedId(task.id)} planIcon={planIconForTask(task)} />
                   ))}
-                  {addingTo === col.status && <AddTaskForm projectId={project.id} status={col.status} onClose={() => setAddingTo(null)} />}
-                  {colTasks.length === 0 && addingTo !== col.status && <div className="board-col__empty">لا مهام</div>}
+                  {addingTo === col.status && <AddTaskForm projectId={project.id} status={col.status} sprintId={addSprintId} onClose={() => setAddingTo(null)} />}
+                  {colTasks.length === 0 && addingTo !== col.status && <div className="board-col__empty">{emptyLabel}</div>}
                 </div>
               </div>
             )
@@ -227,6 +222,7 @@ export default function TasksTab({ project, tasks }: TasksTabProps) {
       {/* List */}
       {view === 'list' && (
         <div className="axis-tasklist">
+          {visible.length === 0 && <div className="text-sm text-center py-6" style={{ color: 'var(--fg-3)' }}>{emptyLabel}</div>}
           {COLUMNS.map((col) => {
             const colTasks = visible.filter((t) => t.status === col.status)
             if (colTasks.length === 0) return null
@@ -309,6 +305,9 @@ export default function TasksTab({ project, tasks }: TasksTabProps) {
                   </td>
                 </tr>
               ))}
+              {visible.length === 0 && (
+                <tr><td colSpan={5} className="text-center" style={{ color: 'var(--fg-3)', padding: '24px' }}>{emptyLabel}</td></tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -323,7 +322,7 @@ export default function TasksTab({ project, tasks }: TasksTabProps) {
       {/* Add (list/table) */}
       {(view === 'list' || view === 'table') && (
         addingTo ? (
-          <AddTaskForm projectId={project.id} status="todo" onClose={() => setAddingTo(null)} />
+          <AddTaskForm projectId={project.id} status="todo" sprintId={addSprintId} onClose={() => setAddingTo(null)} />
         ) : (
           <Button variant="ghost" size="sm" onClick={() => setAddingTo('todo')}><Plus size={14} />إضافة مهمة</Button>
         )
