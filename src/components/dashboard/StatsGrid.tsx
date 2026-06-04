@@ -12,23 +12,23 @@ interface StatCardProps {
 
 function StatCard({ icon, value, label, sub, accent }: StatCardProps) {
   return (
-    <div className="glass-card p-5">
+    <div className="axis-card p-5">
       <div className="flex items-start justify-between mb-4">
         <div
           className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ background: `${accent}20` }}
+          style={{ background: `color-mix(in srgb, ${accent} 14%, transparent)`, color: accent }}
         >
-          <span style={{ color: accent }}>{icon}</span>
+          {icon}
         </div>
       </div>
-      <div className="text-3xl font-bold mb-1" style={{ color: 'var(--color-text-primary)' }}>
+      <div className="axis-num text-3xl font-bold mb-1" style={{ color: 'var(--fg-1)' }}>
         {value}
       </div>
-      <div className="text-sm font-medium mb-0.5" style={{ color: 'var(--color-text-secondary)' }}>
+      <div className="text-sm font-medium mb-0.5" style={{ color: 'var(--fg-2)' }}>
         {label}
       </div>
       {sub && (
-        <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+        <div className="text-xs" style={{ color: 'var(--fg-3)' }}>
           {sub}
         </div>
       )}

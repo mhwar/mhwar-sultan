@@ -48,13 +48,6 @@ export const STATUS_LABELS: Record<ProjectStatus, string> = {
   planning: 'تخطيط',
 }
 
-export const STATUS_COLORS: Record<ProjectStatus, { bg: string; text: string; border: string }> = {
-  active:    { bg: 'rgba(16, 185, 129, 0.1)',  text: '#10B981', border: 'rgba(16, 185, 129, 0.25)' },
-  paused:    { bg: 'rgba(245, 158, 11, 0.1)',  text: '#F59E0B', border: 'rgba(245, 158, 11, 0.25)' },
-  completed: { bg: 'rgba(59, 130, 246, 0.1)',  text: '#3B82F6', border: 'rgba(59, 130, 246, 0.25)' },
-  planning:  { bg: 'rgba(99, 102, 241, 0.1)',  text: '#818CF8', border: 'rgba(99, 102, 241, 0.25)' },
-}
-
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   'todo': 'للتنفيذ',
   'in-progress': 'جارية',
@@ -65,12 +58,6 @@ export const PRIORITY_LABELS: Record<TaskPriority, string> = {
   low: 'منخفضة',
   medium: 'متوسطة',
   high: 'عالية',
-}
-
-export const PRIORITY_COLORS: Record<TaskPriority, string> = {
-  low: '#10B981',
-  medium: '#F59E0B',
-  high: '#EF4444',
 }
 
 /** Priority → Axis pill variant (semantic, token-based). */

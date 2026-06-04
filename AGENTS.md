@@ -35,6 +35,13 @@ Source: `design-system/Axis Design System/` (git submodule). Tokens file: `src/a
 - **No bounces, springs, or playful motion.**
 - Honor `prefers-reduced-motion` — collapse durations to 0 ms.
 
+## Components (Axis primitives)
+- Token layer + ported Axis classes live in `src/app/axis-components.css`; thin React wrappers in `src/components/ui/` (`Button`, `IconButton`, `Pill`, `Tag`, `Badge`, `Field`, `Segmented`). Prefer these over bespoke inline-styled controls.
+- Use semantic tokens (`--surface-*`, `--fg-*`, `--border-*`, `--feedback-*`, `--action-*`) — never hardcoded `rgba()`/hex. Project identity colors (`project.color`) are the only allowed per-instance colors (dots, progress fills).
+- Surfaces: cards `.axis-card`; tables `.axis-table`; task lists `.axis-tasklist`; kanban `.board-*`; headers `PageHeader`/`axis-projhead`; view toggles `Segmented`; reports `MetricCard`/`Donut`/`Sparkline`.
+- Theme switches on `data-theme` (dark default) kept in sync with the legacy `.light` class via `themeStore`.
+- Project icons are **lucide keys** rendered via `ProjectIcon` (`src/lib/icons.tsx`) — never emoji.
+
 ## Cards & components
 - Keep the `glass-card` class for the existing glass-morphic card style. Do not replace it with a plain card without approval.
 - Cards: `border-radius` `--radius-lg` (12 px), `border` 1 px `--border-subtle`, `box-shadow` `--shadow-sm`. Inner padding 24 px desktop / 16 px mobile.
