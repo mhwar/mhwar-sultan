@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Plus, Check, Map, ChevronDown, ChevronUp, Trash2, Pencil, X, ArrowUp, ArrowDown, ChevronRight, ChevronLeft, Rows3, Columns3, ChevronsDownUp, ChevronsUpDown, Link2 } from 'lucide-react'
+import { Plus, Check, Map, ChevronDown, ChevronUp, Trash2, Pencil, X, ArrowUp, ArrowDown, ChevronRight, ChevronLeft, Rows3, Columns3, ChevronsDownUp, ChevronsUpDown, Link2, MoreVertical } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import { usePlanStore, useTaskStore } from '@/store/store'
 import type { Project, PlanPhase, PhaseStatus } from '@/types'
@@ -27,6 +27,8 @@ const PHASE_STATUS_COLORS: Record<string, { dot: string; badge: string; badgeTex
 /* ── Phase card (timeline node) ── */
 function PhaseCard({ phase, project, onMove, isFirst, isLast, expanded, onToggle }: { phase: PlanPhase; project: Project; onMove: (dir: -1 | 1) => void; isFirst: boolean; isLast: boolean; expanded: boolean; onToggle: () => void }) {
   const [newMilestone, setNewMilestone] = useState('')
+  const [showStatus, setShowStatus] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
   const { toggleMilestone, addMilestone, deletePhase, updatePhase } = usePlanStore()
   const linkedTasks = useTaskStore(useShallow((s) => s.tasks.filter((t) => t.phaseId === phase.id)))
   const colors = PHASE_STATUS_COLORS[phase.status]
@@ -71,9 +73,51 @@ function PhaseCard({ phase, project, onMove, isFirst, isLast, expanded, onToggle
             <button onClick={(e) => { e.stopPropagation(); onMove(1) }} disabled={isLast} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost" style={{ opacity: isLast ? 0.3 : 1 }} aria-label="نقل لأسفل">
               <ArrowDown size={12} />
             </button>
-            <span className="text-xs px-2.5 py-1 rounded-full font-medium ms-1" style={{ background: colors.badge, color: colors.badgeText }}>
-              {PHASE_STATUS_LABELS[phase.status]}
-            </span>
+
+            {/* Status control (single source) */}
+            <div className="relative ms-1">
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowStatus((v) => !v); setShowMenu(false) }}
+                className="text-xs px-2.5 py-1 rounded-full font-medium inline-flex items-center gap-1.5"
+                style={{ background: colors.badge, color: colors.badgeText }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: colors.dot }} />
+                {PHASE_STATUS_LABELS[phase.status]}
+                <ChevronDown size={11} />
+              </button>
+              {showStatus && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowStatus(false) }} />
+                  <div className="absolute end-0 top-8 z-20 axis-menu" style={{ minWidth: 150 }} onClick={(e) => e.stopPropagation()}>
+                    {PHASE_COLUMNS.map((s) => (
+                      <button key={s} className="axis-menu__item" onClick={() => { updatePhase(phase.id, { status: s }); setShowStatus(false) }}>
+                        <span className="w-2 h-2 rounded-full" style={{ background: PHASE_STATUS_COLORS[s].dot }} />
+                        <span>{PHASE_STATUS_LABELS[s]}</span>
+                        {phase.status === s && <Check size={13} style={{ color: 'var(--iris-500)' }} />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Kebab menu */}
+            <div className="relative">
+              <button onClick={(e) => { e.stopPropagation(); setShowMenu((v) => !v); setShowStatus(false) }} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost" aria-label="خيارات">
+                <MoreVertical size={14} />
+              </button>
+              {showMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowMenu(false) }} />
+                  <div className="absolute end-0 top-8 z-20 axis-menu" style={{ minWidth: 160 }} onClick={(e) => e.stopPropagation()}>
+                    <button className="axis-menu__item axis-menu__item--danger" onClick={() => { deletePhase(phase.id); setShowMenu(false) }}>
+                      <Trash2 size={13} /><span>حذف المرحلة</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
             {expanded ? <ChevronUp size={14} style={{ color: 'var(--fg-3)' }} /> : <ChevronDown size={14} style={{ color: 'var(--fg-3)' }} />}
           </div>
         </div>
@@ -138,26 +182,6 @@ function PhaseCard({ phase, project, onMove, isFirst, isLast, expanded, onToggle
               </div>
             )}
 
-            {/* Phase status + delete */}
-            <div className="flex gap-2 pt-2">
-              {(['upcoming', 'in-progress', 'completed'] as const).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => updatePhase(phase.id, { status: s })}
-                  className="text-xs px-2 py-1 rounded-lg transition-all"
-                  style={{
-                    background: phase.status === s ? PHASE_STATUS_COLORS[s].badge : 'var(--surface-2)',
-                    color: phase.status === s ? PHASE_STATUS_COLORS[s].badgeText : 'var(--color-text-muted)',
-                    border: '1px solid transparent',
-                  }}
-                >
-                  {PHASE_STATUS_LABELS[s]}
-                </button>
-              ))}
-              <button onClick={() => deletePhase(phase.id)} className="ms-auto p-1 rounded-lg transition-colors hover:bg-red-500/10" style={{ color: 'var(--fg-3)' }}>
-                <Trash2 size={13} />
-              </button>
-            </div>
           </div>
         )}
       </div>
