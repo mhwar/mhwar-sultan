@@ -171,8 +171,47 @@ body {
   }
 
   .sidebar-nav-item.active {
-    background: var(--color-brand-subtle);
-    color: var(--color-brand);
-    border: 1px solid rgba(99, 102, 241, 0.25);
+    background: var(--color-surface-overlay);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-surface-border);
+    box-shadow: var(--shadow-xs);
+  }
+
+  /* ── Axis glassmorphic floating sidebar panel ── */
+  .app-sidebar-panel {
+    position: relative;
+    overflow: hidden;
+    background: rgba(15, 15, 26, 0.7);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border: 1px solid var(--color-surface-border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-sm);
+  }
+  /* Ambient iris glow — top corner, behind content */
+  .app-sidebar-panel::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: -40px;
+    top: -40px;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: var(--color-iris-700);
+    opacity: 0.3;
+    filter: blur(50px);
+    z-index: 0;
+    pointer-events: none;
+  }
+  .app-sidebar-panel > * {
+    position: relative;
+    z-index: 1;
+  }
+  html.light .app-sidebar-panel {
+    background: rgba(255, 255, 255, 0.72);
+  }
+  html.light .app-sidebar-panel::before {
+    background: var(--color-iris-200);
+    opacity: 0.35;
   }
 }
