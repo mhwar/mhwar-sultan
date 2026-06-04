@@ -255,7 +255,7 @@ export default function ProjectDetailClient({ id }: Props) {
       <div>
         {activeTab === 'overview'  && <OverviewTab  project={project} tasks={tasks} phases={phases} />}
         {activeTab === 'product'   && <ProductTab   project={project} phases={phases} />}
-        {activeTab === 'growth'    && <GrowthTab    project={project} phases={phases} />}
+        {activeTab === 'growth'    && <GrowthTab    project={project} />}
         {activeTab === 'execution' && <ExecutionTab project={project} tasks={tasks} />}
         {activeTab === 'notes'     && <NotesTab     project={project} notes={notes} />}
       </div>

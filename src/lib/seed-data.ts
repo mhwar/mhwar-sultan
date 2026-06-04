@@ -1,4 +1,21 @@
-import type { Project, Task, Plan, PlanPhase, Note, Sprint, ProductDoc } from '@/types'
+import type { Project, Task, Plan, PlanPhase, Note, Sprint, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel } from '@/types'
+
+export const SEED_METRICS: GrowthMetric[] = [
+  { id: 'mt-1', projectId: 'mehwar', name: 'مستخدمون نشطون', value: 120, unit: 'مستخدم', target: 1000, change: 15, category: 'retention', order: 0, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-06-01T00:00:00Z' },
+  { id: 'mt-2', projectId: 'mehwar', name: 'معدل التحويل', value: 3.2, unit: '%', target: 8, change: -0.5, category: 'activation', order: 1, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-06-01T00:00:00Z' },
+  { id: 'mt-3', projectId: 'mehwar', name: 'إيرادات شهرية', value: 2400, unit: 'SAR', target: 10000, change: 8, category: 'revenue', order: 2, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-06-01T00:00:00Z' },
+]
+
+export const SEED_EXPERIMENTS: GrowthExperiment[] = [
+  { id: 'ex-1', projectId: 'mehwar', title: 'تقليل حقول التسجيل', hypothesis: 'نعتقد أن تقليل الحقول إلى 3 سيرفع معدل إكمال التسجيل بشكل ملحوظ', metric: 'معدل التسجيل', status: 'running', impact: 4, confidence: 3, ease: 4, startDate: '2026-05-20T00:00:00Z', order: 0, createdAt: '2026-05-15T00:00:00Z' },
+  { id: 'ex-2', projectId: 'mehwar', title: 'عرض تجريبي 14 يوماً مجاناً', hypothesis: 'نعتقد أن تجربة مجانية بدون بطاقة ائتمان ستزيد التحويل', metric: 'معدل التحويل', status: 'idea', impact: 5, confidence: 3, ease: 2, order: 1, createdAt: '2026-05-20T00:00:00Z' },
+  { id: 'ex-3', projectId: 'mehwar', title: 'إشعارات تذكير ذكية', metric: 'الاحتفاظ', status: 'completed', result: 'won', impact: 3, confidence: 4, ease: 5, notes: 'رفعت معدل العودة 18% خلال أسبوع واحد', order: 2, createdAt: '2026-04-01T00:00:00Z' },
+]
+
+export const SEED_CHANNELS: GrowthChannel[] = [
+  { id: 'ch-1', projectId: 'mehwar', name: 'Twitter / X', type: 'social', status: 'active', notes: 'نشر تحديثات المنتج والـ changelog', order: 0, createdAt: '2026-01-01T00:00:00Z' },
+  { id: 'ch-2', projectId: 'mehwar', name: 'SEO — مدونة المنتج', type: 'seo', status: 'testing', order: 1, createdAt: '2026-03-01T00:00:00Z' },
+]
 
 export const SEED_PLANS: Plan[] = [
   { id: 'pl-mehwar', projectId: 'mehwar', name: 'خارطة الطريق', icon: 'route', kind: 'roadmap', domain: 'product', view: 'timeline', order: 1, createdAt: '2026-01-01T00:00:00Z' },
