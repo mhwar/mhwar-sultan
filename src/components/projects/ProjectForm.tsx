@@ -1,9 +1,10 @@
 'use client'
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { X, ImagePlus, Trash2 } from 'lucide-react'
 import { useProjectStore } from '@/store/store'
 import type { Project, ProjectStatus } from '@/types'
-import { PROJECT_ICON_KEYS, DEFAULT_PROJECT_ICON, resolveProjectIcon } from '@/lib/icons'
+import ProjectIcon, { PROJECT_ICON_KEYS, DEFAULT_PROJECT_ICON, resolveProjectIcon } from '@/lib/icons'
+import { hexToRgba } from '@/lib/utils'
 import Field from '@/components/ui/Field'
 import Button from '@/components/ui/Button'
 import IconButton from '@/components/ui/IconButton'
@@ -37,9 +38,20 @@ export default function ProjectForm({ onClose, initialData }: ProjectFormProps) 
     progress: initialData?.progress ?? 0,
     color: initialData?.color ?? '#6366F1',
     icon: initialData?.icon && PROJECT_ICON_KEYS.includes(initialData.icon) ? initialData.icon : DEFAULT_PROJECT_ICON,
+    logo: initialData?.logo ?? '',
+    cover: initialData?.cover ?? '',
     category: initialData?.category ?? '',
     tags: initialData?.tags?.join('، ') ?? '',
   })
+
+  const onPick = (e: React.ChangeEvent<HTMLInputElement>, key: 'logo' | 'cover') => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setForm((f) => ({ ...f, [key]: reader.result as string }))
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,6 +65,8 @@ export default function ProjectForm({ onClose, initialData }: ProjectFormProps) 
       progress: Math.min(100, Math.max(0, form.progress)),
       color: form.color,
       icon: form.icon,
+      logo: form.logo || undefined,
+      cover: form.cover || undefined,
       category: form.category.trim(),
       tags: form.tags.split(/[،,]/).map((t) => t.trim()).filter(Boolean),
       links: initialData?.links ?? [],
@@ -115,6 +129,55 @@ export default function ProjectForm({ onClose, initialData }: ProjectFormProps) 
                 color: 'var(--fg-1)',
               }}
             />
+          </div>
+
+          {/* Logo + banner */}
+          <div>
+            <label className="axis-label block mb-1.5">الشعار والبنر</label>
+            {/* Cover */}
+            <div
+              className="relative overflow-hidden mb-3"
+              style={{
+                height: 96,
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-subtle)',
+                background: form.cover ? undefined : `linear-gradient(135deg, ${hexToRgba(form.color, 0.5)}, ${hexToRgba(form.color, 0.12)})`,
+              }}
+            >
+              {form.cover && <img src={form.cover} alt="" className="w-full h-full object-cover" />}
+              <div className="absolute inset-0 flex items-center justify-center gap-2">
+                <label className="axis-btn axis-btn--secondary axis-btn--sm cursor-pointer">
+                  <ImagePlus size={13} />
+                  {form.cover ? 'تغيير البنر' : 'رفع بنر'}
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => onPick(e, 'cover')} />
+                </label>
+                {form.cover && (
+                  <button type="button" className="axis-btn axis-btn--ghost axis-btn--sm" onClick={() => setForm({ ...form, cover: '' })} aria-label="إزالة البنر">
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
+            </div>
+            {/* Logo */}
+            <div className="flex items-center gap-3">
+              <div
+                className="w-14 h-14 flex items-center justify-center shrink-0 overflow-hidden"
+                style={{ background: hexToRgba(form.color, 0.15), color: form.color, borderRadius: 'var(--radius-md)' }}
+              >
+                {form.logo ? <img src={form.logo} alt="" className="w-full h-full object-cover" /> : <ProjectIcon name={form.icon} size={24} />}
+              </div>
+              <label className="axis-btn axis-btn--secondary axis-btn--sm cursor-pointer">
+                <ImagePlus size={13} />
+                {form.logo ? 'تغيير الشعار' : 'رفع شعار'}
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => onPick(e, 'logo')} />
+              </label>
+              {form.logo && (
+                <button type="button" className="axis-btn axis-btn--ghost axis-btn--sm" onClick={() => setForm({ ...form, logo: '' })}>
+                  <Trash2 size={13} />
+                  إزالة
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Status + Progress */}

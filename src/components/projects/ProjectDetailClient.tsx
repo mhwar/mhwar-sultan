@@ -106,10 +106,14 @@ export default function ProjectDetailClient({ id }: Props) {
       <div className="axis-projhead mb-6">
         {/* Cover band */}
         <div className="relative h-[120px] md:h-[160px] overflow-hidden">
-          <div
-            className="absolute inset-0"
-            style={{ background: `linear-gradient(135deg, ${hexToRgba(project.color, 0.55)} 0%, ${hexToRgba(project.color, 0.12)} 100%)` }}
-          />
+          {project.cover ? (
+            <img src={project.cover} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          ) : (
+            <div
+              className="absolute inset-0"
+              style={{ background: `linear-gradient(135deg, ${hexToRgba(project.color, 0.55)} 0%, ${hexToRgba(project.color, 0.12)} 100%)` }}
+            />
+          )}
           <div
             className="absolute inset-0 pointer-events-none"
             style={{ background: 'radial-gradient(ellipse 60% 100% at 0% 0%, oklch(1 0 0 / 0.12), transparent 60%)' }}
@@ -121,7 +125,7 @@ export default function ProjectDetailClient({ id }: Props) {
           {/* Top row — logo + corner actions */}
           <div className="flex items-end justify-between -mt-8 md:-mt-11">
             <div
-              className="w-16 h-16 md:w-[88px] md:h-[88px] flex items-center justify-center shrink-0"
+              className="w-16 h-16 md:w-[88px] md:h-[88px] flex items-center justify-center shrink-0 overflow-hidden"
               style={{
                 background: hexToRgba(project.color, 0.2),
                 color: project.color,
@@ -129,7 +133,9 @@ export default function ProjectDetailClient({ id }: Props) {
                 boxShadow: '0 0 0 4px var(--color-surface-raised), var(--shadow-md)',
               }}
             >
-              <ProjectIcon name={project.icon} size={40} />
+              {project.logo
+                ? <img src={project.logo} alt="" className="w-full h-full object-cover" />
+                : <ProjectIcon name={project.icon} size={40} />}
             </div>
 
             <div className="flex items-center gap-2 mb-1">

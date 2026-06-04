@@ -24,14 +24,16 @@ export default function ProjectCard({ project, taskCount = 0 }: ProjectCardProps
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div
-            className="w-10 h-10 flex items-center justify-center shrink-0"
+            className="w-10 h-10 flex items-center justify-center shrink-0 overflow-hidden"
             style={{
               background: hexToRgba(project.color, 0.15),
               color: project.color,
               borderRadius: 'var(--radius-md)',
             }}
           >
-            <ProjectIcon name={project.icon} size={20} />
+            {project.logo
+              ? <img src={project.logo} alt="" className="w-full h-full object-cover" />
+              : <ProjectIcon name={project.icon} size={20} />}
           </div>
           <div className="min-w-0">
             <h3 className="font-bold text-sm leading-tight truncate" style={{ color: 'var(--color-text-primary)' }}>

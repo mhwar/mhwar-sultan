@@ -18,6 +18,8 @@ export interface Project {
   progress: number
   color: string
   icon: string
+  logo?: string
+  cover?: string
   category: string
   createdAt: string
   updatedAt: string
