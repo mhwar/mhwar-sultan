@@ -105,7 +105,7 @@ export default function OverviewTab({ project, tasks, phases }: OverviewTabProps
                   strokeLinecap="round"
                   strokeDasharray={`${2 * Math.PI * 40}`}
                   strokeDashoffset={`${2 * Math.PI * 40 * (1 - project.progress / 100)}`}
-                  className="transition-all duration-700"
+                  className="transition-all duration-[320ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]"
                 />
               </svg>
               <div

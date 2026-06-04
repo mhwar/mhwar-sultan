@@ -1,20 +1,28 @@
 'use client'
 import { useState } from 'react'
-import { Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, Check, LayoutGrid, List, Table2 } from 'lucide-react'
 import { useTaskStore } from '@/store/store'
 import type { Project, Task, TaskStatus, TaskPriority } from '@/types'
 import EmptyState from '@/components/shared/EmptyState'
-import { TASK_STATUS_LABELS, PRIORITY_LABELS, PRIORITY_COLORS } from '@/lib/utils'
+import Pill from '@/components/ui/Pill'
+import Button from '@/components/ui/Button'
+import Segmented from '@/components/ui/Segmented'
+import {
+  TASK_STATUS_LABELS, PRIORITY_LABELS, PRIORITY_PILL, PRIORITY_VAR, TASK_STATUS_VAR,
+  formatDateAr,
+} from '@/lib/utils'
 
 interface TasksTabProps {
   project: Project
   tasks: Task[]
 }
 
-const COLUMNS: { status: TaskStatus; label: string; color: string }[] = [
-  { status: 'todo',        label: 'للتنفيذ', color: 'var(--color-text-muted)'    },
-  { status: 'in-progress', label: 'جارية',  color: 'var(--color-status-paused)' },
-  { status: 'done',        label: 'منجزة',   color: 'var(--color-status-active)' },
+type View = 'board' | 'list' | 'table'
+
+const COLUMNS: { status: TaskStatus; label: string }[] = [
+  { status: 'todo',        label: 'للتنفيذ' },
+  { status: 'in-progress', label: 'جارية' },
+  { status: 'done',        label: 'منجزة' },
 ]
 
 const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
@@ -23,272 +31,98 @@ const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
   { value: 'low',    label: 'منخفضة' },
 ]
 
-function TaskCard({
-  task,
-  projectColor,
-  onMove,
-  onDelete,
-}: {
-  task: Task
-  projectColor: string
-  onMove: (status: TaskStatus) => void
-  onDelete: () => void
-}) {
-  const [showMove, setShowMove] = useState(false)
-  const priorityColor = PRIORITY_COLORS[task.priority]
-
-  return (
-    <div className="axis-card p-3.5 relative group">
-      {/* Priority bar */}
-      <div
-        className="absolute top-0 end-0 w-1 h-full rounded-e-xl"
-        style={{ background: priorityColor, opacity: 0.6 }}
-      />
-
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <p
-            className="text-sm font-medium leading-snug"
-            style={{
-              color: task.status === 'done' ? 'var(--color-text-muted)' : 'var(--color-text-primary)',
-              textDecoration: task.status === 'done' ? 'line-through' : 'none',
-            }}
-          >
-            {task.title}
-          </p>
-          {task.description && (
-            <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
-              {task.description}
-            </p>
-          )}
-          <div className="flex items-center gap-2 mt-2">
-            <span
-              className="text-xs px-1.5 py-0.5 rounded-md font-medium"
-              style={{ background: `${priorityColor}15`, color: priorityColor }}
-            >
-              {PRIORITY_LABELS[task.priority]}
-            </span>
-            {/* Mobile: status badge */}
-            <span
-              className="md:hidden text-xs px-1.5 py-0.5 rounded-md font-medium"
-              style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-text-muted)' }}
-            >
-              {TASK_STATUS_LABELS[task.status]}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-          <div className="relative">
-            <button
-              onClick={() => setShowMove(!showMove)}
-              className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
-              style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-text-secondary)' }}
-            >
-              <ChevronDown size={12} />
-            </button>
-            {showMove && (
-              <div
-                className="absolute end-0 top-8 z-10 rounded-xl overflow-hidden shadow-2xl"
-                style={{ background: '#141422', border: '1px solid rgba(255,255,255,0.1)', minWidth: '120px' }}
-              >
-                {COLUMNS.map((col) => (
-                  <button
-                    key={col.status}
-                    onClick={() => { onMove(col.status); setShowMove(false) }}
-                    className="w-full text-start text-xs px-3 py-2 transition-colors hover:bg-white/5"
-                    style={{
-                      color: task.status === col.status ? projectColor : 'var(--color-text-secondary)',
-                      fontWeight: task.status === col.status ? 600 : 400,
-                    }}
-                  >
-                    {col.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <button
-            onClick={onDelete}
-            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-red-500/15"
-            style={{ color: 'var(--color-text-muted)' }}
-          >
-            <Trash2 size={12} />
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function AddTaskForm({
-  projectId,
-  projectColor,
-  status,
-  onClose,
-}: {
-  projectId: string
-  projectColor: string
-  status: TaskStatus
-  onClose: () => void
-}) {
+/* ── Inline add-task form ── */
+function AddTaskForm({ projectId, status, onClose }: { projectId: string; status: TaskStatus; onClose: () => void }) {
   const { addTask } = useTaskStore()
   const [title, setTitle] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('medium')
-  const [desc, setDesc] = useState('')
 
   const handleAdd = () => {
     if (!title.trim()) return
-    addTask({ projectId, title: title.trim(), description: desc.trim() || undefined, status, priority })
+    addTask({ projectId, title: title.trim(), status, priority })
     onClose()
   }
 
   return (
-    <div
-      className="rounded-xl p-3 mt-2"
-      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
-    >
+    <div className="p-2.5" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
       <input
-        type="text"
         autoFocus
-        placeholder="عنوان المهمة..."
+        placeholder="عنوان المهمة"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') onClose() }}
         className="w-full bg-transparent text-sm outline-none mb-2"
-        style={{ color: 'var(--color-text-primary)' }}
-      />
-      <input
-        type="text"
-        placeholder="وصف (اختياري)"
-        value={desc}
-        onChange={(e) => setDesc(e.target.value)}
-        className="w-full bg-transparent text-xs outline-none mb-2"
-        style={{ color: 'var(--color-text-secondary)' }}
+        style={{ color: 'var(--fg-1)' }}
       />
       <div className="flex items-center gap-2">
         <select
           value={priority}
           onChange={(e) => setPriority(e.target.value as TaskPriority)}
-          className="text-xs px-2 py-1 rounded-lg outline-none"
-          style={{
-            background: 'rgba(255,255,255,0.06)',
-            color: 'var(--color-text-secondary)',
-            border: '1px solid rgba(255,255,255,0.08)',
-          }}
+          className="text-xs px-2 py-1 outline-none"
+          style={{ background: 'var(--surface-1)', color: 'var(--fg-2)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)' }}
         >
-          {PRIORITY_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value} style={{ background: '#0F0F1A' }}>
-              {o.label}
-            </option>
-          ))}
+          {PRIORITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        <button
-          onClick={handleAdd}
-          className="px-3 py-1 rounded-lg text-xs font-semibold text-white"
-          style={{ background: projectColor }}
-        >
-          إضافة
-        </button>
-        <button
-          onClick={onClose}
-          className="px-2 py-1 rounded-lg text-xs"
-          style={{ color: 'var(--color-text-muted)' }}
-        >
-          إلغاء
-        </button>
+        <Button variant="primary" size="xs" onClick={handleAdd}>إضافة</Button>
+        <Button variant="ghost" size="xs" onClick={onClose}>إلغاء</Button>
       </div>
     </div>
   )
 }
 
-// Mobile: collapsible group per status
-function MobileColumnGroup({
-  col,
-  tasks,
-  project,
-  addingTo,
-  setAddingTo,
-  onMove,
-  onDelete,
-}: {
-  col: typeof COLUMNS[0]
-  tasks: Task[]
-  project: Project
-  addingTo: TaskStatus | null
-  setAddingTo: (s: TaskStatus | null) => void
-  onMove: (id: string, s: TaskStatus) => void
-  onDelete: (id: string) => void
-}) {
-  const [collapsed, setCollapsed] = useState(col.status === 'done' && tasks.length === 0)
-
+/* ── Board card ── */
+function BoardCard({ task, onMove, onDelete }: { task: Task; onMove: (s: TaskStatus) => void; onDelete: () => void }) {
+  const [showMove, setShowMove] = useState(false)
   return (
-    <div
-      className="rounded-xl overflow-hidden"
-      style={{ border: '1px solid rgba(255,255,255,0.06)' }}
-    >
-      {/* Group header */}
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center justify-between px-4 py-3 transition-colors hover:bg-white/3"
-        style={{ background: 'rgba(255,255,255,0.02)' }}
-      >
-        <div className="flex items-center gap-2.5">
-          <div className="w-2 h-2 rounded-full shrink-0" style={{ background: col.color }} />
-          <span className="text-sm font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
-            {col.label}
-          </span>
-          <span
-            className="text-xs px-1.5 py-0.5 rounded-full font-medium"
-            style={{ background: 'rgba(255,255,255,0.07)', color: 'var(--color-text-muted)' }}
-          >
-            {tasks.length}
-          </span>
-        </div>
-        {collapsed
-          ? <ChevronRight size={14} style={{ color: 'var(--color-text-muted)' }} />
-          : <ChevronDown size={14} style={{ color: 'var(--color-text-muted)' }} />
-        }
-      </button>
-
-      {!collapsed && (
-        <div className="p-3 space-y-2">
-          {tasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              projectColor={project.color}
-              onMove={(s) => onMove(task.id, s)}
-              onDelete={() => onDelete(task.id)}
-            />
-          ))}
-
-          {addingTo === col.status ? (
-            <AddTaskForm
-              projectId={project.id}
-              projectColor={project.color}
-              status={col.status}
-              onClose={() => setAddingTo(null)}
-            />
-          ) : (
-            <button
-              onClick={() => setAddingTo(col.status)}
-              className="w-full flex items-center gap-1.5 px-2 py-2 rounded-lg text-xs transition-colors"
-              style={{ color: 'var(--color-text-muted)' }}
-            >
-              <Plus size={12} />
-              إضافة مهمة
-            </button>
+    <div className="board-card group">
+      <div className="board-card__head">
+        <span className="priority-dot" style={{ background: PRIORITY_VAR[task.priority] }} />
+        <Pill variant={PRIORITY_PILL[task.priority]}>{PRIORITY_LABELS[task.priority]}</Pill>
+        <div className="board-card__id relative">
+          <button onClick={() => setShowMove(!showMove)} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost">
+            <ChevronDown size={13} />
+          </button>
+          {showMove && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowMove(false)} />
+              <div className="absolute end-0 top-7 z-20 axis-menu" style={{ minWidth: '120px' }}>
+                {COLUMNS.map((col) => (
+                  <button
+                    key={col.status}
+                    onClick={() => { onMove(col.status); setShowMove(false) }}
+                    className="axis-menu__item"
+                    style={{ fontWeight: task.status === col.status ? 600 : 400 }}
+                  >
+                    {col.label}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
         </div>
-      )}
+      </div>
+      <p className={`board-card__title ${task.status === 'done' ? 'line-through' : ''}`} style={task.status === 'done' ? { color: 'var(--fg-3)' } : undefined}>
+        {task.title}
+      </p>
+      {task.description && <p className="text-xs leading-relaxed" style={{ color: 'var(--fg-3)' }}>{task.description}</p>}
+      <div className="board-card__foot">
+        <span className="board-card__meta">
+          <button onClick={onDelete} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost opacity-0 group-hover:opacity-100 transition-opacity" aria-label="حذف">
+            <Trash2 size={12} />
+          </button>
+        </span>
+      </div>
     </div>
   )
 }
 
 export default function TasksTab({ project, tasks }: TasksTabProps) {
-  const { moveTask, deleteTask } = useTaskStore()
+  const { moveTask, deleteTask, updateTask } = useTaskStore()
+  const [view, setView] = useState<View>('board')
+  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | 'all'>('all')
   const [addingTo, setAddingTo] = useState<TaskStatus | null>(null)
+
+  const visible = priorityFilter === 'all' ? tasks : tasks.filter((t) => t.priority === priorityFilter)
 
   if (tasks.length === 0 && !addingTo) {
     return (
@@ -296,94 +130,151 @@ export default function TasksTab({ project, tasks }: TasksTabProps) {
         icon={Plus}
         title="لا توجد مهام بعد"
         description="أضف مهامك لهذا المشروع"
-        action={
-          <button
-            onClick={() => setAddingTo('todo')}
-            className="px-4 py-2 rounded-xl text-sm font-semibold text-white"
-            style={{ background: project.color }}
-          >
-            إضافة مهمة
-          </button>
-        }
+        action={<Button variant="primary" size="md" onClick={() => setAddingTo('todo')}>إضافة مهمة</Button>}
       />
     )
   }
 
   return (
-    <>
-      {/* ── Mobile: collapsible list per status ── */}
-      <div className="md:hidden space-y-3">
-        {COLUMNS.map((col) => (
-          <MobileColumnGroup
-            key={col.status}
-            col={col}
-            tasks={tasks.filter((t) => t.status === col.status)}
-            project={project}
-            addingTo={addingTo}
-            setAddingTo={setAddingTo}
-            onMove={moveTask}
-            onDelete={deleteTask}
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <Segmented
+          value={priorityFilter}
+          onChange={setPriorityFilter}
+          options={[{ value: 'all', label: 'الكل' }, ...PRIORITY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))]}
+        />
+        <div className="ms-auto">
+          <Segmented
+            value={view}
+            onChange={setView}
+            options={[
+              { value: 'board', icon: <LayoutGrid size={15} />, title: 'لوحة' },
+              { value: 'list', icon: <List size={15} />, title: 'قائمة' },
+              { value: 'table', icon: <Table2 size={15} />, title: 'جدول' },
+            ]}
           />
-        ))}
+        </div>
       </div>
 
-      {/* ── Desktop: 3-column kanban ── */}
-      <div className="hidden md:grid md:grid-cols-3 gap-4">
-        {COLUMNS.map(({ status, label, color }) => {
-          const colTasks = tasks.filter((t) => t.status === status)
-          return (
-            <div key={status}>
-              <div className="flex items-center justify-between mb-3 px-1">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full" style={{ background: color }} />
-                  <span className="text-xs font-bold" style={{ color: 'var(--color-text-secondary)' }}>
-                    {label}
-                  </span>
+      {/* Board */}
+      {view === 'board' && (
+        <div className="board-grid">
+          {COLUMNS.map((col) => {
+            const colTasks = visible.filter((t) => t.status === col.status)
+            return (
+              <div key={col.status} className="board-col">
+                <div className="board-col__head">
+                  <div className="board-col__title">
+                    <span className="priority-dot" style={{ background: TASK_STATUS_VAR[col.status] }} />
+                    <span className="text-xs font-bold" style={{ color: 'var(--fg-2)' }}>{col.label}</span>
+                    <span className="board-col__count">{colTasks.length}</span>
+                  </div>
+                  <button className="board-col__add" onClick={() => setAddingTo(col.status)} aria-label="إضافة مهمة"><Plus size={14} /></button>
                 </div>
-                <span
-                  className="text-xs w-5 h-5 rounded-full flex items-center justify-center"
-                  style={{ background: 'rgba(255,255,255,0.07)', color: 'var(--color-text-muted)' }}
-                >
-                  {colTasks.length}
-                </span>
+                <div className="board-col__body">
+                  {colTasks.map((task) => (
+                    <BoardCard key={task.id} task={task} onMove={(s) => moveTask(task.id, s)} onDelete={() => deleteTask(task.id)} />
+                  ))}
+                  {addingTo === col.status && <AddTaskForm projectId={project.id} status={col.status} onClose={() => setAddingTo(null)} />}
+                  {colTasks.length === 0 && addingTo !== col.status && <div className="board-col__empty">لا مهام</div>}
+                </div>
               </div>
+            )
+          })}
+        </div>
+      )}
 
-              <div
-                className="min-h-32 rounded-xl p-2"
-                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}
-              >
-                {colTasks.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    projectColor={project.color}
-                    onMove={(s) => moveTask(task.id, s)}
-                    onDelete={() => deleteTask(task.id)}
-                  />
-                ))}
-
-                {addingTo === status ? (
-                  <AddTaskForm
-                    projectId={project.id}
-                    projectColor={project.color}
-                    status={status}
-                    onClose={() => setAddingTo(null)}
-                  />
-                ) : (
-                  <button
-                    onClick={() => setAddingTo(status)}
-                    className="w-full flex items-center gap-1.5 px-2 py-2 rounded-lg text-xs transition-colors mt-1"
-                    style={{ color: 'var(--color-text-muted)' }}
-                  >
-                    <Plus size={12} />
-                    إضافة مهمة
-                  </button>
-                )}
+      {/* List */}
+      {view === 'list' && (
+        <div className="axis-tasklist">
+          {COLUMNS.map((col) => {
+            const colTasks = visible.filter((t) => t.status === col.status)
+            if (colTasks.length === 0) return null
+            return (
+              <div key={col.status} className="axis-tasklist__group">
+                <div className="axis-tasklist__group-head">
+                  <span className="priority-dot" style={{ background: TASK_STATUS_VAR[col.status] }} />
+                  <span className="axis-tasklist__group-name">{col.label}</span>
+                  <span className="axis-tasklist__group-count">{colTasks.length}</span>
+                </div>
+                <ul className="axis-tasklist__items">
+                  {colTasks.map((task) => (
+                    <li key={task.id} className={`axis-tasklist__item ${task.status === 'done' ? 'is-done' : ''}`}>
+                      <span
+                        className={`axis-tasklist__check ${task.status === 'done' ? 'is-on' : ''}`}
+                        onClick={() => updateTask(task.id, { status: task.status === 'done' ? 'todo' : 'done' })}
+                      >
+                        {task.status === 'done' && <Check size={12} strokeWidth={3} />}
+                      </span>
+                      <div className="axis-tasklist__body">
+                        <div className="axis-tasklist__title-row">
+                          <span className="axis-tasklist__title">{task.title}</span>
+                          <Pill variant={PRIORITY_PILL[task.priority]}>{PRIORITY_LABELS[task.priority]}</Pill>
+                        </div>
+                        {task.description && <span className="axis-tasklist__meta"><span className="axis-tasklist__meta-item">{task.description}</span></span>}
+                      </div>
+                      <button onClick={() => deleteTask(task.id)} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost" aria-label="حذف"><Trash2 size={13} /></button>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            </div>
-          )
-        })}
-      </div>
-    </>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Table */}
+      {view === 'table' && (
+        <div className="axis-table__wrap">
+          <table className="axis-table axis-table--comfortable">
+            <thead>
+              <tr>
+                <th>المهمة</th>
+                <th>الأولوية</th>
+                <th>الحالة</th>
+                <th className="is-end">تاريخ الإضافة</th>
+                <th className="is-end"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((task) => (
+                <tr key={task.id}>
+                  <td>
+                    <span className="font-medium" style={{ color: task.status === 'done' ? 'var(--fg-3)' : 'var(--fg-1)', textDecoration: task.status === 'done' ? 'line-through' : 'none' }}>
+                      {task.title}
+                    </span>
+                  </td>
+                  <td><Pill variant={PRIORITY_PILL[task.priority]}>{PRIORITY_LABELS[task.priority]}</Pill></td>
+                  <td>
+                    <select
+                      value={task.status}
+                      onChange={(e) => moveTask(task.id, e.target.value as TaskStatus)}
+                      className="text-xs px-2 py-1 outline-none"
+                      style={{ background: 'var(--surface-1)', color: 'var(--fg-2)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)' }}
+                    >
+                      {COLUMNS.map((c) => <option key={c.status} value={c.status}>{TASK_STATUS_LABELS[c.status]}</option>)}
+                    </select>
+                  </td>
+                  <td className="is-end is-mono" style={{ color: 'var(--fg-3)' }}>{formatDateAr(task.createdAt)}</td>
+                  <td className="is-end">
+                    <button onClick={() => deleteTask(task.id)} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost" aria-label="حذف"><Trash2 size={13} /></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Add (list/table) */}
+      {view !== 'board' && (
+        addingTo ? (
+          <AddTaskForm projectId={project.id} status="todo" onClose={() => setAddingTo(null)} />
+        ) : (
+          <Button variant="ghost" size="sm" onClick={() => setAddingTo('todo')}><Plus size={14} />إضافة مهمة</Button>
+        )
+      )}
+    </div>
   )
 }

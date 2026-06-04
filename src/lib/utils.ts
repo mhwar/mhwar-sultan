@@ -73,6 +73,27 @@ export const PRIORITY_COLORS: Record<TaskPriority, string> = {
   high: '#EF4444',
 }
 
+/** Priority → Axis pill variant (semantic, token-based). */
+export const PRIORITY_PILL: Record<TaskPriority, 'success' | 'warning' | 'danger'> = {
+  low: 'success',
+  medium: 'warning',
+  high: 'danger',
+}
+
+/** Priority → token CSS variable for dots/accents. */
+export const PRIORITY_VAR: Record<TaskPriority, string> = {
+  low: 'var(--success-500)',
+  medium: 'var(--warning-500)',
+  high: 'var(--danger-500)',
+}
+
+/** Task status → dot token. */
+export const TASK_STATUS_VAR: Record<TaskStatus, string> = {
+  'todo': 'var(--fg-4)',
+  'in-progress': 'var(--warning-500)',
+  'done': 'var(--success-500)',
+}
+
 export const PHASE_STATUS_LABELS: Record<PhaseStatus, string> = {
   upcoming: 'قادمة',
   'in-progress': 'جارية',
