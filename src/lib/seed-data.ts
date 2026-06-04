@@ -1,4 +1,4 @@
-import type { Project, Task, Plan, PlanPhase, Note, Sprint } from '@/types'
+import type { Project, Task, Plan, PlanPhase, Note, Sprint, ProductDoc } from '@/types'
 
 export const SEED_PLANS: Plan[] = [
   { id: 'pl-mehwar', projectId: 'mehwar', name: 'خارطة الطريق', icon: 'route', kind: 'roadmap', domain: 'product', view: 'timeline', order: 1, createdAt: '2026-01-01T00:00:00Z' },
@@ -156,6 +156,12 @@ export const SEED_PHASES: PlanPhase[] = [
       { id: 'm20', title: 'نظام المفضلات', done: false },
     ],
   },
+]
+
+export const SEED_DOCS: ProductDoc[] = [
+  { id: 'doc-1', projectId: 'mehwar', title: 'مواصفات المنتج', type: 'spec', description: 'متطلبات الوظائف والمستخدمين — نطاق المنصة وحالات الاستخدام الأساسية', order: 0, createdAt: '2026-01-01T00:00:00Z' },
+  { id: 'doc-2', projectId: 'mehwar', title: 'دليل التصميم', type: 'design', description: 'نظام Axis للألوان والمكوّنات — ألوان، مسافات، أيقونات، وأنماط مكوّنات Figma', order: 1, createdAt: '2026-01-05T00:00:00Z' },
+  { id: 'doc-3', projectId: 'mehwar', title: 'دليل المطوّر', type: 'guide', description: 'إعداد البيئة، هيكل المشروع، والـ conventions المتبعة', order: 2, createdAt: '2026-01-10T00:00:00Z' },
 ]
 
 export const SEED_NOTES: Note[] = [

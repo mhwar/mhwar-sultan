@@ -103,3 +103,16 @@ export interface Note {
   updatedAt: string
   pinned?: boolean
 }
+
+export type DocType = 'spec' | 'guide' | 'design' | 'research' | 'other'
+
+export interface ProductDoc {
+  id: string
+  projectId: string
+  title: string
+  description?: string
+  url?: string
+  type: DocType
+  order: number
+  createdAt: string
+}

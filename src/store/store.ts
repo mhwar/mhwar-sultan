@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, Feature, Sprint, SprintStatus } from '@/types'
-import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES, SEED_SPRINTS } from '@/lib/seed-data'
+import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, Feature, Sprint, SprintStatus, ProductDoc } from '@/types'
+import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES, SEED_SPRINTS, SEED_DOCS } from '@/lib/seed-data'
 import { domainForKind } from '@/lib/plan-kinds'
 import { generateId, now } from '@/lib/utils'
 
@@ -508,6 +508,39 @@ export const useNoteStore = create<NoteStore>()(
           }),
     }),
     { name: 'mhwar-notes', version: 1, skipHydration: true }
+  )
+)
+
+// ── Document Store ────────────────────────────────────────
+interface DocumentStore {
+  docs: ProductDoc[]
+  addDoc: (data: Omit<ProductDoc, 'id' | 'order' | 'createdAt'>) => string
+  updateDoc: (id: string, data: Partial<ProductDoc>) => void
+  deleteDoc: (id: string) => void
+}
+
+export const useDocumentStore = create<DocumentStore>()(
+  persist(
+    (set, get) => ({
+      docs: SEED_DOCS,
+
+      addDoc: (data) => {
+        const id = generateId()
+        set((s) => {
+          const projectDocs = s.docs.filter((d) => d.projectId === data.projectId)
+          const order = projectDocs.length > 0 ? Math.max(...projectDocs.map((d) => d.order)) + 1 : 0
+          return { docs: [...s.docs, { ...data, id, order, createdAt: now() }] }
+        })
+        return id
+      },
+
+      updateDoc: (id, data) =>
+        set((s) => ({ docs: s.docs.map((d) => (d.id === id ? { ...d, ...data } : d)) })),
+
+      deleteDoc: (id) =>
+        set((s) => ({ docs: s.docs.filter((d) => d.id !== id) })),
+    }),
+    { name: 'mhwar-docs', version: 1, skipHydration: true }
   )
 )
 
