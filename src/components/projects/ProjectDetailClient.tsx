@@ -11,6 +11,7 @@ import TasksTab from '@/components/projects/tabs/TasksTab'
 import NotesTab from '@/components/projects/tabs/NotesTab'
 import { useProjectStore, useTaskStore, usePlanStore, useNoteStore } from '@/store/store'
 import { useShallow } from 'zustand/shallow'
+import ProjectIcon from '@/lib/icons'
 import { hexToRgba, formatDateAr } from '@/lib/utils'
 
 type Tab = 'overview' | 'plan' | 'tasks' | 'notes'
@@ -120,14 +121,15 @@ export default function ProjectDetailClient({ id }: Props) {
           {/* Top row — logo + corner actions */}
           <div className="flex items-end justify-between -mt-8 md:-mt-11">
             <div
-              className="w-16 h-16 md:w-[88px] md:h-[88px] flex items-center justify-center text-3xl md:text-4xl shrink-0"
+              className="w-16 h-16 md:w-[88px] md:h-[88px] flex items-center justify-center shrink-0"
               style={{
                 background: hexToRgba(project.color, 0.2),
+                color: project.color,
                 borderRadius: 'var(--radius-lg)',
                 boxShadow: '0 0 0 4px var(--color-surface-raised), var(--shadow-md)',
               }}
             >
-              {project.icon}
+              <ProjectIcon name={project.icon} size={40} />
             </div>
 
             <div className="flex items-center gap-2 mb-1">

@@ -3,6 +3,10 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import { useProjectStore } from '@/store/store'
 import type { Project, ProjectStatus } from '@/types'
+import { PROJECT_ICON_KEYS, DEFAULT_PROJECT_ICON, resolveProjectIcon } from '@/lib/icons'
+import Field from '@/components/ui/Field'
+import Button from '@/components/ui/Button'
+import IconButton from '@/components/ui/IconButton'
 
 interface ProjectFormProps {
   onClose: () => void
@@ -21,8 +25,6 @@ const COLOR_OPTIONS = [
   '#F59E0B', '#10B981', '#3B82F6', '#06B6D4',
 ]
 
-const ICON_OPTIONS = ['⬡', '🚀', '💡', '🔧', '📱', '🌐', '🗂️', '⚡', '🏷️', '🧭', '🎯', '🔮']
-
 export default function ProjectForm({ onClose, initialData }: ProjectFormProps) {
   const { addProject, updateProject } = useProjectStore()
   const isEditing = !!initialData
@@ -34,7 +36,7 @@ export default function ProjectForm({ onClose, initialData }: ProjectFormProps) 
     status: (initialData?.status ?? 'planning') as ProjectStatus,
     progress: initialData?.progress ?? 0,
     color: initialData?.color ?? '#6366F1',
-    icon: initialData?.icon ?? '🚀',
+    icon: initialData?.icon && PROJECT_ICON_KEYS.includes(initialData.icon) ? initialData.icon : DEFAULT_PROJECT_ICON,
     category: initialData?.category ?? '',
     tags: initialData?.tags?.join('، ') ?? '',
   })
@@ -64,219 +66,139 @@ export default function ProjectForm({ onClose, initialData }: ProjectFormProps) 
     onClose()
   }
 
-  const inputStyle = {
-    background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: '0.75rem',
-    color: 'var(--color-text-primary)',
-    fontSize: '0.875rem',
-    padding: '0.625rem 0.875rem',
-    width: '100%',
-    outline: 'none',
-  }
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+      style={{ background: 'oklch(0.10 0.01 260 / 0.5)', backdropFilter: 'blur(4px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
-        className="glass-card w-full max-w-lg max-h-[90vh] overflow-y-auto animate-fade-up"
-        style={{ background: 'rgba(14, 14, 24, 0.98)' }}
+        className="w-full max-w-lg max-h-[90vh] overflow-y-auto animate-fade-up"
+        style={{
+          background: 'var(--surface-1)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-xl)',
+          boxShadow: 'var(--shadow-xl)',
+        }}
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between p-5"
-          style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+          className="flex items-center justify-between px-5 py-4"
+          style={{ borderBottom: '1px solid var(--border-subtle)' }}
         >
-          <h2 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
+          <h2 className="text-base font-bold" style={{ color: 'var(--fg-1)' }}>
             {isEditing ? 'تعديل المشروع' : 'مشروع جديد'}
           </h2>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-white/10"
-            style={{ color: 'var(--color-text-muted)' }}
-          >
+          <IconButton onClick={onClose} aria-label="إغلاق">
             <X size={16} />
-          </button>
+          </IconButton>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          {/* Name */}
-          <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-              اسم المشروع *
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="مثال: محور"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              style={inputStyle}
-            />
-          </div>
+          <Field label="اسم المشروع" required value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
 
-          {/* Name EN */}
-          <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-              الاسم بالإنجليزية
-            </label>
-            <input
-              type="text"
-              placeholder="Mehwar"
-              value={form.nameEn}
-              onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
-              style={{ ...inputStyle, direction: 'ltr' }}
-            />
-          </div>
+          <Field label="الاسم بالإنجليزية" value={form.nameEn} dir="ltr" onChange={(v) => setForm({ ...form, nameEn: v })} />
 
           {/* Description */}
           <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-              الوصف
-            </label>
+            <label className="axis-label block mb-1.5">الوصف</label>
             <textarea
               rows={3}
-              placeholder="وصف مختصر للمشروع..."
+              placeholder="وصف مختصر للمشروع"
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              style={{ ...inputStyle, resize: 'vertical' }}
+              className="w-full text-sm p-3 outline-none resize-y"
+              style={{
+                background: 'var(--surface-1)',
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--fg-1)',
+              }}
             />
           </div>
 
-          {/* Status + Progress row */}
+          {/* Status + Progress */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-                الحالة
-              </label>
-              <select
-                value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value as ProjectStatus })}
-                style={{ ...inputStyle, appearance: 'none' }}
-              >
-                {STATUS_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value} style={{ background: '#0F0F1A' }}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-                التقدم ({form.progress}%)
-              </label>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={form.progress}
-                onChange={(e) => setForm({ ...form, progress: Number(e.target.value) })}
-                style={inputStyle}
-              />
-            </div>
+            <Field label="الحالة" as="select" value={form.status} onChange={(v) => setForm({ ...form, status: v as ProjectStatus })}>
+              {STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value} style={{ background: 'var(--surface-2)' }}>{o.label}</option>
+              ))}
+            </Field>
+            <Field
+              label="التقدم %"
+              type="number"
+              value={form.progress}
+              min={0}
+              max={100}
+              onChange={(v) => setForm({ ...form, progress: Number(v) })}
+            />
           </div>
 
-          {/* Icon */}
+          {/* Icon picker */}
           <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-              الأيقونة
-            </label>
+            <label className="axis-label block mb-1.5">الأيقونة</label>
             <div className="flex flex-wrap gap-2">
-              {ICON_OPTIONS.map((icon) => (
-                <button
-                  key={icon}
-                  type="button"
-                  onClick={() => setForm({ ...form, icon })}
-                  className="w-9 h-9 rounded-xl text-lg transition-all"
-                  style={{
-                    background: form.icon === icon ? 'var(--color-brand-subtle)' : 'rgba(255,255,255,0.04)',
-                    border: form.icon === icon ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.08)',
-                  }}
-                >
-                  {icon}
-                </button>
-              ))}
+              {PROJECT_ICON_KEYS.map((key) => {
+                const Icon = resolveProjectIcon(key)
+                const active = form.icon === key
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setForm({ ...form, icon: key })}
+                    className="w-9 h-9 flex items-center justify-center transition-colors"
+                    style={{
+                      background: active ? 'var(--iris-50)' : 'var(--surface-2)',
+                      color: active ? 'var(--iris-600)' : 'var(--fg-2)',
+                      border: `1px solid ${active ? 'var(--iris-400)' : 'var(--border-subtle)'}`,
+                      borderRadius: 'var(--radius-md)',
+                    }}
+                    aria-label={key}
+                  >
+                    <Icon size={18} strokeWidth={1.5} />
+                  </button>
+                )
+              })}
             </div>
           </div>
 
           {/* Color */}
           <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-              اللون
-            </label>
+            <label className="axis-label block mb-1.5">اللون</label>
             <div className="flex flex-wrap gap-2">
               {COLOR_OPTIONS.map((color) => (
                 <button
                   key={color}
                   type="button"
                   onClick={() => setForm({ ...form, color })}
-                  className="w-8 h-8 rounded-xl transition-all"
+                  className="w-8 h-8 transition-all"
                   style={{
                     background: color,
+                    borderRadius: 'var(--radius-md)',
                     outline: form.color === color ? `2px solid ${color}` : 'none',
                     outlineOffset: '2px',
                     transform: form.color === color ? 'scale(1.1)' : 'scale(1)',
                   }}
+                  aria-label={color}
                 />
               ))}
             </div>
           </div>
 
-          {/* Category + Tags row */}
+          {/* Category + Tags */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-                الفئة
-              </label>
-              <input
-                type="text"
-                placeholder="منصة، تطبيق..."
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-                الوسوم (مفصولة بفاصلة)
-              </label>
-              <input
-                type="text"
-                placeholder="React، TypeScript..."
-                value={form.tags}
-                onChange={(e) => setForm({ ...form, tags: e.target.value })}
-                style={inputStyle}
-              />
-            </div>
+            <Field label="الفئة" value={form.category} onChange={(v) => setForm({ ...form, category: v })} />
+            <Field label="الوسوم (بفاصلة)" value={form.tags} onChange={(v) => setForm({ ...form, tags: v })} />
           </div>
 
           {/* Actions */}
-          <div
-            className="flex gap-3 pt-2"
-            style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}
-          >
-            <button
-              type="submit"
-              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-              style={{ background: 'var(--color-brand)' }}
-            >
+          <div className="flex gap-3 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+            <Button type="submit" variant="primary" size="lg" full>
               {isEditing ? 'حفظ التغييرات' : 'إنشاء المشروع'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-              style={{
-                background: 'rgba(255,255,255,0.06)',
-                color: 'var(--color-text-secondary)',
-                border: '1px solid rgba(255,255,255,0.08)',
-              }}
-            >
+            </Button>
+            <Button type="button" variant="secondary" size="lg" onClick={onClose}>
               إلغاء
-            </button>
+            </Button>
           </div>
         </form>
       </div>

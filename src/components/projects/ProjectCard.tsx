@@ -3,6 +3,8 @@ import { useRouter } from 'next/navigation'
 import { Clock, CheckSquare } from 'lucide-react'
 import type { Project } from '@/types'
 import StatusBadge from '@/components/shared/StatusBadge'
+import ProjectIcon from '@/lib/icons'
+import Tag from '@/components/ui/Tag'
 import { hexToRgba, timeAgoAr } from '@/lib/utils'
 
 interface ProjectCardProps {
@@ -22,13 +24,14 @@ export default function ProjectCard({ project, taskCount = 0 }: ProjectCardProps
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div
-            className="w-10 h-10 flex items-center justify-center text-lg shrink-0"
+            className="w-10 h-10 flex items-center justify-center shrink-0"
             style={{
               background: hexToRgba(project.color, 0.15),
+              color: project.color,
               borderRadius: 'var(--radius-md)',
             }}
           >
-            {project.icon}
+            <ProjectIcon name={project.icon} size={20} />
           </div>
           <div className="min-w-0">
             <h3 className="font-bold text-sm leading-tight truncate" style={{ color: 'var(--color-text-primary)' }}>
@@ -69,20 +72,10 @@ export default function ProjectCard({ project, taskCount = 0 }: ProjectCardProps
       {project.tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {project.tags.slice(0, 3).map((tag) => (
-            <span
-              key={tag}
-              className="text-xs px-2 py-0.5 rounded-md"
-              style={{
-                background: 'var(--color-surface-muted)',
-                color: 'var(--color-text-secondary)',
-                border: '1px solid var(--color-surface-border)',
-              }}
-            >
-              {tag}
-            </span>
+            <Tag key={tag} variant="neutral">{tag}</Tag>
           ))}
           {project.tags.length > 3 && (
-            <span className="text-xs px-2 py-0.5 rounded-md" style={{ color: 'var(--color-text-muted)' }}>
+            <span className="axis-num text-xs" style={{ color: 'var(--color-text-muted)' }}>
               +{project.tags.length - 3}
             </span>
           )}
