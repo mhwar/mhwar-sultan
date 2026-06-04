@@ -1,6 +1,7 @@
 import {
   Hexagon, Tag, Compass, Rocket, Lightbulb, Wrench, Smartphone, Globe,
   Folder, Zap, Target, Sparkles, Layers, Box, Flag, Palette,
+  Route, Megaphone, TrendingUp, FileText, FlaskConical, Users, Code, ListChecks,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -45,5 +46,33 @@ interface ProjectIconProps {
 /** Renders a project's icon as a lucide glyph (never an emoji). */
 export default function ProjectIcon({ name, size = 20, className, style }: ProjectIconProps) {
   const Icon = resolveProjectIcon(name)
+  return <Icon size={size} className={className} style={style} strokeWidth={1.5} />
+}
+
+/* ── Plan icons ── */
+export const PLAN_ICONS: Record<string, LucideIcon> = {
+  route: Route,
+  megaphone: Megaphone,
+  'trending-up': TrendingUp,
+  'file-text': FileText,
+  rocket: Rocket,
+  layers: Layers,
+  flask: FlaskConical,
+  users: Users,
+  palette: Palette,
+  code: Code,
+  'list-checks': ListChecks,
+  target: Target,
+}
+
+export const PLAN_ICON_KEYS = Object.keys(PLAN_ICONS)
+export const DEFAULT_PLAN_ICON = 'route'
+
+export function resolvePlanIcon(name: string | undefined): LucideIcon {
+  return (name && PLAN_ICONS[name]) || PLAN_ICONS[DEFAULT_PLAN_ICON]
+}
+
+export function PlanIcon({ name, size = 14, className, style }: { name?: string; size?: number; className?: string; style?: React.CSSProperties }) {
+  const Icon = resolvePlanIcon(name)
   return <Icon size={size} className={className} style={style} strokeWidth={1.5} />
 }

@@ -7,7 +7,9 @@ import type { Project, PlanPhase, PhaseStatus } from '@/types'
 import EmptyState from '@/components/shared/EmptyState'
 import Button from '@/components/ui/Button'
 import Segmented from '@/components/ui/Segmented'
-import { PHASE_STATUS_LABELS, TASK_STATUS_VAR } from '@/lib/utils'
+import { PlanIcon } from '@/lib/icons'
+import { PLAN_TEMPLATES, type PlanTemplate } from '@/lib/plan-templates'
+import { PHASE_STATUS_LABELS, TASK_STATUS_VAR, generateId } from '@/lib/utils'
 
 const PHASE_COLUMNS: PhaseStatus[] = ['upcoming', 'in-progress', 'completed']
 
@@ -209,8 +211,7 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
   const { addPlan, renamePlan, deletePlan, reorderPlans, addPhase, reorderPhases } = usePlanStore()
 
   const [activePlanId, setActivePlanId] = useState<string | null>(null)
-  const [addingPlan, setAddingPlan] = useState(false)
-  const [planName, setPlanName] = useState('')
+  const [showTemplates, setShowTemplates] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [renameVal, setRenameVal] = useState('')
 
@@ -229,6 +230,38 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
     }
   }, [plans, activePlanId])
 
+  // Adopt the active plan's preferred view when switching
+  useEffect(() => {
+    const p = plans.find((pl) => pl.id === activePlanId)
+    if (p?.view) setView(p.view)
+  }, [activePlanId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const TemplatePicker = () => (
+    <div className="axis-card p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold" style={{ color: 'var(--fg-1)' }}>اختر قالب خطة</h3>
+        <button onClick={() => setShowTemplates(false)} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost" aria-label="إغلاق"><X size={15} /></button>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {PLAN_TEMPLATES.map((tpl) => (
+          <button
+            key={tpl.id}
+            onClick={() => createFromTemplate(tpl)}
+            className="flex items-start gap-3 p-3 text-start rounded-lg transition-colors axis-card-hover"
+          >
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--color-brand-subtle)', color: 'var(--color-brand)' }}>
+              <PlanIcon name={tpl.icon} size={18} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold" style={{ color: 'var(--fg-1)' }}>{tpl.name}</div>
+              <div className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--fg-3)' }}>{tpl.description}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+
   const isFirst = plans[0]?.id === activePlanId
   const planPhases = phases.filter((ph) => ph.planId === activePlanId || (isFirst && !ph.planId))
   const activePlan = plans.find((p) => p.id === activePlanId)
@@ -242,12 +275,22 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
   const toggleAll = () => setCollapsed(allCollapsed ? new Set() : new Set(planPhases.map((p) => p.id)))
   const togglePhase = (id: string) => setCollapsed((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
 
-  const submitPlan = () => {
-    if (!planName.trim()) return
-    const id = addPlan(project.id, planName.trim())
+  const createFromTemplate = (tpl: PlanTemplate) => {
+    const id = addPlan(project.id, tpl.name, tpl.icon, tpl.defaultView)
+    tpl.phases.forEach((ph, i) =>
+      addPhase({
+        projectId: project.id,
+        planId: id,
+        title: ph.title,
+        description: ph.description ?? '',
+        status: ph.status ?? 'upcoming',
+        order: i + 1,
+        milestones: ph.milestones.map((m) => ({ id: generateId(), title: m, done: false })),
+      }),
+    )
     setActivePlanId(id)
-    setPlanName('')
-    setAddingPlan(false)
+    setView(tpl.defaultView)
+    setShowTemplates(false)
   }
 
   const movePhase = (index: number, dir: -1 | 1) => {
@@ -285,33 +328,13 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
 
   // No plans yet
   if (plans.length === 0) {
-    return (
-      <div>
-        {addingPlan ? (
-          <div className="axis-card p-4 max-w-md">
-            <label className="axis-label block mb-1.5">اسم الخطة</label>
-            <div className="flex gap-2">
-              <input
-                autoFocus
-                placeholder="مثال: خطة المحتوى"
-                value={planName}
-                onChange={(e) => setPlanName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') submitPlan() }}
-                className="flex-1 text-sm px-3 py-2 rounded-lg outline-none"
-                style={{ background: 'var(--surface-2)', border: '1px solid var(--border-default)', color: 'var(--fg-1)' }}
-              />
-              <Button variant="primary" size="sm" onClick={submitPlan}>إنشاء</Button>
-            </div>
-          </div>
-        ) : (
-          <EmptyState
-            icon={Map}
-            title="لا توجد خطط بعد"
-            description="أنشئ خططاً متعددة لمشروعك: خطة المراحل، خطة المحتوى، خطة التسويق…"
-            action={<Button variant="primary" size="md" onClick={() => setAddingPlan(true)}>إنشاء خطة</Button>}
-          />
-        )}
-      </div>
+    return showTemplates ? <TemplatePicker /> : (
+      <EmptyState
+        icon={Map}
+        title="لا توجد خطط بعد"
+        description="ابدأ بقالب جاهز: خارطة الطريق، التسويق، المبيعات، المحتوى…"
+        action={<Button variant="primary" size="md" onClick={() => setShowTemplates(true)}>إنشاء خطة</Button>}
+      />
     )
   }
 
@@ -332,29 +355,16 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
                   ? { background: 'var(--color-brand-subtle)', color: 'var(--color-brand)', border: '1px solid color-mix(in srgb, var(--iris-500) 30%, transparent)' }
                   : { color: 'var(--fg-3)', border: '1px solid transparent' }}
               >
-                <Map size={14} />
+                <PlanIcon name={p.icon} size={14} />
                 <span>{p.name}</span>
                 <span className="axis-num" style={{ fontSize: 11, opacity: 0.7 }}>{count}</span>
               </button>
             )
           })}
 
-          {addingPlan ? (
-            <input
-              autoFocus
-              placeholder="اسم الخطة"
-              value={planName}
-              onChange={(e) => setPlanName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') submitPlan(); if (e.key === 'Escape') { setAddingPlan(false); setPlanName('') } }}
-              onBlur={() => { if (planName.trim()) submitPlan(); else setAddingPlan(false) }}
-              className="text-sm px-3 py-1.5 rounded-lg outline-none"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border-default)', color: 'var(--fg-1)', width: 140 }}
-            />
-          ) : (
-            <button onClick={() => setAddingPlan(true)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm whitespace-nowrap" style={{ color: 'var(--fg-3)', border: '1px dashed var(--border-default)' }}>
-              <Plus size={14} /> خطة
-            </button>
-          )}
+          <button onClick={() => setShowTemplates(true)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm whitespace-nowrap" style={{ color: 'var(--fg-3)', border: '1px dashed var(--border-default)' }}>
+            <Plus size={14} /> خطة
+          </button>
         </div>
 
         {/* Active plan actions */}
@@ -401,6 +411,9 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
           <button onClick={() => setRenaming(false)} className="axis-iconbtn axis-iconbtn--md axis-iconbtn--ghost"><X size={15} /></button>
         </div>
       )}
+
+      {/* Template picker */}
+      {showTemplates && <TemplatePicker />}
 
       {/* Plan progress */}
       <div className="axis-card p-4">

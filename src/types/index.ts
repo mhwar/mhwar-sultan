@@ -45,6 +45,8 @@ export interface Plan {
   id: string
   projectId: string
   name: string
+  icon?: string
+  view?: 'timeline' | 'board'
   order: number
   createdAt: string
 }
