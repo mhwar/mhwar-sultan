@@ -30,6 +30,7 @@ export interface Project {
 export interface Task {
   id: string
   projectId: string
+  phaseId?: string
   title: string
   description?: string
   status: TaskStatus
