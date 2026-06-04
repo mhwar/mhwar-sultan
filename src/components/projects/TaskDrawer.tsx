@@ -1,8 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { X, Trash2, Calendar, Clock, Hash, Flag, CheckCircle2, CircleDashed, Loader, Map } from 'lucide-react'
+import { X, Trash2, Calendar, Clock, Hash, Flag, CheckCircle2, CircleDashed, Loader, Map, Zap } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
-import { useTaskStore, usePlanStore } from '@/store/store'
+import { useTaskStore, usePlanStore, useSprintStore } from '@/store/store'
 import type { Task, Project, TaskStatus, TaskPriority } from '@/types'
 import Segmented from '@/components/ui/Segmented'
 import Field from '@/components/ui/Field'
@@ -34,6 +34,7 @@ export default function TaskDrawer({ task, project, onClose }: TaskDrawerProps) 
   const { updateTask, deleteTask } = useTaskStore()
   const plans = usePlanStore(useShallow((s) => s.plans.filter((p) => p.projectId === project?.id).sort((a, b) => a.order - b.order)))
   const projectPhases = usePlanStore(useShallow((s) => s.phases.filter((p) => p.projectId === project?.id).sort((a, b) => a.order - b.order)))
+  const sprints = useSprintStore(useShallow((s) => s.sprints.filter((sp) => sp.projectId === project?.id).sort((a, b) => a.order - b.order)))
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
@@ -118,6 +119,24 @@ export default function TaskDrawer({ task, project, onClose }: TaskDrawerProps) 
               </div>
             )}
           </section>
+
+          {/* Sprint */}
+          {sprints.length > 0 && (
+            <section>
+              <div className="drawer-section__title"><span className="inline-flex items-center gap-1.5"><Zap size={11} />السبرنت</span></div>
+              <select
+                value={task.sprintId ?? ''}
+                onChange={(e) => set({ sprintId: e.target.value || undefined })}
+                className="w-full text-sm px-3 py-2.5 outline-none"
+                style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', color: 'var(--fg-1)' }}
+              >
+                <option value="">الباكلوج (بدون سبرنت)</option>
+                {sprints.map((sp) => (
+                  <option key={sp.id} value={sp.id}>{sp.name}</option>
+                ))}
+              </select>
+            </section>
+          )}
 
           {/* Linked phase + milestone */}
           {projectPhases.length > 0 && (

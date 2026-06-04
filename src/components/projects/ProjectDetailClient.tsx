@@ -1,26 +1,28 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, Edit2, Trash2, LayoutDashboard, Map, CheckSquare, FileText, Calendar, Clock } from 'lucide-react'
+import { ArrowRight, Edit2, Trash2, LayoutDashboard, Package, TrendingUp, Zap, FileText, Calendar, Clock } from 'lucide-react'
 import Link from 'next/link'
 import StatusBadge from '@/components/shared/StatusBadge'
 import ProjectForm from '@/components/projects/ProjectForm'
 import OverviewTab from '@/components/projects/tabs/OverviewTab'
-import PlanTab from '@/components/projects/tabs/PlanTab'
-import TasksTab from '@/components/projects/tabs/TasksTab'
+import ProductTab from '@/components/projects/tabs/ProductTab'
+import GrowthTab from '@/components/projects/tabs/GrowthTab'
+import ExecutionTab from '@/components/projects/tabs/ExecutionTab'
 import NotesTab from '@/components/projects/tabs/NotesTab'
-import { useProjectStore, useTaskStore, usePlanStore, useNoteStore } from '@/store/store'
+import { useProjectStore, useTaskStore, usePlanStore, useNoteStore, useSprintStore } from '@/store/store'
 import { useShallow } from 'zustand/shallow'
 import ProjectIcon from '@/lib/icons'
 import { hexToRgba, formatDateAr } from '@/lib/utils'
 
-type Tab = 'overview' | 'plan' | 'tasks' | 'notes'
+type Tab = 'overview' | 'product' | 'growth' | 'execution' | 'notes'
 
 const TABS: { id: Tab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
-  { id: 'overview', label: 'نظرة عامة', icon: LayoutDashboard },
-  { id: 'plan',     label: 'الخطة',     icon: Map             },
-  { id: 'tasks',    label: 'المهام',    icon: CheckSquare     },
-  { id: 'notes',    label: 'الملاحظات', icon: FileText        },
+  { id: 'overview',  label: 'نظرة عامة', icon: LayoutDashboard },
+  { id: 'product',   label: 'المنتج',    icon: Package         },
+  { id: 'growth',    label: 'النمو',     icon: TrendingUp      },
+  { id: 'execution', label: 'التنفيذ',   icon: Zap             },
+  { id: 'notes',     label: 'الملاحظات', icon: FileText        },
 ]
 
 interface Props {
@@ -42,6 +44,7 @@ export default function ProjectDetailClient({ id }: Props) {
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     })
   ))
+  const sprints = useSprintStore(useShallow((s) => s.sprints.filter((sp) => sp.projectId === id)))
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [showEdit, setShowEdit] = useState(false)
   const [hydrated, setHydrated] = useState(false)
@@ -84,12 +87,12 @@ export default function ProjectDetailClient({ id }: Props) {
   }
 
   const doneTasks = tasks.filter((t) => t.status === 'done').length
-  const donePhases = phases.filter((ph) => ph.status === 'completed').length
+  const activeSprints = sprints.filter((sp) => sp.status === 'active').length
 
   const stats = [
     { label: 'التقدم',   value: `${project.progress}%` },
     { label: 'المهام',   value: `${doneTasks}/${tasks.length}` },
-    { label: 'المراحل',  value: `${donePhases}/${phases.length}` },
+    { label: 'السبرنتات', value: `${activeSprints}/${sprints.length}` },
     { label: 'الملاحظات', value: `${notes.length}` },
   ]
 
@@ -230,7 +233,7 @@ export default function ProjectDetailClient({ id }: Props) {
                 >
                   <Icon size={14} />
                   {label}
-                  {tabId === 'tasks' && tasks.length > 0 && (
+                  {tabId === 'execution' && tasks.length > 0 && (
                     <span
                       className="axis-num text-xs px-1.5 rounded-full font-semibold"
                       style={{
@@ -250,10 +253,11 @@ export default function ProjectDetailClient({ id }: Props) {
 
       {/* Tab content */}
       <div>
-        {activeTab === 'overview' && <OverviewTab project={project} tasks={tasks} phases={phases} />}
-        {activeTab === 'plan'     && <PlanTab     project={project} phases={phases} />}
-        {activeTab === 'tasks'    && <TasksTab    project={project} tasks={tasks} />}
-        {activeTab === 'notes'    && <NotesTab    project={project} notes={notes} />}
+        {activeTab === 'overview'  && <OverviewTab  project={project} tasks={tasks} phases={phases} />}
+        {activeTab === 'product'   && <ProductTab   project={project} phases={phases} />}
+        {activeTab === 'growth'    && <GrowthTab    project={project} phases={phases} />}
+        {activeTab === 'execution' && <ExecutionTab project={project} tasks={tasks} />}
+        {activeTab === 'notes'     && <NotesTab     project={project} notes={notes} />}
       </div>
 
       {showEdit && <ProjectForm onClose={() => setShowEdit(false)} initialData={project} />}

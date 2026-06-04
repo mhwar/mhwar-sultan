@@ -130,7 +130,7 @@ export default function OverviewTab({ project, tasks, phases }: OverviewTabProps
             { label: 'الحالة',       value: <StatusBadge status={project.status} size="sm" /> },
             { label: 'الفئة',        value: project.category || '—', icon: <Layers size={12} /> },
             { label: 'المهام',        value: `${doneTasks} / ${tasks.length} منجزة` },
-            { label: 'مراحل الخطة',   value: `${donePhases} / ${phases.length} مكتملة` },
+            { label: 'المراحل',       value: `${donePhases} / ${phases.length} مكتملة` },
             { label: 'تاريخ الإنشاء', value: formatDateAr(project.createdAt), icon: <Calendar size={12} /> },
             { label: 'آخر تحديث',    value: formatDateAr(project.updatedAt), icon: <Calendar size={12} /> },
           ].map((row) => (

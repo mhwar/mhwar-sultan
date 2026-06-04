@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, ProjectStatus, Feature } from '@/types'
-import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES } from '@/lib/seed-data'
+import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, Feature, Sprint, SprintStatus } from '@/types'
+import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES, SEED_SPRINTS } from '@/lib/seed-data'
+import { domainForKind } from '@/lib/plan-kinds'
 import { generateId, now } from '@/lib/utils'
 
 // ── Project Store ─────────────────────────────────────────
@@ -91,7 +92,7 @@ export const useTaskStore = create<TaskStore>()(
 interface PlanStore {
   plans: Plan[]
   phases: PlanPhase[]
-  addPlan: (projectId: string, name: string, icon?: string, view?: 'timeline' | 'board', kind?: Plan['kind']) => string
+  addPlan: (projectId: string, name: string, icon?: string, view?: 'timeline' | 'board', kind?: Plan['kind'], domain?: Plan['domain']) => string
   renamePlan: (id: string, name: string) => void
   updatePlan: (id: string, data: Partial<Plan>) => void
   deletePlan: (id: string) => void
@@ -116,11 +117,11 @@ export const usePlanStore = create<PlanStore>()(
       plans: SEED_PLANS,
       phases: SEED_PHASES,
 
-      addPlan: (projectId, name, icon, view, kind) => {
+      addPlan: (projectId, name, icon, view, kind, domain) => {
         const id = generateId()
         set((s) => {
           const order = s.plans.filter((p) => p.projectId === projectId).length + 1
-          return { plans: [...s.plans, { id, projectId, name, icon, view, kind, order, createdAt: now() }] }
+          return { plans: [...s.plans, { id, projectId, name, icon, view, kind, domain: domain ?? domainForKind(kind), order, createdAt: now() }] }
         })
         return id
       },
@@ -131,11 +132,21 @@ export const usePlanStore = create<PlanStore>()(
       updatePlan: (id, data) =>
         set((s) => ({ plans: s.plans.map((p) => (p.id === id ? { ...p, ...data } : p)) })),
 
-      deletePlan: (id) =>
+      deletePlan: (id) => {
+        const removedPhaseIds = get().phases.filter((ph) => ph.planId === id).map((ph) => ph.id)
         set((s) => ({
           plans: s.plans.filter((p) => p.id !== id),
           phases: s.phases.filter((ph) => ph.planId !== id),
-        })),
+        }))
+        // Clear dangling links on tasks that pointed at the removed phases
+        if (removedPhaseIds.length) {
+          useTaskStore.setState((ts) => ({
+            tasks: ts.tasks.map((t) =>
+              t.phaseId && removedPhaseIds.includes(t.phaseId) ? { ...t, phaseId: undefined, milestoneId: undefined } : t
+            ),
+          }))
+        }
+      },
 
       reorderPlans: (orderedIds) =>
         set((s) => {
@@ -160,8 +171,13 @@ export const usePlanStore = create<PlanStore>()(
           phases: s.phases.map((ph) => (ph.id === id ? { ...ph, ...data } : ph)),
         })),
 
-      deletePhase: (id) =>
-        set((s) => ({ phases: s.phases.filter((ph) => ph.id !== id) })),
+      deletePhase: (id) => {
+        set((s) => ({ phases: s.phases.filter((ph) => ph.id !== id) }))
+        // Clear dangling links on tasks that pointed at the removed phase
+        useTaskStore.setState((ts) => ({
+          tasks: ts.tasks.map((t) => (t.phaseId === id ? { ...t, phaseId: undefined, milestoneId: undefined } : t)),
+        }))
+      },
 
       toggleMilestone: (phaseId, milestoneId) => {
         set((s) => ({
@@ -244,9 +260,11 @@ export const usePlanStore = create<PlanStore>()(
     }),
     {
       name: 'mhwar-plans',
-      version: 2,
+      version: 3,
       skipHydration: true,
-      // v1 → v2: introduce named plans; assign each legacy phase to a default plan
+      // Cumulative migrations (each `version < N` branch runs in order):
+      //   v1 → v2: introduce named plans; assign each legacy phase to a default plan
+      //   v2 → v3: tag each plan with a workspace domain; re-home any orphan phase
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { plans?: Plan[]; phases?: PlanPhase[] } | undefined
         if (!state) return state as never
@@ -271,11 +289,182 @@ export const usePlanStore = create<PlanStore>()(
           state.plans = plans
           state.phases = phases
         }
+        if (version < 3) {
+          const plans = state.plans ?? []
+          const phases = state.phases ?? []
+          // Tag domain by kind (agile plans get a fallback; they're removed by bootstrapSprints)
+          for (const p of plans) {
+            if (!p.domain) p.domain = domainForKind(p.kind)
+          }
+          // Re-home orphan phases to their project's first plan so they never
+          // appear in two workspace tabs (or vanish) after domain filtering.
+          const firstPlanByProject: Record<string, string> = {}
+          for (const p of [...plans].sort((a, b) => a.order - b.order)) {
+            if (p.projectId && !firstPlanByProject[p.projectId]) firstPlanByProject[p.projectId] = p.id
+          }
+          for (const ph of phases) {
+            if (!ph.planId && ph.projectId && firstPlanByProject[ph.projectId]) {
+              ph.planId = firstPlanByProject[ph.projectId]
+            }
+          }
+          state.plans = plans
+          state.phases = phases
+        }
         return state as never
       },
     }
   )
 )
+
+// ── Sprint Store ──────────────────────────────────────────
+interface SprintStore {
+  sprints: Sprint[]
+  /** One-time flag: have legacy `agile` plans been migrated into sprints? */
+  migratedAgile: boolean
+  addSprint: (projectId: string, name: string, data?: Partial<Omit<Sprint, 'id' | 'projectId' | 'name' | 'createdAt'>>) => string
+  updateSprint: (id: string, data: Partial<Sprint>) => void
+  deleteSprint: (id: string) => void
+  reorderSprints: (orderedIds: string[]) => void
+  getProjectSprints: (projectId: string) => Sprint[]
+}
+
+export const useSprintStore = create<SprintStore>()(
+  persist(
+    (set, get) => ({
+      sprints: SEED_SPRINTS,
+      // Starts false so bootstrapSprints runs once per browser. Fresh installs
+      // (no agile plans) simply flip it to true with no other changes.
+      migratedAgile: false,
+
+      addSprint: (projectId, name, data) => {
+        const id = generateId()
+        set((s) => {
+          const order = s.sprints.filter((sp) => sp.projectId === projectId).length + 1
+          return { sprints: [...s.sprints, { id, projectId, name, status: 'planned', order, createdAt: now(), ...data }] }
+        })
+        return id
+      },
+
+      updateSprint: (id, data) =>
+        set((s) => ({ sprints: s.sprints.map((sp) => (sp.id === id ? { ...sp, ...data } : sp)) })),
+
+      deleteSprint: (id) => {
+        set((s) => ({ sprints: s.sprints.filter((sp) => sp.id !== id) }))
+        // Detach tasks rather than deleting them — they fall back to the Backlog
+        useTaskStore.setState((ts) => ({
+          tasks: ts.tasks.map((t) => (t.sprintId === id ? { ...t, sprintId: undefined } : t)),
+        }))
+      },
+
+      reorderSprints: (orderedIds) =>
+        set((s) => {
+          const map: Record<string, number> = Object.fromEntries(orderedIds.map((id, i) => [id, i + 1]))
+          return { sprints: s.sprints.map((sp) => (map[sp.id] ? { ...sp, order: map[sp.id] } : sp)) }
+        }),
+
+      getProjectSprints: (projectId) =>
+        get()
+          .sprints.filter((sp) => sp.projectId === projectId)
+          .sort((a, b) => a.order - b.order),
+    }),
+    { name: 'mhwar-sprints', version: 1, skipHydration: true }
+  )
+)
+
+const SPRINT_STATUS_FROM_PHASE: Record<PlanPhase['status'], SprintStatus> = {
+  upcoming: 'planned',
+  'in-progress': 'active',
+  completed: 'completed',
+}
+
+/**
+ * One-time, idempotent migration of legacy `kind:'agile'` plans into the new
+ * first-class Sprint model. Runs after all stores have rehydrated (invoked from
+ * StoreHydration). No-op when there are no agile plans or it has already run.
+ */
+export function bootstrapSprints() {
+  if (useSprintStore.getState().migratedAgile) return
+
+  const agilePlans = usePlanStore.getState().plans.filter((p) => p.kind === 'agile')
+  if (agilePlans.length === 0) {
+    useSprintStore.setState({ migratedAgile: true })
+    return
+  }
+
+  const allPhases = usePlanStore.getState().phases
+  const newSprints: Sprint[] = []
+  const removedPhaseIds = new Set<string>()
+  // taskId -> sprintId assignment; built up then applied in one pass
+  const taskSprint: Record<string, string> = {}
+  const tasksToCreate: Task[] = []
+
+  const orderByProject: Record<string, number> = {}
+  for (const plan of agilePlans) {
+    const phases = allPhases.filter((ph) => ph.planId === plan.id).sort((a, b) => a.order - b.order)
+    for (const ph of phases) {
+      removedPhaseIds.add(ph.id)
+      const sprintId = generateId()
+      orderByProject[ph.projectId] = (orderByProject[ph.projectId] ?? 0) + 1
+      newSprints.push({
+        id: sprintId,
+        projectId: ph.projectId,
+        name: ph.title,
+        goal: ph.objective,
+        startDate: ph.startDate,
+        dueDate: ph.dueDate,
+        status: SPRINT_STATUS_FROM_PHASE[ph.status],
+        order: orderByProject[ph.projectId],
+        createdAt: now(),
+      })
+
+      const existingTasks = useTaskStore.getState().tasks
+      for (const m of ph.milestones) {
+        // Reuse an existing linked task if one was already sent to execution
+        const linked = existingTasks.find((t) => t.milestoneId === m.id)
+        if (linked) {
+          taskSprint[linked.id] = sprintId
+        } else {
+          tasksToCreate.push({
+            id: generateId(),
+            projectId: ph.projectId,
+            sprintId,
+            title: m.title,
+            status: m.done ? 'done' : 'todo',
+            priority: 'medium',
+            startDate: ph.startDate,
+            dueDate: ph.dueDate,
+            createdAt: now(),
+          })
+        }
+      }
+      // Any other task pointing at this phase joins the sprint too
+      for (const t of existingTasks) {
+        if (t.phaseId === ph.id) taskSprint[t.id] = sprintId
+      }
+    }
+  }
+
+  // Apply task changes: assign sprintId, clear now-dangling phase/milestone refs
+  useTaskStore.setState((ts) => ({
+    tasks: [
+      ...ts.tasks.map((t) =>
+        taskSprint[t.id]
+          ? { ...t, sprintId: taskSprint[t.id], phaseId: undefined, milestoneId: undefined }
+          : t
+      ),
+      ...tasksToCreate,
+    ],
+  }))
+
+  // Remove the agile plans and their phases
+  const agileIds = new Set(agilePlans.map((p) => p.id))
+  usePlanStore.setState((ps) => ({
+    plans: ps.plans.filter((p) => !agileIds.has(p.id)),
+    phases: ps.phases.filter((ph) => !removedPhaseIds.has(ph.id)),
+  }))
+
+  useSprintStore.setState((s) => ({ sprints: [...s.sprints, ...newSprints], migratedAgile: true }))
+}
 
 // ── Note Store ────────────────────────────────────────────
 interface NoteStore {

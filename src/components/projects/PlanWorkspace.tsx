@@ -1,26 +1,31 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Plus, Check, Map, ChevronDown, ChevronUp, Trash2, Pencil, X, ArrowUp, ArrowDown, ChevronRight, ChevronLeft, Rows3, Columns3, ChevronsDownUp, ChevronsUpDown, Link2, MoreVertical, Calendar, Target, Send, Rocket, PanelRight } from 'lucide-react'
+import { Plus, Check, Map, ChevronDown, ChevronUp, Trash2, Pencil, X, ArrowUp, ArrowDown, ChevronRight, ChevronLeft, Rows3, Columns3, ChevronsDownUp, ChevronsUpDown, Link2, MoreVertical, Calendar, Target, Rocket, PanelRight } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import { usePlanStore, useTaskStore } from '@/store/store'
-import type { Project, PlanPhase, PhaseStatus } from '@/types'
+import type { Project, PlanPhase, PhaseStatus, PlanDomain } from '@/types'
 import EmptyState from '@/components/shared/EmptyState'
 import Button from '@/components/ui/Button'
 import Segmented from '@/components/ui/Segmented'
 import Field from '@/components/ui/Field'
 import { PlanIcon } from '@/lib/icons'
 import { PLAN_TEMPLATES, type PlanTemplate } from '@/lib/plan-templates'
-import { planKindMeta } from '@/lib/plan-kinds'
+import { planKindMeta, domainForKind } from '@/lib/plan-kinds'
 import { PHASE_STATUS_LABELS, TASK_STATUS_VAR, generateId, formatDateShort } from '@/lib/utils'
 import PhaseDrawer from '@/components/projects/PhaseDrawer'
+import SendToSprintMenu from '@/components/projects/SendToSprintMenu'
 
 const PHASE_COLUMNS: PhaseStatus[] = ['upcoming', 'in-progress', 'completed']
 const toDateInput = (iso?: string) => (iso ? iso.slice(0, 10) : '')
 const fromDateInput = (v: string) => (v ? `${v}T00:00:00Z` : undefined)
 
-interface PlanTabProps {
+interface PlanWorkspaceProps {
   project: Project
   phases: PlanPhase[]
+  domain: PlanDomain
+  /** Empty-state copy shown when this domain has no plans yet. */
+  emptyTitle: string
+  emptyDescription: string
 }
 
 const PHASE_STATUS_COLORS: Record<string, { dot: string; badge: string; badgeText: string }> = {
@@ -35,15 +40,10 @@ function PhaseCard({ phase, project, onMove, isFirst, isLast, expanded, onToggle
   const [showStatus, setShowStatus] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const { toggleMilestone, addMilestone, deletePhase, updatePhase } = usePlanStore()
-  const addTask = useTaskStore((s) => s.addTask)
   const linkedTasks = useTaskStore(useShallow((s) => s.tasks.filter((t) => t.phaseId === phase.id)))
 
-  const sendToExecution = (m: { id: string; title: string }) =>
-    addTask({ projectId: project.id, phaseId: phase.id, milestoneId: m.id, title: m.title, status: 'todo', priority: 'medium', startDate: phase.startDate, dueDate: phase.dueDate })
   const colors = PHASE_STATUS_COLORS[phase.status]
   const doneMilestones = phase.milestones.filter((m) => m.done).length
-  // Combined progress: milestones + standalone linked tasks (tasks tied to a
-  // milestone are represented by that milestone to avoid double-counting).
   const standaloneTasks = linkedTasks.filter((t) => !t.milestoneId)
   const totalUnits = phase.milestones.length + standaloneTasks.length
   const doneUnits = doneMilestones + standaloneTasks.filter((t) => t.status === 'done').length
@@ -192,19 +192,14 @@ function PhaseCard({ phase, project, onMove, isFirst, isLast, expanded, onToggle
                   <span className="text-sm flex-1" style={{ color: milestone.done ? 'var(--fg-3)' : 'var(--fg-2)', textDecoration: milestone.done ? 'line-through' : 'none' }}>
                     {milestone.title}
                   </span>
-                  {mCount > 0 ? (
+                  {mCount > 0 && (
                     <span className="inline-flex items-center gap-1 axis-num text-xs px-1.5 py-0.5 rounded-full shrink-0" style={{ background: 'var(--surface-2)', color: 'var(--fg-3)' }} title="مهام مرتبطة">
                       <Link2 size={11} />{mCount}
                     </span>
-                  ) : (
-                    <button
-                      onClick={() => sendToExecution(milestone)}
-                      className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                      title="أرسل للتنفيذ (إنشاء مهمة)"
-                    >
-                      <Send size={12} />
-                    </button>
                   )}
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <SendToSprintMenu projectId={project.id} title={milestone.title} phaseId={phase.id} milestoneId={milestone.id} done={milestone.done} />
+                  </div>
                 </div>
               )
             })}
@@ -249,32 +244,21 @@ function PhaseCard({ phase, project, onMove, isFirst, isLast, expanded, onToggle
   )
 }
 
-const PHASE_STATUS_COLORS_BOARD: Record<string, { dot: string; badge: string; badgeText: string }> = {
-  completed:     { dot: 'var(--color-status-active)', badge: 'color-mix(in srgb, var(--color-status-active) 12%, transparent)', badgeText: 'var(--color-status-active)' },
-  'in-progress': { dot: 'var(--color-status-paused)', badge: 'color-mix(in srgb, var(--color-status-paused) 12%, transparent)', badgeText: 'var(--color-status-paused)' },
-  upcoming:      { dot: 'var(--color-text-muted)',    badge: 'var(--color-surface-muted)',                                     badgeText: 'var(--color-text-muted)' },
-}
-
 /* ── Compact card for the board view ── */
 function PhaseBoardCard({ phase, project, onOpen }: { phase: PlanPhase; project: Project; onOpen: () => void }) {
-  const { updatePhase, deletePhase } = usePlanStore()
+  const { updatePhase } = usePlanStore()
   const [showStatus, setShowStatus] = useState(false)
   const linkedTasks = useTaskStore(useShallow((s) => s.tasks.filter((t) => t.phaseId === phase.id)))
   const standalone = linkedTasks.filter((t) => !t.milestoneId)
   const total = phase.milestones.length + standalone.length
   const done = phase.milestones.filter((m) => m.done).length + standalone.filter((t) => t.status === 'done').length
   const pct = total ? Math.round((done / total) * 100) : 0
-  const colors = PHASE_STATUS_COLORS_BOARD[phase.status]
+  const colors = PHASE_STATUS_COLORS[phase.status]
 
   return (
     <div className="board-card group">
       <div className="board-card__head">
-        <button
-          className="board-card__title text-start flex-1"
-          style={{ cursor: 'pointer' }}
-          onClick={onOpen}
-          title="فتح التفاصيل"
-        >
+        <button className="board-card__title text-start flex-1" style={{ cursor: 'pointer' }} onClick={onOpen} title="فتح التفاصيل">
           {phase.title}
         </button>
         <button onClick={onOpen} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost opacity-0 group-hover:opacity-100 transition-opacity" aria-label="فتح التفاصيل">
@@ -312,7 +296,7 @@ function PhaseBoardCard({ phase, project, onOpen }: { phase: PlanPhase; project:
             <div className="absolute start-0 top-8 z-20 axis-menu" style={{ minWidth: 150 }}>
               {PHASE_COLUMNS.map((s) => (
                 <button key={s} className="axis-menu__item" onClick={() => { updatePhase(phase.id, { status: s }); setShowStatus(false) }}>
-                  <span className="w-2 h-2 rounded-full" style={{ background: PHASE_STATUS_COLORS_BOARD[s].dot }} />
+                  <span className="w-2 h-2 rounded-full" style={{ background: PHASE_STATUS_COLORS[s].dot }} />
                   <span>{PHASE_STATUS_LABELS[s]}</span>
                   {phase.status === s && <Check size={13} style={{ color: 'var(--iris-500)' }} />}
                 </button>
@@ -325,9 +309,15 @@ function PhaseBoardCard({ phase, project, onOpen }: { phase: PlanPhase; project:
   )
 }
 
-export default function PlanTab({ project, phases }: PlanTabProps) {
-  const plans = usePlanStore(useShallow((s) => s.plans.filter((p) => p.projectId === project.id).sort((a, b) => a.order - b.order)))
+export default function PlanWorkspace({ project, phases, domain, emptyTitle, emptyDescription }: PlanWorkspaceProps) {
+  const plans = usePlanStore(useShallow((s) =>
+    s.plans
+      .filter((p) => p.projectId === project.id && (p.domain ?? domainForKind(p.kind)) === domain)
+      .sort((a, b) => a.order - b.order)
+  ))
   const { addPlan, renamePlan, updatePlan, deletePlan, reorderPlans, addPhase, reorderPhases } = usePlanStore()
+
+  const templates = PLAN_TEMPLATES.filter((t) => t.kind !== 'agile' && (t.id === 'blank' || (t.domain ?? domainForKind(t.kind)) === domain))
 
   const [activePlanId, setActivePlanId] = useState<string | null>(null)
   const [showTemplates, setShowTemplates] = useState(false)
@@ -343,11 +333,12 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
   const [statusFilter, setStatusFilter] = useState<PhaseStatus | 'all'>('all')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
-  // Keep an active plan selected
+  // Keep an active plan selected (within this domain's plans)
   useEffect(() => {
     if (plans.length && (!activePlanId || !plans.find((p) => p.id === activePlanId))) {
       setActivePlanId(plans[0].id)
     }
+    if (!plans.length) setActivePlanId(null)
   }, [plans, activePlanId])
 
   // Adopt the active plan's preferred view when switching
@@ -363,7 +354,7 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
         <button onClick={() => setShowTemplates(false)} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost" aria-label="إغلاق"><X size={15} /></button>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {PLAN_TEMPLATES.map((tpl) => (
+        {templates.map((tpl) => (
           <button
             key={tpl.id}
             onClick={() => createFromTemplate(tpl)}
@@ -382,8 +373,7 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
     </div>
   )
 
-  const isFirst = plans[0]?.id === activePlanId
-  const planPhases = phases.filter((ph) => ph.planId === activePlanId || (isFirst && !ph.planId))
+  const planPhases = phases.filter((ph) => ph.planId === activePlanId)
   const activePlan = plans.find((p) => p.id === activePlanId)
   const kindMeta = planKindMeta(activePlan?.kind)
   const launchCountdown = activePlan?.kind === 'launch' && activePlan.targetDate
@@ -400,7 +390,7 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
   const togglePhase = (id: string) => setCollapsed((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
 
   const createFromTemplate = (tpl: PlanTemplate) => {
-    const id = addPlan(project.id, tpl.name, tpl.icon, tpl.defaultView, tpl.kind)
+    const id = addPlan(project.id, tpl.name, tpl.icon, tpl.defaultView, tpl.kind, domain)
     tpl.phases.forEach((ph, i) =>
       addPhase({
         projectId: project.id,
@@ -451,13 +441,13 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
     setShowAddPhase(false)
   }
 
-  // No plans yet
+  // No plans yet in this domain
   if (plans.length === 0) {
     return showTemplates ? <TemplatePicker /> : (
       <EmptyState
         icon={Map}
-        title="لا توجد خطط بعد"
-        description="ابدأ بقالب جاهز: خارطة الطريق، التسويق، المبيعات، المحتوى…"
+        title={emptyTitle}
+        description={emptyDescription}
         action={<Button variant="primary" size="md" onClick={() => setShowTemplates(true)}>إنشاء خطة</Button>}
       />
     )
@@ -508,15 +498,13 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
             <button onClick={() => { setRenaming(true); setRenameVal(activePlan.name) }} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost" aria-label="إعادة تسمية">
               <Pencil size={13} />
             </button>
-            {plans.length > 1 && (
-              <button
-                onClick={() => { if (confirm(`حذف خطة "${activePlan.name}" وكل مراحلها؟`)) deletePlan(activePlan.id) }}
-                className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost"
-                aria-label="حذف الخطة"
-              >
-                <Trash2 size={13} />
-              </button>
-            )}
+            <button
+              onClick={() => { if (confirm(`حذف خطة "${activePlan.name}" وكل مراحلها؟`)) deletePlan(activePlan.id) }}
+              className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost"
+              aria-label="حذف الخطة"
+            >
+              <Trash2 size={13} />
+            </button>
           </div>
         )}
       </div>

@@ -1,4 +1,4 @@
-import type { PhaseStatus, PlanKind } from '@/types'
+import type { PhaseStatus, PlanKind, PlanDomain } from '@/types'
 
 export interface TemplatePhase {
   title: string
@@ -13,6 +13,7 @@ export interface PlanTemplate {
   name: string
   icon: string
   kind: PlanKind
+  domain?: PlanDomain
   description: string
   defaultView: 'timeline' | 'board'
   phases: TemplatePhase[]
@@ -23,6 +24,7 @@ export const PLAN_TEMPLATES: PlanTemplate[] = [
   {
     id: 'roadmap',
     kind: 'roadmap',
+    domain: 'product',
     name: 'خارطة الطريق',
     icon: 'route',
     description: 'مراحل تطور المنتج من التأسيس حتى التوسّع',
@@ -37,6 +39,7 @@ export const PLAN_TEMPLATES: PlanTemplate[] = [
   {
     id: 'marketing',
     kind: 'content',
+    domain: 'growth',
     name: 'خطة التسويق',
     icon: 'megaphone',
     description: 'من أبحاث السوق حتى قياس الحملات',
@@ -51,6 +54,7 @@ export const PLAN_TEMPLATES: PlanTemplate[] = [
   {
     id: 'sales',
     kind: 'custom',
+    domain: 'growth',
     name: 'خطة المبيعات',
     icon: 'trending-up',
     description: 'بناء قمع المبيعات والإغلاق والاحتفاظ',
@@ -65,6 +69,7 @@ export const PLAN_TEMPLATES: PlanTemplate[] = [
   {
     id: 'content',
     kind: 'content',
+    domain: 'growth',
     name: 'خطة المحتوى',
     icon: 'file-text',
     description: 'التخطيط والإنتاج والنشر والتحليل',
@@ -92,6 +97,7 @@ export const PLAN_TEMPLATES: PlanTemplate[] = [
   {
     id: 'launch',
     kind: 'launch',
+    domain: 'growth',
     name: 'خطة الإطلاق',
     icon: 'rocket',
     description: 'تجهيز وإطلاق ومتابعة ما بعد الإطلاق مع تاريخ مستهدف',
@@ -105,6 +111,7 @@ export const PLAN_TEMPLATES: PlanTemplate[] = [
   {
     id: 'course',
     kind: 'course',
+    domain: 'product',
     name: 'دورة / سيركل',
     icon: 'book',
     description: 'وحدات تعليمية متسلسلة بمخرجات لكل وحدة',
@@ -118,6 +125,7 @@ export const PLAN_TEMPLATES: PlanTemplate[] = [
   {
     id: 'product',
     kind: 'product',
+    domain: 'product',
     name: 'خطة المنتج',
     icon: 'layers',
     description: 'اكتشاف وتصميم وبناء وشحن الميزات',
