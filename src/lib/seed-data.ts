@@ -1,9 +1,9 @@
 import type { Project, Task, Plan, PlanPhase, Note } from '@/types'
 
 export const SEED_PLANS: Plan[] = [
-  { id: 'pl-mehwar', projectId: 'mehwar', name: 'خطة المراحل', order: 1, createdAt: '2026-01-01T00:00:00Z' },
-  { id: 'pl-mellasaq', projectId: 'mellasaq', name: 'خطة المراحل', order: 1, createdAt: '2026-03-01T00:00:00Z' },
-  { id: 'pl-bawsala', projectId: 'bawsala', name: 'خطة المراحل', order: 1, createdAt: '2026-02-01T00:00:00Z' },
+  { id: 'pl-mehwar', projectId: 'mehwar', name: 'خارطة الطريق', icon: 'route', view: 'timeline', order: 1, createdAt: '2026-01-01T00:00:00Z' },
+  { id: 'pl-mellasaq', projectId: 'mellasaq', name: 'خارطة الطريق', icon: 'route', view: 'timeline', order: 1, createdAt: '2026-03-01T00:00:00Z' },
+  { id: 'pl-bawsala', projectId: 'bawsala', name: 'خارطة الطريق', icon: 'route', view: 'timeline', order: 1, createdAt: '2026-02-01T00:00:00Z' },
 ]
 
 export const SEED_PROJECTS: Project[] = [
