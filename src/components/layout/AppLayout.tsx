@@ -1,7 +1,8 @@
 'use client'
 import { useState } from 'react'
-import { Menu } from 'lucide-react'
+import { Menu, Search } from 'lucide-react'
 import AppSidebar from './AppSidebar'
+import CommandPalette from '@/components/shared/CommandPalette'
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -12,6 +13,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="flex h-dvh overflow-hidden" style={{ background: 'var(--color-surface-base)' }}>
+      <CommandPalette />
       <AppSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <main className="flex-1 overflow-y-auto min-w-0">
@@ -33,17 +35,28 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </div>
             <span className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>محور</span>
           </div>
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
-            style={{
-              background: 'var(--surface-2)',
-              border: '1px solid var(--border-subtle)',
-              color: 'var(--color-text-secondary)',
-            }}
-          >
-            <Menu size={17} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.dispatchEvent(new Event('open-command-palette'))}
+              className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--color-text-secondary)' }}
+              aria-label="بحث"
+            >
+              <Search size={16} />
+            </button>
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
+              style={{
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--color-text-secondary)',
+              }}
+              aria-label="القائمة"
+            >
+              <Menu size={17} />
+            </button>
+          </div>
         </div>
 
         {children}
