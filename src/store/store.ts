@@ -62,10 +62,18 @@ export const useTaskStore = create<TaskStore>()(
           tasks: [...s.tasks, { ...data, id: generateId(), createdAt: now() }],
         })),
 
-      updateTask: (id, data) =>
+      updateTask: (id, data) => {
         set((s) => ({
           tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...data } : t)),
-        })),
+        }))
+        // Two-way sync: a linked task reaching/leaving "done" ticks its milestone
+        if (data.status !== undefined) {
+          const t = get().tasks.find((x) => x.id === id)
+          if (t?.phaseId && t.milestoneId) {
+            usePlanStore.getState().setMilestoneDone(t.phaseId, t.milestoneId, t.status === 'done')
+          }
+        }
+      },
 
       deleteTask: (id) =>
         set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
@@ -93,6 +101,7 @@ interface PlanStore {
   updatePhase: (id: string, data: Partial<PlanPhase>) => void
   deletePhase: (id: string) => void
   toggleMilestone: (phaseId: string, milestoneId: string) => void
+  setMilestoneDone: (phaseId: string, milestoneId: string, done: boolean) => void
   addMilestone: (phaseId: string, title: string) => void
   getProjectPhases: (projectId: string) => PlanPhase[]
 }
@@ -147,7 +156,7 @@ export const usePlanStore = create<PlanStore>()(
       deletePhase: (id) =>
         set((s) => ({ phases: s.phases.filter((ph) => ph.id !== id) })),
 
-      toggleMilestone: (phaseId, milestoneId) =>
+      toggleMilestone: (phaseId, milestoneId) => {
         set((s) => ({
           phases: s.phases.map((ph) =>
             ph.id === phaseId
@@ -157,6 +166,24 @@ export const usePlanStore = create<PlanStore>()(
                     m.id === milestoneId ? { ...m, done: !m.done } : m
                   ),
                 }
+              : ph
+          ),
+        }))
+        // Two-way sync: drive linked tasks' status from the milestone state
+        const m = get().phases.find((p) => p.id === phaseId)?.milestones.find((x) => x.id === milestoneId)
+        if (m) {
+          const next: TaskStatus = m.done ? 'done' : 'todo'
+          useTaskStore.setState((ts) => ({
+            tasks: ts.tasks.map((t) => (t.milestoneId === milestoneId ? { ...t, status: next } : t)),
+          }))
+        }
+      },
+
+      setMilestoneDone: (phaseId, milestoneId, done) =>
+        set((s) => ({
+          phases: s.phases.map((ph) =>
+            ph.id === phaseId
+              ? { ...ph, milestones: ph.milestones.map((m) => (m.id === milestoneId ? { ...m, done } : m)) }
               : ph
           ),
         })),

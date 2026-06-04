@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Plus, Check, Map, ChevronDown, ChevronUp, Trash2, Pencil, X, ArrowUp, ArrowDown, ChevronRight, ChevronLeft, Rows3, Columns3, ChevronsDownUp, ChevronsUpDown, Link2, MoreVertical, Calendar, Target } from 'lucide-react'
+import { Plus, Check, Map, ChevronDown, ChevronUp, Trash2, Pencil, X, ArrowUp, ArrowDown, ChevronRight, ChevronLeft, Rows3, Columns3, ChevronsDownUp, ChevronsUpDown, Link2, MoreVertical, Calendar, Target, Send } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import { usePlanStore, useTaskStore } from '@/store/store'
 import type { Project, PlanPhase, PhaseStatus } from '@/types'
@@ -34,7 +34,11 @@ function PhaseCard({ phase, project, onMove, isFirst, isLast, expanded, onToggle
   const [showStatus, setShowStatus] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const { toggleMilestone, addMilestone, deletePhase, updatePhase } = usePlanStore()
+  const addTask = useTaskStore((s) => s.addTask)
   const linkedTasks = useTaskStore(useShallow((s) => s.tasks.filter((t) => t.phaseId === phase.id)))
+
+  const sendToExecution = (m: { id: string; title: string }) =>
+    addTask({ projectId: project.id, phaseId: phase.id, milestoneId: m.id, title: m.title, status: 'todo', priority: 'medium', startDate: phase.startDate, dueDate: phase.dueDate })
   const colors = PHASE_STATUS_COLORS[phase.status]
   const doneMilestones = phase.milestones.filter((m) => m.done).length
   // Combined progress: milestones + standalone linked tasks (tasks tied to a
@@ -179,10 +183,18 @@ function PhaseCard({ phase, project, onMove, isFirst, isLast, expanded, onToggle
                   <span className="text-sm flex-1" style={{ color: milestone.done ? 'var(--fg-3)' : 'var(--fg-2)', textDecoration: milestone.done ? 'line-through' : 'none' }}>
                     {milestone.title}
                   </span>
-                  {mCount > 0 && (
-                    <span className="inline-flex items-center gap-1 axis-num text-xs px-1.5 py-0.5 rounded-full shrink-0" style={{ background: 'var(--surface-2)', color: 'var(--fg-3)' }}>
+                  {mCount > 0 ? (
+                    <span className="inline-flex items-center gap-1 axis-num text-xs px-1.5 py-0.5 rounded-full shrink-0" style={{ background: 'var(--surface-2)', color: 'var(--fg-3)' }} title="مهام مرتبطة">
                       <Link2 size={11} />{mCount}
                     </span>
+                  ) : (
+                    <button
+                      onClick={() => sendToExecution(milestone)}
+                      className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                      title="أرسل للتنفيذ (إنشاء مهمة)"
+                    >
+                      <Send size={12} />
+                    </button>
                   )}
                 </div>
               )
