@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Plus, Check, Map, ChevronDown, ChevronUp, Trash2, Pencil, X, ArrowUp, ArrowDown, ChevronRight, ChevronLeft, Rows3, Columns3, ChevronsDownUp, ChevronsUpDown } from 'lucide-react'
+import { Plus, Check, Map, ChevronDown, ChevronUp, Trash2, Pencil, X, ArrowUp, ArrowDown, ChevronRight, ChevronLeft, Rows3, Columns3, ChevronsDownUp, ChevronsUpDown, Link2 } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import { usePlanStore, useTaskStore } from '@/store/store'
 import type { Project, PlanPhase, PhaseStatus } from '@/types'
@@ -80,20 +80,28 @@ function PhaseCard({ phase, project, onMove, isFirst, isLast, expanded, onToggle
           <div className="p-4 space-y-2">
             {phase.description && <p className="text-xs leading-relaxed mb-3" style={{ color: 'var(--fg-2)' }}>{phase.description}</p>}
 
-            {phase.milestones.map((milestone) => (
-              <div key={milestone.id} className="flex items-center gap-3 group">
-                <button
-                  onClick={() => toggleMilestone(phase.id, milestone.id)}
-                  className="w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-all"
-                  style={{ background: milestone.done ? project.color : 'transparent', borderColor: milestone.done ? project.color : 'var(--border-default)' }}
-                >
-                  {milestone.done && <Check size={11} strokeWidth={3} style={{ color: 'white' }} />}
-                </button>
-                <span className="text-sm flex-1" style={{ color: milestone.done ? 'var(--fg-3)' : 'var(--fg-2)', textDecoration: milestone.done ? 'line-through' : 'none' }}>
-                  {milestone.title}
-                </span>
-              </div>
-            ))}
+            {phase.milestones.map((milestone) => {
+              const mCount = linkedTasks.filter((t) => t.milestoneId === milestone.id).length
+              return (
+                <div key={milestone.id} className="flex items-center gap-3 group">
+                  <button
+                    onClick={() => toggleMilestone(phase.id, milestone.id)}
+                    className="w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-all"
+                    style={{ background: milestone.done ? project.color : 'transparent', borderColor: milestone.done ? project.color : 'var(--border-default)' }}
+                  >
+                    {milestone.done && <Check size={11} strokeWidth={3} style={{ color: 'white' }} />}
+                  </button>
+                  <span className="text-sm flex-1" style={{ color: milestone.done ? 'var(--fg-3)' : 'var(--fg-2)', textDecoration: milestone.done ? 'line-through' : 'none' }}>
+                    {milestone.title}
+                  </span>
+                  {mCount > 0 && (
+                    <span className="inline-flex items-center gap-1 axis-num text-xs px-1.5 py-0.5 rounded-full shrink-0" style={{ background: 'var(--surface-2)', color: 'var(--fg-3)' }}>
+                      <Link2 size={11} />{mCount}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
 
             {/* Add milestone */}
             <div className="flex gap-2 mt-3">

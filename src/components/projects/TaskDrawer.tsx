@@ -49,6 +49,7 @@ export default function TaskDrawer({ task, project, onClose }: TaskDrawerProps) 
 
   const set = (data: Partial<Task>) => updateTask(task.id, data)
   const accent = project?.color ?? 'var(--iris-500)'
+  const selectedPhase = task.phaseId ? projectPhases.find((p) => p.id === task.phaseId) : undefined
 
   const duration = task.startDate && task.dueDate
     ? Math.max(1, Math.round((new Date(task.dueDate).getTime() - new Date(task.startDate).getTime()) / DAY) + 1)
@@ -118,25 +119,44 @@ export default function TaskDrawer({ task, project, onClose }: TaskDrawerProps) 
             )}
           </section>
 
-          {/* Linked phase */}
+          {/* Linked phase + milestone */}
           {projectPhases.length > 0 && (
-            <section>
-              <div className="drawer-section__title"><span className="inline-flex items-center gap-1.5"><Map size={11} />المرحلة المرتبطة</span></div>
-              <select
-                value={task.phaseId ?? ''}
-                onChange={(e) => set({ phaseId: e.target.value || undefined })}
-                className="w-full text-sm px-3 py-2.5 outline-none"
-                style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', color: 'var(--fg-1)' }}
-              >
-                <option value="">بدون مرحلة</option>
-                {plans.map((pl) => (
-                  <optgroup key={pl.id} label={pl.name}>
-                    {projectPhases.filter((ph) => ph.planId === pl.id).map((ph) => (
-                      <option key={ph.id} value={ph.id}>{ph.title}</option>
+            <section className="space-y-3">
+              <div>
+                <div className="drawer-section__title"><span className="inline-flex items-center gap-1.5"><Map size={11} />المرحلة المرتبطة</span></div>
+                <select
+                  value={task.phaseId ?? ''}
+                  onChange={(e) => set({ phaseId: e.target.value || undefined, milestoneId: undefined })}
+                  className="w-full text-sm px-3 py-2.5 outline-none"
+                  style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', color: 'var(--fg-1)' }}
+                >
+                  <option value="">بدون مرحلة</option>
+                  {plans.map((pl) => (
+                    <optgroup key={pl.id} label={pl.name}>
+                      {projectPhases.filter((ph) => ph.planId === pl.id).map((ph) => (
+                        <option key={ph.id} value={ph.id}>{ph.title}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+
+              {selectedPhase && selectedPhase.milestones.length > 0 && (
+                <div>
+                  <div className="drawer-section__title">الإنجاز المرتبط</div>
+                  <select
+                    value={task.milestoneId ?? ''}
+                    onChange={(e) => set({ milestoneId: e.target.value || undefined })}
+                    className="w-full text-sm px-3 py-2.5 outline-none"
+                    style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', color: 'var(--fg-1)' }}
+                  >
+                    <option value="">بدون إنجاز</option>
+                    {selectedPhase.milestones.map((m) => (
+                      <option key={m.id} value={m.id}>{m.title}</option>
                     ))}
-                  </optgroup>
-                ))}
-              </select>
+                  </select>
+                </div>
+              )}
             </section>
           )}
 
