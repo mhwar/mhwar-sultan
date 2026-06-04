@@ -38,7 +38,7 @@ function TaskCard({
   const priorityColor = PRIORITY_COLORS[task.priority]
 
   return (
-    <div className="glass-card p-3.5 relative group">
+    <div className="axis-card p-3.5 relative group">
       {/* Priority bar */}
       <div
         className="absolute top-0 end-0 w-1 h-full rounded-e-xl"

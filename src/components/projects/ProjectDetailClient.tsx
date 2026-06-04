@@ -1,10 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, Edit2, Trash2, LayoutDashboard, Map, CheckSquare, FileText, MoreVertical } from 'lucide-react'
+import { ArrowRight, Edit2, Trash2, LayoutDashboard, Map, CheckSquare, FileText, Calendar, Clock } from 'lucide-react'
 import Link from 'next/link'
 import StatusBadge from '@/components/shared/StatusBadge'
-import ProgressBar from '@/components/shared/ProgressBar'
 import ProjectForm from '@/components/projects/ProjectForm'
 import OverviewTab from '@/components/projects/tabs/OverviewTab'
 import PlanTab from '@/components/projects/tabs/PlanTab'
@@ -12,7 +11,7 @@ import TasksTab from '@/components/projects/tabs/TasksTab'
 import NotesTab from '@/components/projects/tabs/NotesTab'
 import { useProjectStore, useTaskStore, usePlanStore, useNoteStore } from '@/store/store'
 import { useShallow } from 'zustand/shallow'
-import { hexToRgba } from '@/lib/utils'
+import { hexToRgba, formatDateAr } from '@/lib/utils'
 
 type Tab = 'overview' | 'plan' | 'tasks' | 'notes'
 
@@ -44,24 +43,20 @@ export default function ProjectDetailClient({ id }: Props) {
   ))
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [showEdit, setShowEdit] = useState(false)
-  const [showActions, setShowActions] = useState(false)
   const [hydrated, setHydrated] = useState(false)
 
   useEffect(() => { setHydrated(true) }, [])
 
   if (!hydrated) {
     return (
-      <div className="animate-pulse">
-        <div className="px-4 md:px-6 pt-5 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="h-3 w-24 rounded-full mb-4" style={{ background: 'rgba(255,255,255,0.06)' }} />
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl shrink-0" style={{ background: 'rgba(255,255,255,0.07)' }} />
-            <div className="space-y-2 flex-1">
-              <div className="h-5 w-36 rounded-lg" style={{ background: 'rgba(255,255,255,0.07)' }} />
-              <div className="h-3 w-52 rounded-full" style={{ background: 'rgba(255,255,255,0.04)' }} />
-            </div>
+      <div className="p-4 md:p-6 lg:p-8 animate-pulse">
+        <div className="axis-card overflow-hidden">
+          <div className="h-[120px] md:h-[160px]" style={{ background: 'var(--color-surface-muted)' }} />
+          <div className="p-6 space-y-4">
+            <div className="w-20 h-20 rounded-xl -mt-14" style={{ background: 'var(--color-surface-muted)' }} />
+            <div className="h-6 w-48 rounded-lg" style={{ background: 'var(--color-surface-muted)' }} />
+            <div className="h-4 w-72 rounded-full" style={{ background: 'var(--color-surface-muted)' }} />
           </div>
-          <div className="h-1.5 w-full rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
         </div>
       </div>
     )
@@ -87,182 +82,166 @@ export default function ProjectDetailClient({ id }: Props) {
     }
   }
 
+  const doneTasks = tasks.filter((t) => t.status === 'done').length
+  const donePhases = phases.filter((ph) => ph.status === 'completed').length
+
+  const stats = [
+    { label: 'التقدم',   value: `${project.progress}%` },
+    { label: 'المهام',   value: `${doneTasks}/${tasks.length}` },
+    { label: 'المراحل',  value: `${donePhases}/${phases.length}` },
+    { label: 'الملاحظات', value: `${notes.length}` },
+  ]
+
   return (
-    <div
-      className="animate-fade-up"
-      style={{ '--project-color': project.color } as React.CSSProperties}
-    >
+    <div className="p-4 md:p-6 lg:p-8 animate-fade-up">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-xs mb-4" style={{ color: 'var(--color-text-muted)' }}>
+        <Link href="/projects" className="hover:text-white transition-colors">المشاريع</Link>
+        <ArrowRight size={12} style={{ opacity: 0.4 }} data-flip-rtl />
+        <span style={{ color: 'var(--color-text-secondary)' }}>{project.name}</span>
+      </div>
+
       {/* Hero */}
-      <div
-        className="relative px-4 md:px-6 lg:px-8 pt-4 md:pt-6 pb-0"
-        style={{
-          background: `linear-gradient(180deg, ${hexToRgba(project.color, 0.06)} 0%, transparent 100%)`,
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
-        }}
-      >
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-xs mb-3 md:mb-5" style={{ color: 'var(--color-text-muted)' }}>
-          <Link href="/projects" className="hover:text-white transition-colors">
-            المشاريع
-          </Link>
-          <ArrowRight size={12} style={{ opacity: 0.4 }} />
-          <span style={{ color: 'var(--color-text-secondary)' }}>{project.name}</span>
+      <div className="axis-projhead mb-6">
+        {/* Cover band */}
+        <div className="relative h-[120px] md:h-[160px] overflow-hidden">
+          <div
+            className="absolute inset-0"
+            style={{ background: `linear-gradient(135deg, ${hexToRgba(project.color, 0.55)} 0%, ${hexToRgba(project.color, 0.12)} 100%)` }}
+          />
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ background: 'radial-gradient(ellipse 60% 100% at 0% 0%, rgba(255,255,255,0.12), transparent 60%)' }}
+          />
         </div>
 
-        {/* Project header */}
-        <div className="flex items-start justify-between gap-3 mb-3 md:mb-5">
-          <div className="flex items-center gap-3 md:gap-4 min-w-0">
-            {/* Icon */}
+        {/* Body */}
+        <div className="relative px-4 md:px-6 pb-4 flex flex-col gap-4">
+          {/* Top row — logo + corner actions */}
+          <div className="flex items-end justify-between -mt-8 md:-mt-11">
             <div
-              className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center text-xl md:text-3xl shrink-0"
+              className="w-16 h-16 md:w-[88px] md:h-[88px] flex items-center justify-center text-3xl md:text-4xl shrink-0"
               style={{
-                background: hexToRgba(project.color, 0.15),
-                border: `1px solid ${hexToRgba(project.color, 0.25)}`,
+                background: hexToRgba(project.color, 0.2),
+                borderRadius: 'var(--radius-lg)',
+                boxShadow: '0 0 0 4px var(--color-surface-raised), var(--shadow-md)',
               }}
             >
               {project.icon}
             </div>
 
-            {/* Name + status */}
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                <h1 className="text-lg md:text-2xl font-bold leading-tight" style={{ color: 'var(--color-text-primary)' }}>
-                  {project.name}
-                </h1>
-                {project.nameEn && (
-                  <span className="hidden md:inline text-sm font-medium" style={{ color: 'var(--color-text-muted)', direction: 'ltr' }}>
-                    {project.nameEn}
-                  </span>
-                )}
-                <StatusBadge status={project.status} />
-              </div>
-              <p className="text-xs md:text-sm leading-relaxed line-clamp-1 md:line-clamp-2" style={{ color: 'var(--color-text-secondary)' }}>
-                {project.description}
-              </p>
+            <div className="flex items-center gap-2 mb-1">
+              <button
+                onClick={() => setShowEdit(true)}
+                className="flex items-center gap-1.5 px-3 h-9 rounded-md text-xs font-semibold transition-colors"
+                style={{
+                  background: 'var(--color-surface-overlay)',
+                  color: 'var(--color-text-secondary)',
+                  border: '1px solid var(--color-surface-border)',
+                  boxShadow: 'var(--shadow-xs)',
+                }}
+              >
+                <Edit2 size={13} />
+                تعديل
+              </button>
+              <button
+                onClick={handleDelete}
+                className="w-9 h-9 rounded-md flex items-center justify-center transition-colors hover:bg-red-500/15"
+                style={{
+                  background: 'var(--color-surface-overlay)',
+                  color: 'var(--color-text-muted)',
+                  border: '1px solid var(--color-surface-border)',
+                  boxShadow: 'var(--shadow-xs)',
+                }}
+              >
+                <Trash2 size={13} />
+              </button>
             </div>
           </div>
 
-          {/* Actions — desktop */}
-          <div className="hidden md:flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setShowEdit(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors hover:bg-white/10"
-              style={{
-                background: 'rgba(255,255,255,0.06)',
-                color: 'var(--color-text-secondary)',
-                border: '1px solid rgba(255,255,255,0.08)',
-              }}
-            >
-              <Edit2 size={13} />
-              تعديل
-            </button>
-            <button
-              onClick={handleDelete}
-              className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors hover:bg-red-500/15"
-              style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--color-text-muted)', border: '1px solid rgba(255,255,255,0.06)' }}
-            >
-              <Trash2 size={13} />
-            </button>
-          </div>
-
-          {/* Actions — mobile (kebab menu) */}
-          <div className="md:hidden relative shrink-0">
-            <button
-              onClick={() => setShowActions(!showActions)}
-              className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-text-secondary)', border: '1px solid rgba(255,255,255,0.08)' }}
-            >
-              <MoreVertical size={16} />
-            </button>
-            {showActions && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowActions(false)} />
-                <div
-                  className="absolute end-0 top-10 z-50 rounded-xl overflow-hidden shadow-2xl"
-                  style={{ background: '#141422', border: '1px solid rgba(255,255,255,0.1)', minWidth: '140px' }}
-                >
-                  <button
-                    onClick={() => { setShowEdit(true); setShowActions(false) }}
-                    className="w-full flex items-center gap-2.5 text-start text-sm px-4 py-3 transition-colors hover:bg-white/5"
-                    style={{ color: 'var(--color-text-secondary)' }}
-                  >
-                    <Edit2 size={14} />
-                    تعديل المشروع
-                  </button>
-                  <button
-                    onClick={() => { handleDelete(); setShowActions(false) }}
-                    className="w-full flex items-center gap-2.5 text-start text-sm px-4 py-3 transition-colors hover:bg-red-500/10"
-                    style={{ color: '#EF4444' }}
-                  >
-                    <Trash2 size={14} />
-                    حذف المشروع
-                  </button>
-                </div>
-              </>
+          {/* Title block */}
+          <div className="flex flex-col gap-1.5">
+            {project.category && (
+              <span className="axis-label" style={{ color: 'var(--color-brand-light)', letterSpacing: '0.1em' }}>
+                {project.category}
+              </span>
             )}
-          </div>
-        </div>
-
-        {/* Progress bar */}
-        <div className="mb-3 md:mb-5">
-          <div className="flex justify-between items-center mb-1.5">
-            <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
-              التقدم الإجمالي
-            </span>
-            <span className="text-xs md:text-sm font-bold" style={{ color: project.color }}>
-              {project.progress}%
-            </span>
-          </div>
-          <ProgressBar value={project.progress} color={project.color} size="md" />
-        </div>
-
-        {/* Desktop tabs */}
-        <div className="hidden md:flex gap-1 -mb-px overflow-x-auto no-scrollbar">
-          {TABS.map(({ id: tabId, label, icon: Icon }) => (
-            <button
-              key={tabId}
-              onClick={() => setActiveTab(tabId)}
-              className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all whitespace-nowrap"
-              style={{
-                color: activeTab === tabId ? project.color : 'var(--color-text-muted)',
-                borderBottom: activeTab === tabId ? `2px solid ${project.color}` : '2px solid transparent',
-              }}
-            >
-              <Icon size={14} />
-              {label}
-              {tabId === 'tasks' && tasks.length > 0 && (
-                <span
-                  className="text-xs w-4 h-4 rounded-full flex items-center justify-center"
-                  style={{ background: hexToRgba(project.color, 0.15), color: project.color, fontSize: '0.65rem' }}
-                >
-                  {tasks.length}
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-xl md:text-2xl font-bold leading-tight" style={{ color: 'var(--color-text-primary)' }}>
+                {project.name}
+              </h1>
+              {project.nameEn && (
+                <span className="text-sm font-medium" style={{ color: 'var(--color-text-muted)', direction: 'ltr' }}>
+                  {project.nameEn}
                 </span>
               )}
-            </button>
-          ))}
-        </div>
+              <StatusBadge status={project.status} size="sm" />
+            </div>
+            {project.description && (
+              <p className="text-sm leading-relaxed max-w-2xl" style={{ color: 'var(--color-text-secondary)' }}>
+                {project.description}
+              </p>
+            )}
+            <div className="flex items-center flex-wrap gap-x-4 gap-y-1.5 mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              <span className="inline-flex items-center gap-1.5">
+                <Calendar size={12} />
+                أُنشئ {formatDateAr(project.createdAt)}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Clock size={12} />
+                آخر تحديث {formatDateAr(project.updatedAt)}
+              </span>
+            </div>
+          </div>
 
-        {/* Mobile: compact tab row (icon + label, scrollable) */}
-        <div className="md:hidden flex gap-1 -mb-px overflow-x-auto no-scrollbar">
-          {TABS.map(({ id: tabId, label, icon: Icon }) => (
-            <button
-              key={tabId}
-              onClick={() => setActiveTab(tabId)}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-all whitespace-nowrap shrink-0"
-              style={{
-                color: activeTab === tabId ? project.color : 'var(--color-text-muted)',
-                borderBottom: activeTab === tabId ? `2px solid ${project.color}` : '2px solid transparent',
-              }}
-            >
-              <Icon size={13} />
-              {label}
-            </button>
-          ))}
+          {/* Stats strip */}
+          <div className="axis-stats">
+            {stats.map((s) => (
+              <div key={s.label} className="axis-stat">
+                <span className="axis-label">{s.label}</span>
+                <span className="axis-num text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                  {s.value}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Tabs */}
+          <div
+            className="flex gap-1 overflow-x-auto no-scrollbar mt-1"
+            style={{ borderTop: '1px solid var(--color-surface-border)', marginInline: '-1rem', paddingInline: '1rem' }}
+          >
+            {TABS.map(({ id: tabId, label, icon: Icon }) => {
+              const isActive = activeTab === tabId
+              return (
+                <button
+                  key={tabId}
+                  onClick={() => setActiveTab(tabId)}
+                  className={`axis-tab flex items-center gap-2 px-3 py-3 text-sm font-medium whitespace-nowrap${isActive ? ' is-active' : ''}`}
+                  style={{ color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}
+                >
+                  <Icon size={14} />
+                  {label}
+                  {tabId === 'tasks' && tasks.length > 0 && (
+                    <span
+                      className="axis-num text-xs px-1.5 rounded-full font-semibold"
+                      style={{
+                        background: isActive ? 'var(--color-brand)' : 'var(--color-surface-overlay)',
+                        color: isActive ? '#fff' : 'var(--color-text-muted)',
+                      }}
+                    >
+                      {tasks.length}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 
       {/* Tab content */}
-      <div className="p-4 md:p-6 lg:p-8">
+      <div>
         {activeTab === 'overview' && <OverviewTab project={project} tasks={tasks} phases={phases} />}
         {activeTab === 'plan'     && <PlanTab     project={project} phases={phases} />}
         {activeTab === 'tasks'    && <TasksTab    project={project} tasks={tasks} />}
