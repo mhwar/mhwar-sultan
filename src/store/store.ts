@@ -86,8 +86,10 @@ interface PlanStore {
   addPlan: (projectId: string, name: string) => string
   renamePlan: (id: string, name: string) => void
   deletePlan: (id: string) => void
+  reorderPlans: (orderedIds: string[]) => void
   getProjectPlans: (projectId: string) => Plan[]
   addPhase: (data: Omit<PlanPhase, 'id'>) => void
+  reorderPhases: (orderedIds: string[]) => void
   updatePhase: (id: string, data: Partial<PlanPhase>) => void
   deletePhase: (id: string) => void
   toggleMilestone: (phaseId: string, milestoneId: string) => void
@@ -119,8 +121,20 @@ export const usePlanStore = create<PlanStore>()(
           phases: s.phases.filter((ph) => ph.planId !== id),
         })),
 
+      reorderPlans: (orderedIds) =>
+        set((s) => {
+          const map: Record<string, number> = Object.fromEntries(orderedIds.map((id, i) => [id, i + 1]))
+          return { plans: s.plans.map((p) => (map[p.id] ? { ...p, order: map[p.id] } : p)) }
+        }),
+
       getProjectPlans: (projectId) =>
         get().plans.filter((p) => p.projectId === projectId).sort((a, b) => a.order - b.order),
+
+      reorderPhases: (orderedIds) =>
+        set((s) => {
+          const map: Record<string, number> = Object.fromEntries(orderedIds.map((id, i) => [id, i + 1]))
+          return { phases: s.phases.map((ph) => (map[ph.id] ? { ...ph, order: map[ph.id] } : ph)) }
+        }),
 
       addPhase: (data) =>
         set((s) => ({ phases: [...s.phases, { ...data, id: generateId() }] })),
