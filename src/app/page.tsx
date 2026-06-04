@@ -33,14 +33,7 @@ export default function DashboardPage() {
               {formatDateAr(new Date().toISOString())}
             </p>
           </div>
-          <Link
-            href="/projects"
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
-            style={{
-              background: 'var(--color-brand)',
-              color: 'white',
-            }}
-          >
+          <Link href="/projects" className="axis-btn axis-btn--primary axis-btn--md">
             <Plus size={16} />
             مشروع جديد
           </Link>
@@ -82,7 +75,7 @@ export default function DashboardPage() {
           {/* Side column — 1/3 */}
           <div className="space-y-4">
             {/* Completed tasks */}
-            <div className="glass-card p-4">
+            <div className="axis-card p-4">
               <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
                 المهام المنجزة
               </h3>
@@ -116,7 +109,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Progress summary */}
-            <div className="glass-card p-4">
+            <div className="axis-card p-4">
               <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
                 تقدم المشاريع
               </h3>
@@ -134,7 +127,7 @@ export default function DashboardPage() {
                         {project.progress}%
                       </span>
                     </div>
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-2)' }}>
                       <div
                         className="h-full rounded-full"
                         style={{ width: `${project.progress}%`, background: project.color }}

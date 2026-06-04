@@ -36,11 +36,11 @@ function PhaseCard({ phase, project }: { phase: PlanPhase; project: Project }) {
       <div
         className="absolute start-0 top-4 w-4 h-4 rounded-full border-2 flex items-center justify-center"
         style={{
-          background: phase.status === 'completed' ? colors.dot : phase.status === 'in-progress' ? 'transparent' : 'rgba(255,255,255,0.05)',
+          background: phase.status === 'completed' ? colors.dot : phase.status === 'in-progress' ? 'transparent' : 'var(--surface-2)',
           borderColor: colors.dot,
         }}
       >
-        {phase.status === 'completed' && <Check size={8} strokeWidth={3} style={{ color: '#fff' }} />}
+        {phase.status === 'completed' && <Check size={8} strokeWidth={3} style={{ color: 'white' }} />}
         {phase.status === 'in-progress' && (
           <div
             className="w-2 h-2 rounded-full animate-pulse"
@@ -54,7 +54,7 @@ function PhaseCard({ phase, project }: { phase: PlanPhase; project: Project }) {
         <div
           className="flex items-center justify-between p-4 cursor-pointer"
           onClick={() => setExpanded(!expanded)}
-          style={{ borderBottom: expanded ? '1px solid rgba(255,255,255,0.06)' : 'none' }}
+          style={{ borderBottom: expanded ? '1px solid var(--border-subtle)' : 'none' }}
         >
           <div className="flex items-center gap-3">
             <div>
@@ -97,10 +97,10 @@ function PhaseCard({ phase, project }: { phase: PlanPhase; project: Project }) {
                   className="w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-all"
                   style={{
                     background: milestone.done ? project.color : 'transparent',
-                    borderColor: milestone.done ? project.color : 'rgba(255,255,255,0.2)',
+                    borderColor: milestone.done ? project.color : 'var(--border-default)',
                   }}
                 >
-                  {milestone.done && <Check size={11} strokeWidth={3} style={{ color: '#fff' }} />}
+                  {milestone.done && <Check size={11} strokeWidth={3} style={{ color: 'white' }} />}
                 </button>
                 <span
                   className="text-sm flex-1"
@@ -124,8 +124,8 @@ function PhaseCard({ phase, project }: { phase: PlanPhase; project: Project }) {
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAddMilestone() }}
                 className="flex-1 text-xs px-3 py-2 rounded-lg outline-none"
                 style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.08)',
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--border-default)',
                   color: 'var(--color-text-primary)',
                 }}
               />
@@ -146,9 +146,9 @@ function PhaseCard({ phase, project }: { phase: PlanPhase; project: Project }) {
                   onClick={() => updatePhase(phase.id, { status: s })}
                   className="text-xs px-2 py-1 rounded-lg transition-all"
                   style={{
-                    background: phase.status === s ? PHASE_STATUS_COLORS[s].badge : 'rgba(255,255,255,0.03)',
+                    background: phase.status === s ? PHASE_STATUS_COLORS[s].badge : 'var(--surface-2)',
                     color: phase.status === s ? PHASE_STATUS_COLORS[s].badgeText : 'var(--color-text-muted)',
-                    border: `1px solid ${phase.status === s ? PHASE_STATUS_COLORS[s].dot + '40' : 'transparent'}`,
+                    border: '1px solid transparent',
                   }}
                 >
                   {PHASE_STATUS_LABELS[s]}
@@ -215,7 +215,7 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
           {/* Vertical timeline line */}
           <div
             className="absolute start-1.5 top-6 bottom-6"
-            style={{ width: '2px', background: 'rgba(255,255,255,0.07)' }}
+            style={{ width: '2px', background: 'var(--border-subtle)' }}
           />
           {phases.map((phase) => (
             <PhaseCard key={phase.id} phase={phase} project={project} />
@@ -237,8 +237,8 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
               onChange={(e) => setNewPhaseTitle(e.target.value)}
               className="w-full text-sm px-3 py-2.5 rounded-xl outline-none"
               style={{
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border-default)',
                 color: 'var(--color-text-primary)',
               }}
             />
@@ -249,8 +249,8 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
               onChange={(e) => setNewPhaseDesc(e.target.value)}
               className="w-full text-sm px-3 py-2.5 rounded-xl outline-none resize-none"
               style={{
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border-default)',
                 color: 'var(--color-text-primary)',
               }}
             />
@@ -265,7 +265,7 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
               <button
                 onClick={() => setShowAddPhase(false)}
                 className="px-4 py-2 rounded-xl text-sm"
-                style={{ color: 'var(--color-text-secondary)', background: 'rgba(255,255,255,0.04)' }}
+                style={{ color: 'var(--color-text-secondary)', background: 'var(--surface-2)' }}
               >
                 إلغاء
               </button>

@@ -94,7 +94,7 @@ export default function OverviewTab({ project, tasks, phases }: OverviewTabProps
                 <circle
                   cx="50" cy="50" r="40"
                   fill="none"
-                  stroke="rgba(255,255,255,0.07)"
+                  stroke="var(--border-subtle)"
                   strokeWidth="10"
                 />
                 <circle
@@ -137,7 +137,7 @@ export default function OverviewTab({ project, tasks, phases }: OverviewTabProps
             <div
               key={row.label}
               className="flex items-center justify-between py-2"
-              style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+              style={{ borderBottom: '1px solid var(--border-subtle)' }}
             >
               <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                 {row.label}

@@ -112,7 +112,7 @@ export default function ProjectDetailClient({ id }: Props) {
           />
           <div
             className="absolute inset-0 pointer-events-none"
-            style={{ background: 'radial-gradient(ellipse 60% 100% at 0% 0%, rgba(255,255,255,0.12), transparent 60%)' }}
+            style={{ background: 'radial-gradient(ellipse 60% 100% at 0% 0%, oklch(1 0 0 / 0.12), transparent 60%)' }}
           />
         </div>
 
@@ -229,7 +229,7 @@ export default function ProjectDetailClient({ id }: Props) {
                       className="axis-num text-xs px-1.5 rounded-full font-semibold"
                       style={{
                         background: isActive ? 'var(--color-brand)' : 'var(--color-surface-overlay)',
-                        color: isActive ? '#fff' : 'var(--color-text-muted)',
+                        color: isActive ? 'white' : 'var(--color-text-muted)',
                       }}
                     >
                       {tasks.length}

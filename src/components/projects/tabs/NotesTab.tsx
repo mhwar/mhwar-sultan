@@ -85,8 +85,8 @@ export default function NotesTab({ project, notes }: NotesTabProps) {
             onClick={() => selectNote(note)}
             className="p-3 rounded-xl cursor-pointer transition-all group"
             style={{
-              background: activeId === note.id ? `${project.color}12` : 'rgba(255,255,255,0.03)',
-              border: `1px solid ${activeId === note.id ? `${project.color}30` : 'rgba(255,255,255,0.06)'}`,
+              background: activeId === note.id ? `${project.color}12` : 'var(--surface-2)',
+              border: `1px solid ${activeId === note.id ? `${project.color}30` : 'var(--border-subtle)'}`,
             }}
           >
             <div className="flex items-start justify-between gap-1">
@@ -120,7 +120,7 @@ export default function NotesTab({ project, notes }: NotesTabProps) {
           {/* Editor header */}
           <div
             className="flex items-center justify-between px-5 py-3"
-            style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+            style={{ borderBottom: '1px solid var(--border-subtle)' }}
           >
             <input
               type="text"
@@ -171,7 +171,7 @@ export default function NotesTab({ project, notes }: NotesTabProps) {
           {/* Editor footer */}
           <div
             className="flex items-center justify-between px-5 py-3"
-            style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+            style={{ borderTop: '1px solid var(--border-subtle)' }}
           >
             <span className="text-xs" style={{ color: 'var(--color-text-muted)', fontSize: '0.65rem' }}>
               آخر تحديث: {formatDateAr(activeNote.updatedAt)}

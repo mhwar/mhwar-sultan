@@ -19,8 +19,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
         <div
           className="md:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3"
           style={{
-            background: 'rgba(10, 10, 20, 0.95)',
-            borderBottom: '1px solid rgba(255,255,255,0.07)',
+            background: 'var(--glass-bg)',
+            borderBottom: '1px solid var(--border-subtle)',
             backdropFilter: 'blur(12px)',
           }}
         >
@@ -37,8 +37,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
             onClick={() => setSidebarOpen(true)}
             className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
             style={{
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.08)',
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border-subtle)',
               color: 'var(--color-text-secondary)',
             }}
           >
