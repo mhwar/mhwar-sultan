@@ -1,7 +1,9 @@
 'use client'
 import { useState } from 'react'
 import { Plus, Trash2, ChevronDown, Check, LayoutGrid, List, Table2, GanttChartSquare, CalendarDays } from 'lucide-react'
-import { useTaskStore } from '@/store/store'
+import { useShallow } from 'zustand/shallow'
+import { useTaskStore, usePlanStore } from '@/store/store'
+import { PlanIcon } from '@/lib/icons'
 import type { Project, Task, TaskStatus, TaskPriority } from '@/types'
 import EmptyState from '@/components/shared/EmptyState'
 import TaskDrawer from '@/components/projects/TaskDrawer'
@@ -74,13 +76,23 @@ function AddTaskForm({ projectId, status, onClose }: { projectId: string; status
 }
 
 /* ── Board card ── */
-function BoardCard({ task, onMove, onDelete, onOpen }: { task: Task; onMove: (s: TaskStatus) => void; onDelete: () => void; onOpen: () => void }) {
+function BoardCard({ task, onMove, onDelete, onOpen, planIcon }: { task: Task; onMove: (s: TaskStatus) => void; onDelete: () => void; onOpen: () => void; planIcon?: string }) {
   const [showMove, setShowMove] = useState(false)
   return (
-    <div className="board-card group">
+    <div
+      className="board-card group"
+      draggable
+      onDragStart={(e) => { e.dataTransfer.setData('text/plain', task.id); e.dataTransfer.effectAllowed = 'move' }}
+      style={{ cursor: 'grab' }}
+    >
       <div className="board-card__head">
         <span className="priority-dot" style={{ background: PRIORITY_VAR[task.priority] }} />
         <Pill variant={PRIORITY_PILL[task.priority]}>{PRIORITY_LABELS[task.priority]}</Pill>
+        {planIcon && (
+          <span className="inline-flex items-center shrink-0" style={{ color: 'var(--fg-3)' }} title="الخطة المرتبطة">
+            <PlanIcon name={planIcon} size={13} />
+          </span>
+        )}
         <div className="board-card__id relative">
           <button onClick={() => setShowMove(!showMove)} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost">
             <ChevronDown size={13} />
@@ -125,10 +137,19 @@ function BoardCard({ task, onMove, onDelete, onOpen }: { task: Task; onMove: (s:
 
 export default function TasksTab({ project, tasks }: TasksTabProps) {
   const { moveTask, deleteTask, updateTask } = useTaskStore()
+  const plans = usePlanStore(useShallow((s) => s.plans.filter((p) => p.projectId === project.id)))
+  const projectPhases = usePlanStore(useShallow((s) => s.phases.filter((p) => p.projectId === project.id)))
   const [view, setView] = useState<View>('board')
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | 'all'>('all')
   const [addingTo, setAddingTo] = useState<TaskStatus | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [dragOver, setDragOver] = useState<TaskStatus | null>(null)
+
+  const planIconForTask = (t: Task): string | undefined => {
+    if (!t.phaseId) return undefined
+    const ph = projectPhases.find((p) => p.id === t.phaseId)
+    return ph ? plans.find((pl) => pl.id === ph.planId)?.icon : undefined
+  }
 
   const visible = priorityFilter === 'all' ? tasks : tasks.filter((t) => t.priority === priorityFilter)
   const selected = selectedId ? tasks.find((t) => t.id === selectedId) ?? null : null
@@ -174,7 +195,14 @@ export default function TasksTab({ project, tasks }: TasksTabProps) {
           {COLUMNS.map((col) => {
             const colTasks = visible.filter((t) => t.status === col.status)
             return (
-              <div key={col.status} className="board-col">
+              <div
+                key={col.status}
+                className="board-col"
+                style={dragOver === col.status ? { borderColor: 'var(--iris-400)', background: 'oklch(0.62 0.21 275 / 0.04)' } : undefined}
+                onDragOver={(e) => { e.preventDefault(); if (dragOver !== col.status) setDragOver(col.status) }}
+                onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver((d) => (d === col.status ? null : d)) }}
+                onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) moveTask(id, col.status); setDragOver(null) }}
+              >
                 <div className="board-col__head">
                   <div className="board-col__title">
                     <span className="priority-dot" style={{ background: TASK_STATUS_VAR[col.status] }} />
@@ -185,7 +213,7 @@ export default function TasksTab({ project, tasks }: TasksTabProps) {
                 </div>
                 <div className="board-col__body">
                   {colTasks.map((task) => (
-                    <BoardCard key={task.id} task={task} onMove={(s) => moveTask(task.id, s)} onDelete={() => deleteTask(task.id)} onOpen={() => setSelectedId(task.id)} />
+                    <BoardCard key={task.id} task={task} onMove={(s) => moveTask(task.id, s)} onDelete={() => deleteTask(task.id)} onOpen={() => setSelectedId(task.id)} planIcon={planIconForTask(task)} />
                   ))}
                   {addingTo === col.status && <AddTaskForm projectId={project.id} status={col.status} onClose={() => setAddingTo(null)} />}
                   {colTasks.length === 0 && addingTo !== col.status && <div className="board-col__empty">لا مهام</div>}
@@ -222,6 +250,11 @@ export default function TasksTab({ project, tasks }: TasksTabProps) {
                         <div className="axis-tasklist__title-row">
                           <span className="axis-tasklist__title">{task.title}</span>
                           <Pill variant={PRIORITY_PILL[task.priority]}>{PRIORITY_LABELS[task.priority]}</Pill>
+                          {planIconForTask(task) && (
+                            <span className="inline-flex items-center" style={{ color: 'var(--fg-3)' }} title="الخطة المرتبطة">
+                              <PlanIcon name={planIconForTask(task)} size={13} />
+                            </span>
+                          )}
                         </div>
                         {task.description && <span className="axis-tasklist__meta"><span className="axis-tasklist__meta-item">{task.description}</span></span>}
                       </div>
@@ -252,8 +285,11 @@ export default function TasksTab({ project, tasks }: TasksTabProps) {
               {visible.map((task) => (
                 <tr key={task.id} className="is-clickable">
                   <td onClick={() => setSelectedId(task.id)}>
-                    <span className="font-medium" style={{ color: task.status === 'done' ? 'var(--fg-3)' : 'var(--fg-1)', textDecoration: task.status === 'done' ? 'line-through' : 'none' }}>
-                      {task.title}
+                    <span className="inline-flex items-center gap-2">
+                      {planIconForTask(task) && <span style={{ color: 'var(--fg-3)' }} title="الخطة المرتبطة"><PlanIcon name={planIconForTask(task)} size={13} /></span>}
+                      <span className="font-medium" style={{ color: task.status === 'done' ? 'var(--fg-3)' : 'var(--fg-1)', textDecoration: task.status === 'done' ? 'line-through' : 'none' }}>
+                        {task.title}
+                      </span>
                     </span>
                   </td>
                   <td><Pill variant={PRIORITY_PILL[task.priority]}>{PRIORITY_LABELS[task.priority]}</Pill></td>
