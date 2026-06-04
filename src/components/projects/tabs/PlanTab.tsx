@@ -2,11 +2,11 @@
 import { useEffect, useState } from 'react'
 import { Plus, Check, Map, ChevronDown, ChevronUp, Trash2, Pencil, X } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
-import { usePlanStore } from '@/store/store'
+import { usePlanStore, useTaskStore } from '@/store/store'
 import type { Project, PlanPhase } from '@/types'
 import EmptyState from '@/components/shared/EmptyState'
 import Button from '@/components/ui/Button'
-import { PHASE_STATUS_LABELS } from '@/lib/utils'
+import { PHASE_STATUS_LABELS, TASK_STATUS_VAR } from '@/lib/utils'
 
 interface PlanTabProps {
   project: Project
@@ -24,6 +24,7 @@ function PhaseCard({ phase, project }: { phase: PlanPhase; project: Project }) {
   const [expanded, setExpanded] = useState(true)
   const [newMilestone, setNewMilestone] = useState('')
   const { toggleMilestone, addMilestone, deletePhase, updatePhase } = usePlanStore()
+  const linkedTasks = useTaskStore(useShallow((s) => s.tasks.filter((t) => t.phaseId === phase.id)))
   const colors = PHASE_STATUS_COLORS[phase.status]
   const doneMilestones = phase.milestones.filter((m) => m.done).length
   const pct = phase.milestones.length ? Math.round((doneMilestones / phase.milestones.length) * 100) : 0
@@ -57,7 +58,7 @@ function PhaseCard({ phase, project }: { phase: PlanPhase; project: Project }) {
         >
           <div className="min-w-0">
             <h3 className="font-semibold text-sm truncate" style={{ color: 'var(--fg-1)' }}>{phase.title}</h3>
-            <p className="axis-num text-xs mt-0.5" style={{ color: 'var(--fg-3)' }}>{doneMilestones} / {phase.milestones.length} إنجاز · {pct}%</p>
+            <p className="axis-num text-xs mt-0.5" style={{ color: 'var(--fg-3)' }}>{doneMilestones} / {phase.milestones.length} إنجاز · {pct}%{linkedTasks.length > 0 ? ` · ${linkedTasks.length} مهمة` : ''}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: colors.badge, color: colors.badgeText }}>
@@ -101,6 +102,23 @@ function PhaseCard({ phase, project }: { phase: PlanPhase; project: Project }) {
                 <Plus size={13} />
               </button>
             </div>
+
+            {/* Linked tasks */}
+            {linkedTasks.length > 0 && (
+              <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                <div className="axis-label mb-2">المهام المرتبطة</div>
+                <div className="space-y-1.5">
+                  {linkedTasks.map((t) => (
+                    <div key={t.id} className="flex items-center gap-2.5">
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: TASK_STATUS_VAR[t.status] }} />
+                      <span className="text-xs flex-1 truncate" style={{ color: t.status === 'done' ? 'var(--fg-3)' : 'var(--fg-2)', textDecoration: t.status === 'done' ? 'line-through' : 'none' }}>
+                        {t.title}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Phase status + delete */}
             <div className="flex gap-2 pt-2">

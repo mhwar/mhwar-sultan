@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { X, Trash2, Calendar, Clock, Hash, Flag, CheckCircle2, CircleDashed, Loader } from 'lucide-react'
-import { useTaskStore } from '@/store/store'
+import { X, Trash2, Calendar, Clock, Hash, Flag, CheckCircle2, CircleDashed, Loader, Map } from 'lucide-react'
+import { useShallow } from 'zustand/shallow'
+import { useTaskStore, usePlanStore } from '@/store/store'
 import type { Task, Project, TaskStatus, TaskPriority } from '@/types'
 import Segmented from '@/components/ui/Segmented'
 import Field from '@/components/ui/Field'
@@ -31,6 +32,8 @@ interface TaskDrawerProps {
 
 export default function TaskDrawer({ task, project, onClose }: TaskDrawerProps) {
   const { updateTask, deleteTask } = useTaskStore()
+  const plans = usePlanStore(useShallow((s) => s.plans.filter((p) => p.projectId === project?.id).sort((a, b) => a.order - b.order)))
+  const projectPhases = usePlanStore(useShallow((s) => s.phases.filter((p) => p.projectId === project?.id).sort((a, b) => a.order - b.order)))
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
@@ -114,6 +117,28 @@ export default function TaskDrawer({ task, project, onClose }: TaskDrawerProps) 
               </div>
             )}
           </section>
+
+          {/* Linked phase */}
+          {projectPhases.length > 0 && (
+            <section>
+              <div className="drawer-section__title"><span className="inline-flex items-center gap-1.5"><Map size={11} />المرحلة المرتبطة</span></div>
+              <select
+                value={task.phaseId ?? ''}
+                onChange={(e) => set({ phaseId: e.target.value || undefined })}
+                className="w-full text-sm px-3 py-2.5 outline-none"
+                style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', color: 'var(--fg-1)' }}
+              >
+                <option value="">بدون مرحلة</option>
+                {plans.map((pl) => (
+                  <optgroup key={pl.id} label={pl.name}>
+                    {projectPhases.filter((ph) => ph.planId === pl.id).map((ph) => (
+                      <option key={ph.id} value={ph.id}>{ph.title}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </section>
+          )}
 
           {/* Description */}
           <section>
