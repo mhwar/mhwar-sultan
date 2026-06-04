@@ -20,7 +20,7 @@ export default function OverviewTab({ project, tasks, phases }: OverviewTabProps
       {/* Main info — 2/3 */}
       <div className="lg:col-span-2 space-y-4">
         {/* Description */}
-        <div className="glass-card p-5">
+        <div className="axis-card p-5">
           <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
             الوصف
           </h3>
@@ -31,7 +31,7 @@ export default function OverviewTab({ project, tasks, phases }: OverviewTabProps
 
         {/* Tags */}
         {(project.tags?.length ?? 0) > 0 && (
-          <div className="glass-card p-5">
+          <div className="axis-card p-5">
             <div className="flex items-center gap-2 mb-3">
               <Tag size={14} style={{ color: 'var(--color-text-muted)' }} />
               <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
@@ -58,7 +58,7 @@ export default function OverviewTab({ project, tasks, phases }: OverviewTabProps
 
         {/* Links */}
         {project.links && project.links.length > 0 && (
-          <div className="glass-card p-5">
+          <div className="axis-card p-5">
             <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
               الروابط
             </h3>
@@ -84,7 +84,7 @@ export default function OverviewTab({ project, tasks, phases }: OverviewTabProps
       {/* Side stats — 1/3 */}
       <div className="space-y-4">
         {/* Progress card */}
-        <div className="glass-card p-5">
+        <div className="axis-card p-5">
           <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
             التقدم الإجمالي
           </h3>
@@ -121,7 +121,7 @@ export default function OverviewTab({ project, tasks, phases }: OverviewTabProps
         </div>
 
         {/* Quick stats */}
-        <div className="glass-card p-5 space-y-3">
+        <div className="axis-card p-5 space-y-3">
           <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>
             ملخص سريع
           </h3>

@@ -12,9 +12,9 @@ interface PlanTabProps {
 }
 
 const PHASE_STATUS_COLORS: Record<string, { dot: string; badge: string; badgeText: string }> = {
-  completed:   { dot: '#10B981', badge: 'rgba(16,185,129,0.1)', badgeText: '#10B981' },
-  'in-progress': { dot: '#F59E0B', badge: 'rgba(245,158,11,0.1)', badgeText: '#F59E0B' },
-  upcoming:    { dot: 'rgba(255,255,255,0.2)', badge: 'rgba(255,255,255,0.06)', badgeText: 'var(--color-text-muted)' },
+  completed:     { dot: 'var(--color-status-active)', badge: 'color-mix(in srgb, var(--color-status-active) 12%, transparent)', badgeText: 'var(--color-status-active)' },
+  'in-progress': { dot: 'var(--color-status-paused)', badge: 'color-mix(in srgb, var(--color-status-paused) 12%, transparent)', badgeText: 'var(--color-status-paused)' },
+  upcoming:      { dot: 'var(--color-text-muted)',    badge: 'var(--color-surface-muted)',                                     badgeText: 'var(--color-text-muted)' },
 }
 
 function PhaseCard({ phase, project }: { phase: PlanPhase; project: Project }) {
@@ -49,7 +49,7 @@ function PhaseCard({ phase, project }: { phase: PlanPhase; project: Project }) {
         )}
       </div>
 
-      <div className="glass-card mb-4 overflow-hidden">
+      <div className="axis-card mb-4 overflow-hidden">
         {/* Phase header */}
         <div
           className="flex items-center justify-between p-4 cursor-pointer"
@@ -225,7 +225,7 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
 
       {/* Add phase */}
       {showAddPhase ? (
-        <div className="glass-card p-4 mt-4">
+        <div className="axis-card p-4 mt-4">
           <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
             مرحلة جديدة
           </h3>

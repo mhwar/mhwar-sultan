@@ -116,7 +116,7 @@ export default function NotesTab({ project, notes }: NotesTabProps) {
 
       {/* Note editor — 2/3 */}
       {activeNote ? (
-        <div className="md:col-span-2 glass-card flex flex-col min-h-64 md:overflow-hidden">
+        <div className="md:col-span-2 axis-card flex flex-col min-h-64 md:overflow-hidden">
           {/* Editor header */}
           <div
             className="flex items-center justify-between px-5 py-3"
@@ -186,7 +186,7 @@ export default function NotesTab({ project, notes }: NotesTabProps) {
           </div>
         </div>
       ) : (
-        <div className="md:col-span-2 glass-card flex items-center justify-center">
+        <div className="md:col-span-2 axis-card flex items-center justify-center">
           <p style={{ color: 'var(--color-text-muted)' }} className="text-sm">
             اختر ملاحظة من القائمة
           </p>
