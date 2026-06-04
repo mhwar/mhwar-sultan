@@ -1,10 +1,11 @@
 'use client'
 import { useState } from 'react'
-import { Plus, Trash2, ChevronDown, Check, LayoutGrid, List, Table2 } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, Check, LayoutGrid, List, Table2, GanttChartSquare } from 'lucide-react'
 import { useTaskStore } from '@/store/store'
 import type { Project, Task, TaskStatus, TaskPriority } from '@/types'
 import EmptyState from '@/components/shared/EmptyState'
 import TaskDrawer from '@/components/projects/TaskDrawer'
+import GanttView from '@/components/projects/GanttView'
 import Pill from '@/components/ui/Pill'
 import Button from '@/components/ui/Button'
 import Segmented from '@/components/ui/Segmented'
@@ -18,7 +19,7 @@ interface TasksTabProps {
   tasks: Task[]
 }
 
-type View = 'board' | 'list' | 'table'
+type View = 'board' | 'list' | 'table' | 'gantt'
 
 const COLUMNS: { status: TaskStatus; label: string }[] = [
   { status: 'todo',        label: 'للتنفيذ' },
@@ -159,6 +160,7 @@ export default function TasksTab({ project, tasks }: TasksTabProps) {
               { value: 'board', icon: <LayoutGrid size={15} />, title: 'لوحة' },
               { value: 'list', icon: <List size={15} />, title: 'قائمة' },
               { value: 'table', icon: <Table2 size={15} />, title: 'جدول' },
+              { value: 'gantt', icon: <GanttChartSquare size={15} />, title: 'زمني' },
             ]}
           />
         </div>
@@ -274,8 +276,11 @@ export default function TasksTab({ project, tasks }: TasksTabProps) {
         </div>
       )}
 
+      {/* Gantt */}
+      {view === 'gantt' && <GanttView tasks={visible} onOpen={setSelectedId} />}
+
       {/* Add (list/table) */}
-      {view !== 'board' && (
+      {(view === 'list' || view === 'table') && (
         addingTo ? (
           <AddTaskForm projectId={project.id} status="todo" onClose={() => setAddingTo(null)} />
         ) : (
