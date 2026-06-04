@@ -7,6 +7,13 @@ interface ThemeStore {
   apply: () => void
 }
 
+// Keep the legacy `.light` class and the Axis `data-theme` attribute in sync.
+function applyTheme(theme: 'dark' | 'light') {
+  const el = document.documentElement
+  el.classList.toggle('light', theme === 'light')
+  el.setAttribute('data-theme', theme)
+}
+
 export const useThemeStore = create<ThemeStore>()(
   persist(
     (set, get) => ({
@@ -15,11 +22,11 @@ export const useThemeStore = create<ThemeStore>()(
       toggle: () => {
         const next = get().theme === 'dark' ? 'light' : 'dark'
         set({ theme: next })
-        document.documentElement.classList.toggle('light', next === 'light')
+        applyTheme(next)
       },
 
       apply: () => {
-        document.documentElement.classList.toggle('light', get().theme === 'light')
+        applyTheme(get().theme)
       },
     }),
     { name: 'mhwar-theme', version: 1, skipHydration: true }

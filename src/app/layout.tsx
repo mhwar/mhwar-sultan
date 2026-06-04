@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Cairo } from 'next/font/google'
+import { Cairo, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import SpaRedirect from '@/components/shared/SpaRedirect'
 import StoreHydration from '@/components/shared/StoreHydration'
@@ -11,6 +11,13 @@ const cairo = Cairo({
   weight: ['300', '400', '500', '600', '700', '900'],
 })
 
+const jetbrains = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains',
+  display: 'swap',
+  weight: ['400', '500', '600'],
+})
+
 export const metadata: Metadata = {
   title: 'محور — إدارة المشاريع',
   description: 'منصة إدارة المشاريع التقنية الشخصية',
@@ -18,7 +25,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ar" dir="rtl" className={cairo.variable}>
+    <html lang="ar" dir="rtl" data-theme="dark" className={`${cairo.variable} ${jetbrains.variable}`}>
       <body className="font-sans">
         <SpaRedirect />
         <StoreHydration />
