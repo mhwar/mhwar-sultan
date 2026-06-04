@@ -3,6 +3,7 @@ import type { PhaseStatus, PlanKind } from '@/types'
 export interface TemplatePhase {
   title: string
   description?: string
+  objective?: string
   status?: PhaseStatus
   milestones: string[]
 }
@@ -76,16 +77,42 @@ export const PLAN_TEMPLATES: PlanTemplate[] = [
     ],
   },
   {
+    id: 'agile',
+    kind: 'agile',
+    name: 'أجايل / سبرنتس',
+    icon: 'zap',
+    description: 'سبرنتس متتابعة بهدف ومخرجات لكل سبرنت',
+    defaultView: 'board',
+    phases: [
+      { title: 'سبرنت ١', objective: 'تجهيز الأساس وتسليم أول قيمة', milestones: ['تخطيط السبرنت', 'تطوير الميزات', 'مراجعة وتسليم'] },
+      { title: 'سبرنت ٢', objective: 'توسيع الميزات الأساسية', milestones: ['تخطيط السبرنت', 'تطوير الميزات', 'اختبار', 'استعراض'] },
+      { title: 'سبرنت ٣', objective: 'التحسين والاستقرار', milestones: ['تخطيط السبرنت', 'إصلاح الأخطاء', 'تحسين الأداء', 'استعراض'] },
+    ],
+  },
+  {
     id: 'launch',
     kind: 'launch',
     name: 'خطة الإطلاق',
     icon: 'rocket',
-    description: 'تجهيز وإطلاق ومتابعة ما بعد الإطلاق',
+    description: 'تجهيز وإطلاق ومتابعة ما بعد الإطلاق مع تاريخ مستهدف',
     defaultView: 'timeline',
     phases: [
-      { title: 'ما قبل الإطلاق', milestones: ['قائمة التحقق', 'الاختبار النهائي', 'مواد التواصل'] },
-      { title: 'الإطلاق', milestones: ['النشر', 'الإعلان', 'الدعم المباشر'] },
-      { title: 'ما بعد الإطلاق', milestones: ['جمع الملاحظات', 'إصلاح المشاكل', 'التقرير'] },
+      { title: 'ما قبل الإطلاق', objective: 'الجاهزية الكاملة للإطلاق', milestones: ['قائمة التحقق التقنية', 'مواد التسويق', 'المراجعة القانونية', 'تجهيز الدعم'] },
+      { title: 'الإطلاق', objective: 'إطلاق ناجح وسلس', milestones: ['النشر', 'الإعلان', 'الدعم المباشر'] },
+      { title: 'ما بعد الإطلاق', objective: 'التعلّم والتحسين', milestones: ['جمع الملاحظات', 'إصلاح المشاكل', 'تقرير النتائج'] },
+    ],
+  },
+  {
+    id: 'course',
+    kind: 'course',
+    name: 'دورة / سيركل',
+    icon: 'book',
+    description: 'وحدات تعليمية متسلسلة بمخرجات لكل وحدة',
+    defaultView: 'timeline',
+    phases: [
+      { title: 'الوحدة ١: الأساسيات', objective: 'بناء الأساس المعرفي', milestones: ['إعداد المحتوى', 'الجلسة', 'تمارين', 'تقييم'] },
+      { title: 'الوحدة ٢: التطبيق', objective: 'التطبيق العملي', milestones: ['إعداد المحتوى', 'الجلسة', 'مشروع عملي'] },
+      { title: 'الوحدة ٣: الإتقان', objective: 'الإتقان والمشروع الختامي', milestones: ['الجلسة', 'المشروع الختامي', 'الشهادة'] },
     ],
   },
   {

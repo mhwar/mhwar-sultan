@@ -93,6 +93,7 @@ interface PlanStore {
   phases: PlanPhase[]
   addPlan: (projectId: string, name: string, icon?: string, view?: 'timeline' | 'board', kind?: Plan['kind']) => string
   renamePlan: (id: string, name: string) => void
+  updatePlan: (id: string, data: Partial<Plan>) => void
   deletePlan: (id: string) => void
   reorderPlans: (orderedIds: string[]) => void
   getProjectPlans: (projectId: string) => Plan[]
@@ -123,6 +124,9 @@ export const usePlanStore = create<PlanStore>()(
 
       renamePlan: (id, name) =>
         set((s) => ({ plans: s.plans.map((p) => (p.id === id ? { ...p, name } : p)) })),
+
+      updatePlan: (id, data) =>
+        set((s) => ({ plans: s.plans.map((p) => (p.id === id ? { ...p, ...data } : p)) })),
 
       deletePlan: (id) =>
         set((s) => ({
