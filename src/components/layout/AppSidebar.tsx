@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
-import { LayoutDashboard, FolderKanban, BarChart3, Settings, Plus, X } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, BarChart3, Settings, Plus, X, Search } from 'lucide-react'
 import { useProjectStore } from '@/store/store'
 import ThemeToggle from '@/components/shared/ThemeToggle'
 
@@ -80,6 +80,22 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
               </button>
             </div>
           </div>
+
+          {/* Search trigger */}
+          <button
+            onClick={() => window.dispatchEvent(new Event('open-command-palette'))}
+            className="flex items-center gap-2 mb-2 px-2.5 h-8 w-full"
+            style={{
+              background: 'var(--surface-0)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--fg-3)',
+            }}
+          >
+            <Search size={14} />
+            <span className="text-xs flex-1 text-start">بحث</span>
+            <span className="axis-kbd">⌘K</span>
+          </button>
 
           {/* Primary navigation */}
           <nav className="flex flex-col gap-1">

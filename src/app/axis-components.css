@@ -651,6 +651,122 @@
   .scheduled-row__sub { font-size: 12px; color: var(--fg-3); margin-top: 2px; }
 }
 
+@layer components {
+  /* ════════════════════════ MENU (popover) ════════════════════════ */
+  .axis-menu {
+    background: var(--surface-1);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    padding: 4px;
+    min-width: 180px;
+    display: flex; flex-direction: column; gap: 1px;
+    animation: axis-menu-in var(--duration-small) var(--ease-out);
+  }
+  [data-theme="dark"] .axis-menu { background: var(--surface-2); }
+  @keyframes axis-menu-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  .axis-menu__item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px; border: 0; background: transparent;
+    border-radius: var(--radius-sm);
+    font: inherit; font-size: 13px; color: var(--fg-1);
+    cursor: pointer; text-align: start;
+    transition: background var(--duration-micro) var(--ease-out), color var(--duration-micro) var(--ease-out);
+  }
+  .axis-menu__item:hover { background: var(--action-ghost-hover); }
+  .axis-menu__item[disabled] { opacity: 0.4; cursor: not-allowed; }
+  .axis-menu__item svg { color: var(--fg-3); flex-shrink: 0; }
+  .axis-menu__item > span:first-of-type { flex: 1; }
+  .axis-menu__item--danger { color: var(--danger-600); }
+  .axis-menu__item--danger svg { color: var(--danger-500); }
+  .axis-menu__item--danger:hover { background: var(--feedback-danger-bg); }
+  .axis-menu__divider { height: 1px; background: var(--border-subtle); margin: 4px 0; }
+
+  /* ════════════════════════ COMMAND PALETTE ════════════════════════ */
+  .palette-overlay {
+    position: fixed; inset: 0; z-index: 60;
+    background: oklch(0.10 0.01 260 / 0.45);
+    -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+    display: flex; align-items: flex-start; justify-content: center;
+    padding-top: 13vh;
+    animation: palette-fade var(--duration-small) var(--ease-out);
+  }
+  @keyframes palette-fade { from { opacity: 0; } to { opacity: 1; } }
+  .palette {
+    width: 580px; max-width: calc(100vw - 32px);
+    background: var(--surface-1);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-xl);
+    overflow: hidden;
+    animation: palette-pop var(--duration-small) var(--ease-out);
+  }
+  [data-theme="dark"] .palette { background: var(--surface-2); }
+  @keyframes palette-pop { from { opacity: 0; transform: translateY(-8px) scale(0.98); } to { opacity: 1; transform: none; } }
+  .palette__search {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px; border-bottom: 1px solid var(--border-subtle); color: var(--fg-3);
+  }
+  .palette__search input {
+    flex: 1; background: transparent; border: 0; outline: 0;
+    font: inherit; font-size: 14px; color: var(--fg-1);
+  }
+  .palette__search input::placeholder { color: var(--fg-3); }
+  .palette__list { max-height: 360px; overflow: auto; padding: 6px 0; }
+  .palette__empty { padding: 20px 16px; color: var(--fg-3); font-size: 13px; text-align: center; }
+  .palette__section { padding: 4px 0; }
+  .palette__sectionTitle {
+    font-family: var(--font-mono); font-size: 10px; color: var(--fg-3);
+    text-transform: uppercase; letter-spacing: 0.08em; padding: 8px 16px 4px;
+  }
+  .palette__row {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; padding: 8px 16px;
+    border: 0; background: transparent; cursor: pointer; text-align: start;
+    color: var(--fg-1); font-size: 13px;
+  }
+  .palette__row > span:nth-of-type(1) { flex: 1; }
+  .palette__row svg { color: var(--fg-2); flex-shrink: 0; }
+  .palette__row.is-active { background: var(--iris-500); color: white; }
+  .palette__row.is-active svg { color: white; }
+  .palette__footer {
+    display: flex; gap: 16px; padding: 8px 16px;
+    border-top: 1px solid var(--border-subtle); font-size: 11px; color: var(--fg-3);
+  }
+  .palette__footer span { display: inline-flex; align-items: center; gap: 4px; }
+
+  /* ════════════════════════ DRAWER ════════════════════════ */
+  .axis-drawer-overlay { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+  .axis-drawer-overlay.is-open { pointer-events: auto; }
+  .axis-drawer-overlay__scrim {
+    position: absolute; inset: 0;
+    background: oklch(0.10 0.01 260 / 0.35);
+    -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+    opacity: 0; transition: opacity var(--duration-small) var(--ease-out);
+  }
+  .axis-drawer-overlay.is-open .axis-drawer-overlay__scrim { opacity: 1; }
+  .axis-drawer {
+    position: absolute; top: 0; bottom: 0; inset-inline-end: 0;
+    width: 420px; max-width: 100%;
+    background: var(--surface-1);
+    border-inline-start: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-xl);
+    display: flex; flex-direction: column;
+    transform: translateX(100%);
+    transition: transform var(--duration-large) var(--ease-out);
+  }
+  [data-theme="dark"] .axis-drawer { background: var(--surface-2); }
+  [dir="rtl"] .axis-drawer { transform: translateX(-100%); }
+  .axis-drawer-overlay.is-open .axis-drawer { transform: translateX(0) !important; }
+  .axis-drawer__head { padding: 18px 20px; display: flex; align-items: flex-start; gap: 12px; border-bottom: 1px solid var(--border-subtle); }
+  .axis-drawer__title { font-size: 17px; font-weight: 600; color: var(--fg-1); }
+  .axis-drawer__body { padding: 20px; overflow-y: auto; flex: 1; min-height: 0; }
+  .detail-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border-subtle); }
+  .detail-row:last-child { border-bottom: 0; }
+  .detail-row__label { flex: 0 0 110px; font-family: var(--font-mono); font-size: 11px; color: var(--fg-3); text-transform: uppercase; letter-spacing: 0.06em; padding-top: 1px; }
+  .detail-row__value { flex: 1; font-size: 14px; color: var(--fg-1); min-width: 0; }
+}
+
 /* ── Honor reduced-motion: collapse Axis durations ── */
 @media (prefers-reduced-motion: reduce) {
   :root {
