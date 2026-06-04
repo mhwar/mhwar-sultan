@@ -1,9 +1,14 @@
-import type { Project, Task, Plan, PlanPhase, Note } from '@/types'
+import type { Project, Task, Plan, PlanPhase, Note, Sprint } from '@/types'
 
 export const SEED_PLANS: Plan[] = [
-  { id: 'pl-mehwar', projectId: 'mehwar', name: 'خارطة الطريق', icon: 'route', kind: 'roadmap', view: 'timeline', order: 1, createdAt: '2026-01-01T00:00:00Z' },
-  { id: 'pl-mellasaq', projectId: 'mellasaq', name: 'خارطة الطريق', icon: 'route', kind: 'roadmap', view: 'timeline', order: 1, createdAt: '2026-03-01T00:00:00Z' },
-  { id: 'pl-bawsala', projectId: 'bawsala', name: 'خارطة الطريق', icon: 'route', kind: 'roadmap', view: 'timeline', order: 1, createdAt: '2026-02-01T00:00:00Z' },
+  { id: 'pl-mehwar', projectId: 'mehwar', name: 'خارطة الطريق', icon: 'route', kind: 'roadmap', domain: 'product', view: 'timeline', order: 1, createdAt: '2026-01-01T00:00:00Z' },
+  { id: 'pl-mellasaq', projectId: 'mellasaq', name: 'خارطة الطريق', icon: 'route', kind: 'roadmap', domain: 'product', view: 'timeline', order: 1, createdAt: '2026-03-01T00:00:00Z' },
+  { id: 'pl-bawsala', projectId: 'bawsala', name: 'خارطة الطريق', icon: 'route', kind: 'roadmap', domain: 'product', view: 'timeline', order: 1, createdAt: '2026-02-01T00:00:00Z' },
+]
+
+export const SEED_SPRINTS: Sprint[] = [
+  { id: 'sp-mehwar-1', projectId: 'mehwar', name: 'سبرنت ١: صفحة المشاريع', goal: 'إطلاق صفحة المشاريع كاملة الوظائف', status: 'active', startDate: '2026-06-01T00:00:00Z', dueDate: '2026-06-14T00:00:00Z', order: 1, createdAt: '2026-06-01T00:00:00Z' },
+  { id: 'sp-mehwar-2', projectId: 'mehwar', name: 'سبرنت ٢: نظام المهام', goal: 'كانبان وسحب وإفلات وعرض جدول', status: 'planned', startDate: '2026-06-15T00:00:00Z', dueDate: '2026-06-28T00:00:00Z', order: 2, createdAt: '2026-06-01T00:00:00Z' },
 ]
 
 export const SEED_PROJECTS: Project[] = [
@@ -58,8 +63,8 @@ export const SEED_TASKS: Task[] = [
   // محور
   { id: 't1', projectId: 'mehwar', title: 'تصميم الواجهة الرئيسية', description: 'تصميم Figma كامل للمنصة', status: 'done', priority: 'high', startDate: '2026-01-05T00:00:00Z', dueDate: '2026-01-20T00:00:00Z', createdAt: '2026-01-05T00:00:00Z' },
   { id: 't2', projectId: 'mehwar', title: 'إعداد البنية التحتية', description: 'Next.js + Tailwind + Zustand', status: 'done', priority: 'high', startDate: '2026-01-10T00:00:00Z', dueDate: '2026-01-25T00:00:00Z', createdAt: '2026-01-10T00:00:00Z' },
-  { id: 't3', projectId: 'mehwar', title: 'تطوير صفحة المشاريع', status: 'in-progress', priority: 'high', startDate: '2026-02-01T00:00:00Z', dueDate: '2026-06-20T00:00:00Z', createdAt: '2026-02-01T00:00:00Z' },
-  { id: 't4', projectId: 'mehwar', title: 'تطوير نظام المهام', status: 'in-progress', priority: 'medium', startDate: '2026-02-15T00:00:00Z', dueDate: '2026-06-30T00:00:00Z', createdAt: '2026-02-15T00:00:00Z' },
+  { id: 't3', projectId: 'mehwar', sprintId: 'sp-mehwar-1', title: 'تطوير صفحة المشاريع', status: 'in-progress', priority: 'high', startDate: '2026-02-01T00:00:00Z', dueDate: '2026-06-20T00:00:00Z', createdAt: '2026-02-01T00:00:00Z' },
+  { id: 't4', projectId: 'mehwar', sprintId: 'sp-mehwar-2', title: 'تطوير نظام المهام', status: 'in-progress', priority: 'medium', startDate: '2026-02-15T00:00:00Z', dueDate: '2026-06-30T00:00:00Z', createdAt: '2026-02-15T00:00:00Z' },
   { id: 't5', projectId: 'mehwar', title: 'نظام الإشعارات', status: 'todo', priority: 'low', startDate: '2026-06-10T00:00:00Z', dueDate: '2026-07-15T00:00:00Z', createdAt: '2026-03-01T00:00:00Z' },
   { id: 't6', projectId: 'mehwar', title: 'تصدير البيانات', status: 'todo', priority: 'low', startDate: '2026-06-20T00:00:00Z', dueDate: '2026-07-30T00:00:00Z', createdAt: '2026-03-10T00:00:00Z' },
 

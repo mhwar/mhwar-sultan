@@ -2,6 +2,7 @@ export type ProjectStatus = 'active' | 'paused' | 'completed' | 'planning'
 export type TaskStatus = 'todo' | 'in-progress' | 'done'
 export type TaskPriority = 'low' | 'medium' | 'high'
 export type PhaseStatus = 'upcoming' | 'in-progress' | 'completed'
+export type SprintStatus = 'planned' | 'active' | 'completed'
 
 export interface Milestone {
   id: string
@@ -32,6 +33,7 @@ export interface Task {
   projectId: string
   phaseId?: string
   milestoneId?: string
+  sprintId?: string
   title: string
   description?: string
   status: TaskStatus
@@ -41,7 +43,21 @@ export interface Task {
   createdAt: string
 }
 
+export interface Sprint {
+  id: string
+  projectId: string
+  name: string
+  goal?: string
+  startDate?: string
+  dueDate?: string
+  status: SprintStatus
+  order: number
+  createdAt: string
+}
+
 export type PlanKind = 'roadmap' | 'agile' | 'launch' | 'course' | 'content' | 'product' | 'custom'
+
+export type PlanDomain = 'product' | 'growth'
 
 export interface Plan {
   id: string
@@ -49,6 +65,7 @@ export interface Plan {
   name: string
   icon?: string
   kind?: PlanKind
+  domain?: PlanDomain
   view?: 'timeline' | 'board'
   targetDate?: string
   order: number

@@ -1,4 +1,4 @@
-import type { PlanKind } from '@/types'
+import type { PlanKind, PlanDomain } from '@/types'
 
 export interface PlanKindMeta {
   /** Singular noun for a section, e.g. "سبرنت". */
@@ -23,4 +23,18 @@ export const PLAN_KINDS: Record<PlanKind, PlanKindMeta> = {
 
 export function planKindMeta(kind?: PlanKind): PlanKindMeta {
   return PLAN_KINDS[kind ?? 'custom']
+}
+
+/** Which workspace tab a plan kind belongs to. `agile` is execution-only
+ *  (migrated to sprints) — defaults to 'product' as a safe fallback. */
+export function domainForKind(kind?: PlanKind): PlanDomain {
+  switch (kind) {
+    case 'content':
+    case 'launch':
+    case 'custom':
+      return 'growth'
+    default:
+      // roadmap | product | course | agile (fallback) | undefined
+      return 'product'
+  }
 }
