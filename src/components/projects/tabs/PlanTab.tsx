@@ -1,17 +1,21 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Plus, Check, Map, ChevronDown, ChevronUp, Trash2, Pencil, X, ArrowUp, ArrowDown, ChevronRight, ChevronLeft, Rows3, Columns3, ChevronsDownUp, ChevronsUpDown, Link2, MoreVertical } from 'lucide-react'
+import { Plus, Check, Map, ChevronDown, ChevronUp, Trash2, Pencil, X, ArrowUp, ArrowDown, ChevronRight, ChevronLeft, Rows3, Columns3, ChevronsDownUp, ChevronsUpDown, Link2, MoreVertical, Calendar, Target } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import { usePlanStore, useTaskStore } from '@/store/store'
 import type { Project, PlanPhase, PhaseStatus } from '@/types'
 import EmptyState from '@/components/shared/EmptyState'
 import Button from '@/components/ui/Button'
 import Segmented from '@/components/ui/Segmented'
+import Field from '@/components/ui/Field'
 import { PlanIcon } from '@/lib/icons'
 import { PLAN_TEMPLATES, type PlanTemplate } from '@/lib/plan-templates'
-import { PHASE_STATUS_LABELS, TASK_STATUS_VAR, generateId } from '@/lib/utils'
+import { planKindMeta } from '@/lib/plan-kinds'
+import { PHASE_STATUS_LABELS, TASK_STATUS_VAR, generateId, formatDateShort } from '@/lib/utils'
 
 const PHASE_COLUMNS: PhaseStatus[] = ['upcoming', 'in-progress', 'completed']
+const toDateInput = (iso?: string) => (iso ? iso.slice(0, 10) : '')
+const fromDateInput = (v: string) => (v ? `${v}T00:00:00Z` : undefined)
 
 interface PlanTabProps {
   project: Project
@@ -33,7 +37,15 @@ function PhaseCard({ phase, project, onMove, isFirst, isLast, expanded, onToggle
   const linkedTasks = useTaskStore(useShallow((s) => s.tasks.filter((t) => t.phaseId === phase.id)))
   const colors = PHASE_STATUS_COLORS[phase.status]
   const doneMilestones = phase.milestones.filter((m) => m.done).length
-  const pct = phase.milestones.length ? Math.round((doneMilestones / phase.milestones.length) * 100) : 0
+  // Combined progress: milestones + standalone linked tasks (tasks tied to a
+  // milestone are represented by that milestone to avoid double-counting).
+  const standaloneTasks = linkedTasks.filter((t) => !t.milestoneId)
+  const totalUnits = phase.milestones.length + standaloneTasks.length
+  const doneUnits = doneMilestones + standaloneTasks.filter((t) => t.status === 'done').length
+  const pct = totalUnits ? Math.round((doneUnits / totalUnits) * 100) : 0
+  const dateRange = (phase.startDate || phase.dueDate)
+    ? `${formatDateShort(phase.startDate)} – ${formatDateShort(phase.dueDate)}`
+    : null
 
   const handleAddMilestone = () => {
     if (!newMilestone.trim()) return
@@ -64,7 +76,19 @@ function PhaseCard({ phase, project, onMove, isFirst, isLast, expanded, onToggle
         >
           <div className="min-w-0">
             <h3 className="font-semibold text-sm truncate" style={{ color: 'var(--fg-1)' }}>{phase.title}</h3>
-            <p className="axis-num text-xs mt-0.5" style={{ color: 'var(--fg-3)' }}>{doneMilestones} / {phase.milestones.length} إنجاز · {pct}%{linkedTasks.length > 0 ? ` · ${linkedTasks.length} مهمة` : ''}</p>
+            {phase.objective && (
+              <p className="text-xs mt-0.5 truncate inline-flex items-center gap-1" style={{ color: 'var(--fg-2)' }}>
+                <Target size={11} style={{ flexShrink: 0 }} />{phase.objective}
+              </p>
+            )}
+            <div className="flex items-center gap-x-3 gap-y-0.5 mt-1 flex-wrap">
+              <span className="axis-num text-xs" style={{ color: 'var(--fg-3)' }}>{doneUnits}/{totalUnits} · {pct}%{linkedTasks.length > 0 ? ` · ${linkedTasks.length} مهمة` : ''}</span>
+              {dateRange && (
+                <span className="axis-num text-xs inline-flex items-center gap-1" style={{ color: 'var(--fg-3)' }}>
+                  <Calendar size={11} />{dateRange}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <button onClick={(e) => { e.stopPropagation(); onMove(-1) }} disabled={isFirst} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost" style={{ opacity: isFirst ? 0.3 : 1 }} aria-label="نقل لأعلى">
@@ -124,6 +148,21 @@ function PhaseCard({ phase, project, onMove, isFirst, isLast, expanded, onToggle
 
         {expanded && (
           <div className="p-4 space-y-2">
+            {/* Objective + date range */}
+            <div className="space-y-3 mb-3">
+              <input
+                value={phase.objective ?? ''}
+                onChange={(e) => updatePhase(phase.id, { objective: e.target.value })}
+                placeholder="الهدف من هذه المرحلة"
+                className="w-full text-sm px-3 py-2 rounded-lg outline-none"
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border-default)', color: 'var(--fg-1)' }}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="البداية" type="date" dir="ltr" value={toDateInput(phase.startDate)} onChange={(v) => updatePhase(phase.id, { startDate: fromDateInput(v) })} />
+                <Field label="النهاية" type="date" dir="ltr" value={toDateInput(phase.dueDate)} onChange={(v) => updatePhase(phase.id, { dueDate: fromDateInput(v) })} />
+              </div>
+            </div>
+
             {phase.description && <p className="text-xs leading-relaxed mb-3" style={{ color: 'var(--fg-2)' }}>{phase.description}</p>}
 
             {phase.milestones.map((milestone) => {
@@ -192,9 +231,11 @@ function PhaseCard({ phase, project, onMove, isFirst, isLast, expanded, onToggle
 /* ── Compact card for the board view ── */
 function PhaseBoardCard({ phase, project }: { phase: PlanPhase; project: Project }) {
   const { updatePhase, deletePhase } = usePlanStore()
-  const linked = useTaskStore(useShallow((s) => s.tasks.filter((t) => t.phaseId === phase.id).length))
-  const done = phase.milestones.filter((m) => m.done).length
-  const pct = phase.milestones.length ? Math.round((done / phase.milestones.length) * 100) : 0
+  const linkedTasks = useTaskStore(useShallow((s) => s.tasks.filter((t) => t.phaseId === phase.id)))
+  const standalone = linkedTasks.filter((t) => !t.milestoneId)
+  const total = phase.milestones.length + standalone.length
+  const done = phase.milestones.filter((m) => m.done).length + standalone.filter((t) => t.status === 'done').length
+  const pct = total ? Math.round((done / total) * 100) : 0
 
   return (
     <div className="board-card group">
@@ -209,8 +250,8 @@ function PhaseBoardCard({ phase, project }: { phase: PlanPhase; project: Project
         <span className="progress-cell__num">{pct}%</span>
       </div>
       <div className="board-card__foot">
-        <span className="axis-num">{done}/{phase.milestones.length} إنجاز</span>
-        {linked > 0 && <span className="board-card__meta axis-num">{linked} مهمة</span>}
+        <span className="axis-num">{done}/{total}</span>
+        {linkedTasks.length > 0 && <span className="board-card__meta axis-num">{linkedTasks.length} مهمة</span>}
       </div>
       <div className="flex gap-1 flex-wrap">
         {PHASE_COLUMNS.map((s) => (
@@ -289,6 +330,7 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
   const isFirst = plans[0]?.id === activePlanId
   const planPhases = phases.filter((ph) => ph.planId === activePlanId || (isFirst && !ph.planId))
   const activePlan = plans.find((p) => p.id === activePlanId)
+  const kindMeta = planKindMeta(activePlan?.kind)
 
   const totalMs = planPhases.reduce((a, ph) => a + ph.milestones.length, 0)
   const doneMs = planPhases.reduce((a, ph) => a + ph.milestones.filter((m) => m.done).length, 0)
@@ -300,7 +342,7 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
   const togglePhase = (id: string) => setCollapsed((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
 
   const createFromTemplate = (tpl: PlanTemplate) => {
-    const id = addPlan(project.id, tpl.name, tpl.icon, tpl.defaultView)
+    const id = addPlan(project.id, tpl.name, tpl.icon, tpl.defaultView, tpl.kind)
     tpl.phases.forEach((ph, i) =>
       addPhase({
         projectId: project.id,
@@ -526,11 +568,11 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
       {/* Add phase */}
       {showAddPhase ? (
         <div className="axis-card p-4">
-          <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--fg-1)' }}>مرحلة جديدة</h3>
+          <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--fg-1)' }}>{kindMeta.unit} جديدة</h3>
           <div className="space-y-3">
             <input
               type="text"
-              placeholder="عنوان المرحلة"
+              placeholder={`عنوان ${kindMeta.unit}`}
               value={newPhaseTitle}
               onChange={(e) => setNewPhaseTitle(e.target.value)}
               className="w-full text-sm px-3 py-2.5 rounded-xl outline-none"
@@ -557,7 +599,7 @@ export default function PlanTab({ project, phases }: PlanTabProps) {
           style={{ color: project.color, background: `${project.color}15`, border: `1px dashed ${project.color}40` }}
         >
           <Plus size={15} />
-          إضافة مرحلة جديدة
+          {kindMeta.addLabel}
         </button>
       )}
     </div>

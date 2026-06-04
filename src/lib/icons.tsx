@@ -1,7 +1,7 @@
 import {
   Hexagon, Tag, Compass, Rocket, Lightbulb, Wrench, Smartphone, Globe,
   Folder, Zap, Target, Sparkles, Layers, Box, Flag, Palette,
-  Route, Megaphone, TrendingUp, FileText, FlaskConical, Users, Code, ListChecks,
+  Route, Megaphone, TrendingUp, FileText, FlaskConical, Users, Code, ListChecks, BookOpen,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -63,6 +63,8 @@ export const PLAN_ICONS: Record<string, LucideIcon> = {
   code: Code,
   'list-checks': ListChecks,
   target: Target,
+  zap: Zap,
+  book: BookOpen,
 }
 
 export const PLAN_ICON_KEYS = Object.keys(PLAN_ICONS)
