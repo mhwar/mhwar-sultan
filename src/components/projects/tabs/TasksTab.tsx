@@ -12,9 +12,9 @@ interface TasksTabProps {
 }
 
 const COLUMNS: { status: TaskStatus; label: string; color: string }[] = [
-  { status: 'todo',        label: 'للتنفيذ', color: 'rgba(255,255,255,0.3)' },
-  { status: 'in-progress', label: 'جارية',  color: '#F59E0B'                },
-  { status: 'done',        label: 'منجزة',   color: '#10B981'                },
+  { status: 'todo',        label: 'للتنفيذ', color: 'var(--color-text-muted)'    },
+  { status: 'in-progress', label: 'جارية',  color: 'var(--color-status-paused)' },
+  { status: 'done',        label: 'منجزة',   color: 'var(--color-status-active)' },
 ]
 
 const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [

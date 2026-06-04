@@ -53,7 +53,7 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
           // desktop overrides — md:right-auto resets right-0 so sticky uses flex layout
           'md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:right-auto',
           // slide animation — use Tailwind only (no inline transform)
-          'transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          'transition-transform duration-[320ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]',
           open ? 'translate-x-0' : 'translate-x-full',
           'md:translate-x-0',
         ].join(' ')}
@@ -68,7 +68,7 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
           <div className="flex items-center gap-3">
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-lg"
-              style={{ background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)' }}
+              style={{ background: 'var(--color-brand)' }}
             >
               م
             </div>
@@ -102,8 +102,8 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
                 href={href}
                 className="sidebar-nav-item"
                 style={isActive ? {
-                  background: 'rgba(99, 102, 241, 0.12)',
-                  color: '#6366F1',
+                  background: 'var(--color-brand-subtle)',
+                  color: 'var(--color-brand)',
                   border: '1px solid rgba(99, 102, 241, 0.2)',
                 } : {}}
               >
@@ -123,7 +123,7 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
             style={{ color: 'var(--color-text-muted)', fontSize: '0.7rem', fontWeight: 600 }}
           >
             <span>المشاريع</span>
-            <Link href="/projects" className="hover:text-indigo-400 transition-colors" title="مشروع جديد">
+            <Link href="/projects" className="hover:text-iris-400 transition-colors" title="مشروع جديد">
               <Plus size={14} />
             </Link>
           </div>
@@ -165,8 +165,8 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
             href="/settings"
             className="sidebar-nav-item"
             style={pathname === '/settings' ? {
-              background: 'rgba(99, 102, 241, 0.12)',
-              color: '#6366F1',
+              background: 'var(--color-brand-subtle)',
+              color: 'var(--color-brand)',
               border: '1px solid rgba(99, 102, 241, 0.2)',
             } : {}}
           >

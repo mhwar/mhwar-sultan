@@ -47,28 +47,28 @@ export default function StatsGrid() {
       value: stats.totalProjects,
       label: 'إجمالي المشاريع',
       sub: `${stats.activeProjects} نشط`,
-      accent: '#6366F1',
+      accent: 'var(--color-brand)',
     },
     {
       icon: <Zap size={20} />,
       value: stats.activeProjects,
       label: 'مشاريع نشطة',
       sub: 'جارية الآن',
-      accent: '#10B981',
+      accent: 'var(--color-status-active)',
     },
     {
       icon: <CheckCircle2 size={20} />,
       value: stats.completedTasks,
       label: 'مهام منجزة',
       sub: `من أصل ${stats.totalTasks}`,
-      accent: '#3B82F6',
+      accent: 'var(--color-status-completed)',
     },
     {
       icon: <TrendingUp size={20} />,
       value: `${stats.avgProgress}%`,
       label: 'متوسط التقدم',
       sub: 'عبر جميع المشاريع',
-      accent: '#F59E0B',
+      accent: 'var(--color-status-paused)',
     },
   ]
 

@@ -19,12 +19,6 @@ export default function ProjectCard({ project, taskCount = 0 }: ProjectCardProps
       className="glass-card-hover relative overflow-hidden"
       onClick={() => router.push(`/projects/${project.id}`)}
     >
-      {/* Accent top border */}
-      <div
-        className="absolute top-0 inset-x-0 h-0.5"
-        style={{ background: `linear-gradient(90deg, ${project.color}, transparent)` }}
-      />
-
       <div className="p-5">
         {/* Header */}
         <div className="flex items-start justify-between mb-3">

@@ -27,7 +27,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           <div className="flex items-center gap-2.5">
             <div
               className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-sm"
-              style={{ background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)' }}
+              style={{ background: 'var(--color-brand)' }}
             >
               م
             </div>
