@@ -41,12 +41,16 @@ export interface Task {
   createdAt: string
 }
 
+export type PlanKind = 'roadmap' | 'agile' | 'launch' | 'course' | 'content' | 'product' | 'custom'
+
 export interface Plan {
   id: string
   projectId: string
   name: string
   icon?: string
+  kind?: PlanKind
   view?: 'timeline' | 'board'
+  targetDate?: string
   order: number
   createdAt: string
 }
@@ -57,6 +61,9 @@ export interface PlanPhase {
   planId?: string
   title: string
   description: string
+  objective?: string
+  startDate?: string
+  dueDate?: string
   status: PhaseStatus
   order: number
   milestones: Milestone[]

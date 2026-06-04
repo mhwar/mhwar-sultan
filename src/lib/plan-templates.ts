@@ -1,4 +1,4 @@
-import type { PhaseStatus } from '@/types'
+import type { PhaseStatus, PlanKind } from '@/types'
 
 export interface TemplatePhase {
   title: string
@@ -11,6 +11,7 @@ export interface PlanTemplate {
   id: string
   name: string
   icon: string
+  kind: PlanKind
   description: string
   defaultView: 'timeline' | 'board'
   phases: TemplatePhase[]
@@ -20,6 +21,7 @@ export interface PlanTemplate {
 export const PLAN_TEMPLATES: PlanTemplate[] = [
   {
     id: 'roadmap',
+    kind: 'roadmap',
     name: 'خارطة الطريق',
     icon: 'route',
     description: 'مراحل تطور المنتج من التأسيس حتى التوسّع',
@@ -33,6 +35,7 @@ export const PLAN_TEMPLATES: PlanTemplate[] = [
   },
   {
     id: 'marketing',
+    kind: 'content',
     name: 'خطة التسويق',
     icon: 'megaphone',
     description: 'من أبحاث السوق حتى قياس الحملات',
@@ -46,6 +49,7 @@ export const PLAN_TEMPLATES: PlanTemplate[] = [
   },
   {
     id: 'sales',
+    kind: 'custom',
     name: 'خطة المبيعات',
     icon: 'trending-up',
     description: 'بناء قمع المبيعات والإغلاق والاحتفاظ',
@@ -59,6 +63,7 @@ export const PLAN_TEMPLATES: PlanTemplate[] = [
   },
   {
     id: 'content',
+    kind: 'content',
     name: 'خطة المحتوى',
     icon: 'file-text',
     description: 'التخطيط والإنتاج والنشر والتحليل',
@@ -72,6 +77,7 @@ export const PLAN_TEMPLATES: PlanTemplate[] = [
   },
   {
     id: 'launch',
+    kind: 'launch',
     name: 'خطة الإطلاق',
     icon: 'rocket',
     description: 'تجهيز وإطلاق ومتابعة ما بعد الإطلاق',
@@ -84,6 +90,7 @@ export const PLAN_TEMPLATES: PlanTemplate[] = [
   },
   {
     id: 'product',
+    kind: 'product',
     name: 'خطة المنتج',
     icon: 'layers',
     description: 'اكتشاف وتصميم وبناء وشحن الميزات',
@@ -97,6 +104,7 @@ export const PLAN_TEMPLATES: PlanTemplate[] = [
   },
   {
     id: 'blank',
+    kind: 'custom',
     name: 'خطة فارغة',
     icon: 'list-checks',
     description: 'ابدأ من الصفر وأضف مراحلك',

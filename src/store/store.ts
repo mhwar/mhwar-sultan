@@ -83,7 +83,7 @@ export const useTaskStore = create<TaskStore>()(
 interface PlanStore {
   plans: Plan[]
   phases: PlanPhase[]
-  addPlan: (projectId: string, name: string, icon?: string, view?: 'timeline' | 'board') => string
+  addPlan: (projectId: string, name: string, icon?: string, view?: 'timeline' | 'board', kind?: Plan['kind']) => string
   renamePlan: (id: string, name: string) => void
   deletePlan: (id: string) => void
   reorderPlans: (orderedIds: string[]) => void
@@ -103,11 +103,11 @@ export const usePlanStore = create<PlanStore>()(
       plans: SEED_PLANS,
       phases: SEED_PHASES,
 
-      addPlan: (projectId, name, icon, view) => {
+      addPlan: (projectId, name, icon, view, kind) => {
         const id = generateId()
         set((s) => {
           const order = s.plans.filter((p) => p.projectId === projectId).length + 1
-          return { plans: [...s.plans, { id, projectId, name, icon, view, order, createdAt: now() }] }
+          return { plans: [...s.plans, { id, projectId, name, icon, view, kind, order, createdAt: now() }] }
         })
         return id
       },
@@ -202,7 +202,7 @@ export const usePlanStore = create<PlanStore>()(
               } else {
                 const id = `pl-${ph.projectId}-default`
                 byProject[ph.projectId] = id
-                plans.push({ id, projectId: ph.projectId, name: 'خارطة الطريق', icon: 'route', view: 'timeline', order: 1, createdAt: new Date().toISOString() })
+                plans.push({ id, projectId: ph.projectId, name: 'خارطة الطريق', icon: 'route', kind: 'roadmap', view: 'timeline', order: 1, createdAt: new Date().toISOString() })
               }
             }
             if (!ph.planId) ph.planId = byProject[ph.projectId]
