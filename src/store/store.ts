@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, Feature, Sprint, SprintStatus, ProductDoc } from '@/types'
-import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES, SEED_SPRINTS, SEED_DOCS } from '@/lib/seed-data'
+import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, Feature, Sprint, SprintStatus, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel } from '@/types'
+import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES, SEED_SPRINTS, SEED_DOCS, SEED_METRICS, SEED_EXPERIMENTS, SEED_CHANNELS } from '@/lib/seed-data'
 import { domainForKind } from '@/lib/plan-kinds'
 import { generateId, now } from '@/lib/utils'
 
@@ -541,6 +541,81 @@ export const useDocumentStore = create<DocumentStore>()(
         set((s) => ({ docs: s.docs.filter((d) => d.id !== id) })),
     }),
     { name: 'mhwar-docs', version: 1, skipHydration: true }
+  )
+)
+
+// ── Growth Store ──────────────────────────────────────────
+interface GrowthStore {
+  metrics: GrowthMetric[]
+  experiments: GrowthExperiment[]
+  channels: GrowthChannel[]
+  addMetric: (data: Omit<GrowthMetric, 'id' | 'order' | 'createdAt' | 'updatedAt'>) => string
+  updateMetric: (id: string, data: Partial<GrowthMetric>) => void
+  deleteMetric: (id: string) => void
+  addExperiment: (data: Omit<GrowthExperiment, 'id' | 'order' | 'createdAt'>) => string
+  updateExperiment: (id: string, data: Partial<GrowthExperiment>) => void
+  deleteExperiment: (id: string) => void
+  addChannel: (data: Omit<GrowthChannel, 'id' | 'order' | 'createdAt'>) => string
+  updateChannel: (id: string, data: Partial<GrowthChannel>) => void
+  deleteChannel: (id: string) => void
+}
+
+export const useGrowthStore = create<GrowthStore>()(
+  persist(
+    (set, get) => ({
+      metrics: SEED_METRICS,
+      experiments: SEED_EXPERIMENTS,
+      channels: SEED_CHANNELS,
+
+      addMetric: (data) => {
+        const id = generateId()
+        set((s) => {
+          const existing = s.metrics.filter((m) => m.projectId === data.projectId)
+          const order = existing.length > 0 ? Math.max(...existing.map((m) => m.order)) + 1 : 0
+          return { metrics: [...s.metrics, { ...data, id, order, createdAt: now(), updatedAt: now() }] }
+        })
+        return id
+      },
+
+      updateMetric: (id, data) =>
+        set((s) => ({ metrics: s.metrics.map((m) => (m.id === id ? { ...m, ...data, updatedAt: now() } : m)) })),
+
+      deleteMetric: (id) =>
+        set((s) => ({ metrics: s.metrics.filter((m) => m.id !== id) })),
+
+      addExperiment: (data) => {
+        const id = generateId()
+        set((s) => {
+          const existing = s.experiments.filter((e) => e.projectId === data.projectId)
+          const order = existing.length > 0 ? Math.max(...existing.map((e) => e.order)) + 1 : 0
+          return { experiments: [...s.experiments, { ...data, id, order, createdAt: now() }] }
+        })
+        return id
+      },
+
+      updateExperiment: (id, data) =>
+        set((s) => ({ experiments: s.experiments.map((e) => (e.id === id ? { ...e, ...data } : e)) })),
+
+      deleteExperiment: (id) =>
+        set((s) => ({ experiments: s.experiments.filter((e) => e.id !== id) })),
+
+      addChannel: (data) => {
+        const id = generateId()
+        set((s) => {
+          const existing = s.channels.filter((c) => c.projectId === data.projectId)
+          const order = existing.length > 0 ? Math.max(...existing.map((c) => c.order)) + 1 : 0
+          return { channels: [...s.channels, { ...data, id, order, createdAt: now() }] }
+        })
+        return id
+      },
+
+      updateChannel: (id, data) =>
+        set((s) => ({ channels: s.channels.map((c) => (c.id === id ? { ...c, ...data } : c)) })),
+
+      deleteChannel: (id) =>
+        set((s) => ({ channels: s.channels.filter((c) => c.id !== id) })),
+    }),
+    { name: 'mhwar-growth', version: 1, skipHydration: true }
   )
 )
 

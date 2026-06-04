@@ -116,3 +116,55 @@ export interface ProductDoc {
   order: number
   createdAt: string
 }
+
+// ── Growth ───────────────────────────────────────────────
+export type MetricCategory = 'acquisition' | 'activation' | 'retention' | 'revenue' | 'referral'
+
+export interface GrowthMetric {
+  id: string
+  projectId: string
+  name: string
+  value: number
+  unit: string
+  target?: number
+  change?: number
+  category: MetricCategory
+  order: number
+  updatedAt: string
+  createdAt: string
+}
+
+export type ExperimentStatus = 'idea' | 'running' | 'completed' | 'paused'
+export type ExperimentResult = 'won' | 'lost' | 'inconclusive'
+
+export interface GrowthExperiment {
+  id: string
+  projectId: string
+  title: string
+  hypothesis?: string
+  metric?: string
+  status: ExperimentStatus
+  result?: ExperimentResult
+  impact: 1 | 2 | 3 | 4 | 5
+  confidence: 1 | 2 | 3 | 4 | 5
+  ease: 1 | 2 | 3 | 4 | 5
+  startDate?: string
+  endDate?: string
+  notes?: string
+  order: number
+  createdAt: string
+}
+
+export type ChannelType = 'organic' | 'paid' | 'social' | 'email' | 'referral' | 'content' | 'seo' | 'other'
+export type ChannelStatus = 'active' | 'testing' | 'paused' | 'stopped'
+
+export interface GrowthChannel {
+  id: string
+  projectId: string
+  name: string
+  type: ChannelType
+  status: ChannelStatus
+  notes?: string
+  order: number
+  createdAt: string
+}
