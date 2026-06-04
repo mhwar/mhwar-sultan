@@ -765,6 +765,7 @@
   .detail-row:last-child { border-bottom: 0; }
   .detail-row__label { flex: 0 0 110px; font-family: var(--font-mono); font-size: 11px; color: var(--fg-3); text-transform: uppercase; letter-spacing: 0.06em; padding-top: 1px; }
   .detail-row__value { flex: 1; font-size: 14px; color: var(--fg-1); min-width: 0; }
+  .drawer-section__title { font-family: var(--font-mono); font-size: 10px; color: var(--fg-3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
 }
 
 @layer components {

@@ -17,12 +17,15 @@ export function hexToRgba(hex: string | undefined | null, alpha: number): string
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
+// Force Gregorian calendar + Western (latn) numerals everywhere — never Hijri / Arabic-Indic.
+const AR_LATN = 'ar-u-ca-gregory-nu-latn'
+
 export function formatDateAr(iso: string | undefined): string {
   if (!iso) return '—'
   try {
     const d = new Date(iso)
     if (isNaN(d.getTime())) return '—'
-    return new Intl.DateTimeFormat('ar-SA', {
+    return new Intl.DateTimeFormat(AR_LATN, {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -32,9 +35,17 @@ export function formatDateAr(iso: string | undefined): string {
   }
 }
 
+/** Compact numeric date, e.g. 15/06/2026 — Western numerals. */
+export function formatDateShort(iso: string | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return '—'
+  return new Intl.DateTimeFormat(AR_LATN, { year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
+}
+
 export function timeAgoAr(iso: string): string {
   const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
-  const rtf = new Intl.RelativeTimeFormat('ar', { numeric: 'auto' })
+  const rtf = new Intl.RelativeTimeFormat('ar-u-nu-latn', { numeric: 'auto' })
   if (seconds < 60) return rtf.format(-seconds, 'second')
   if (seconds < 3600) return rtf.format(-Math.floor(seconds / 60), 'minute')
   if (seconds < 86400) return rtf.format(-Math.floor(seconds / 3600), 'hour')

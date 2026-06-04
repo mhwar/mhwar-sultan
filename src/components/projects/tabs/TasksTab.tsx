@@ -293,7 +293,7 @@ export default function TasksTab({ project, tasks }: TasksTabProps) {
         )
       )}
 
-      <TaskDrawer task={selected} onClose={() => setSelectedId(null)} />
+      <TaskDrawer task={selected} project={project} onClose={() => setSelectedId(null)} />
     </div>
   )
 }
