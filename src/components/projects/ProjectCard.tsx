@@ -18,7 +18,7 @@ export default function ProjectCard({ project, taskCount = 0 }: ProjectCardProps
   return (
     <div
       className="axis-card-hover p-4 flex flex-col gap-3"
-      onClick={() => router.push(`/projects/${project.id}`)}
+      onClick={() => router.push(`/project?id=${project.id}`)}
     >
       {/* Header — logo, name, status */}
       <div className="flex items-start justify-between gap-3">

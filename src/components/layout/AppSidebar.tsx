@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
 import { LayoutDashboard, FolderKanban, BarChart3, Settings, Plus, X, Search, Wallet } from 'lucide-react'
 import { useProjectStore } from '@/store/store'
@@ -19,12 +19,14 @@ interface AppSidebarProps {
 
 export default function AppSidebar({ open, onClose }: AppSidebarProps) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const activeProjectId = pathname === '/project' ? searchParams.get('id') : null
   const projects = useProjectStore((s) => s.projects)
 
   // Auto-close on navigation (mobile only — md:hidden backdrop handles visual)
   useEffect(() => {
     onClose()
-  }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pathname, activeProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
@@ -134,11 +136,11 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
 
             <div className="space-y-0.5">
               {projects.map((project) => {
-                const isActive = pathname === `/projects/${project.id}`
+                const isActive = activeProjectId === project.id
                 return (
                   <Link
                     key={project.id}
-                    href={`/projects/${project.id}`}
+                    href={`/project?id=${project.id}`}
                     className="flex items-center gap-2.5 px-2.5 py-2 rounded-md transition-all duration-[120ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] group"
                     style={{
                       background: isActive ? 'var(--color-surface-overlay)' : 'transparent',

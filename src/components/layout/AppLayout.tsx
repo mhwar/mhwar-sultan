@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { Menu, Search } from 'lucide-react'
 import AppSidebar from './AppSidebar'
 import CommandPalette from '@/components/shared/CommandPalette'
@@ -14,7 +14,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="flex h-dvh overflow-hidden" style={{ background: 'var(--color-surface-base)' }}>
       <CommandPalette />
-      <AppSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {/* Sidebar reads ?id= via useSearchParams → needs a Suspense boundary under static export */}
+      <Suspense fallback={null}>
+        <AppSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      </Suspense>
 
       <main className="flex-1 overflow-y-auto min-w-0">
         {/* Mobile header with hamburger */}
