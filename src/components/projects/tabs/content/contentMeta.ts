@@ -29,6 +29,16 @@ export const STATUS_VAR: Record<ContentStatus, string> = {
 /** Statuses that count as "fulfilled" against a monthly contract quota. */
 export const DONE_STATUSES: ContentStatus[] = ['delivered', 'published']
 
+/** Common social/design content sizes (the value is shown on cards & export). */
+export const CONTENT_SIZES: { value: string; label: string }[] = [
+  { value: '1080×1080', label: 'مربع 1:1 — 1080×1080' },
+  { value: '1080×1350', label: 'بورتريه 4:5 — 1080×1350' },
+  { value: '1080×1920', label: 'ستوري / ريلز 9:16 — 1080×1920' },
+  { value: '1920×1080', label: 'أفقي 16:9 — 1920×1080' },
+  { value: '1600×900', label: 'تويتر 16:9 — 1600×900' },
+  { value: '1200×630', label: 'لينكدإن / فيسبوك — 1200×630' },
+]
+
 export function nextStatus(s: ContentStatus): ContentStatus | null {
   const i = STATUS_ORDER.indexOf(s)
   return i < STATUS_ORDER.length - 1 ? STATUS_ORDER[i + 1] : null
