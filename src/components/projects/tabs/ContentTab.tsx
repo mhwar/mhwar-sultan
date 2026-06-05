@@ -2,6 +2,7 @@
 import { useState, useMemo } from 'react'
 import {
   Plus, Layers, ChevronLeft, ChevronRight, CalendarDays, LayoutGrid, List, Search, CheckCircle2,
+  Globe, Printer,
 } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import type { Project, ContentItem, ContentStatus } from '@/types'
@@ -11,6 +12,8 @@ import ContentForm, { type ContentFormData } from './content/ContentForm'
 import ContentCalendar from './content/ContentCalendar'
 import ContentBoard from './content/ContentBoard'
 import ContentList from './content/ContentList'
+import GlobalEventsSheet from './content/GlobalEventsSheet'
+import ContentExportModal from './content/ContentExportModal'
 import {
   scheduledKey, keyInMonth, keyToISO, monthLabel, DONE_STATUSES, buildClientColorMap,
 } from './content/contentMeta'
@@ -44,6 +47,8 @@ export default function ContentTab({ project }: Props) {
   const [quickTitle, setQuickTitle] = useState('')
   const [quickClient, setQuickClient] = useState<string>('')
   const [editor, setEditor] = useState<EditorState>({ open: false })
+  const [showGlobalEvents, setShowGlobalEvents] = useState(false)
+  const [showExport, setShowExport] = useState(false)
 
   const clientColorMap = useMemo(() => buildClientColorMap(clients.map((c) => c.id)), [clients])
   const clientNameMap = useMemo(() => Object.fromEntries(clients.map((c) => [c.id, c.name])), [clients])
@@ -116,6 +121,10 @@ export default function ContentTab({ project }: Props) {
   const reschedule = (id: string, key: string | null) =>
     updateItem(id, { publishDate: key ? keyToISO(key) : undefined })
 
+  const handleGlobalEventAdd = (title: string, dateKey: string) => {
+    addItem({ projectId: pid, title, type: 'post', status: 'idea', publishDate: keyToISO(dateKey) })
+  }
+
   const quickAdd = () => {
     const t = quickTitle.trim()
     if (!t) return
@@ -139,15 +148,33 @@ export default function ContentTab({ project }: Props) {
             {items.length}
           </span>
         </div>
-        <Segmented
-          value={view}
-          onChange={(v) => setView(v as View)}
-          options={[
-            { value: 'calendar', icon: <CalendarDays size={15} />, label: 'تقويم' },
-            { value: 'board', icon: <LayoutGrid size={15} />, label: 'لوحة' },
-            { value: 'list', icon: <List size={15} />, label: 'قائمة' },
-          ]}
-        />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowGlobalEvents(true)}
+            className="w-8 h-8 rounded-md flex items-center justify-center transition-colors hover:bg-white/5"
+            style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
+            title="المناسبات العالمية"
+          >
+            <Globe size={15} />
+          </button>
+          <button
+            onClick={() => setShowExport(true)}
+            className="w-8 h-8 rounded-md flex items-center justify-center transition-colors hover:bg-white/5"
+            style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
+            title="تصدير جدول المحتوى"
+          >
+            <Printer size={15} />
+          </button>
+          <Segmented
+            value={view}
+            onChange={(v) => setView(v as View)}
+            options={[
+              { value: 'calendar', icon: <CalendarDays size={15} />, label: 'تقويم' },
+              { value: 'board', icon: <LayoutGrid size={15} />, label: 'لوحة' },
+              { value: 'list', icon: <List size={15} />, label: 'قائمة' },
+            ]}
+          />
+        </div>
       </div>
 
       {/* Month navigator + summary + tools */}
@@ -369,6 +396,28 @@ export default function ContentTab({ project }: Props) {
           onSave={handleSave}
           onDelete={editor.item ? handleDelete : undefined}
           onClose={closeEditor}
+        />
+      )}
+
+      {showGlobalEvents && (
+        <GlobalEventsSheet
+          year={year}
+          month={month}
+          onAddToCalendar={(title, dateKey) => {
+            handleGlobalEventAdd(title, dateKey)
+          }}
+          onClose={() => setShowGlobalEvents(false)}
+        />
+      )}
+
+      {showExport && (
+        <ContentExportModal
+          items={items}
+          clients={clients}
+          clientColorMap={clientColorMap}
+          year={year}
+          month={month}
+          onClose={() => setShowExport(false)}
         />
       )}
     </div>

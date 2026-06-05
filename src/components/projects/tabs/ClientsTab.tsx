@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Plus, Trash2, Check, X, Building2, Mail, Phone, FileText, ChevronLeft } from 'lucide-react'
+import { Plus, Trash2, Check, X, Building2, Mail, Phone, FileText, ChevronLeft, Image } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import type { Project, Client, ClientStatus } from '@/types'
 import { useClientStore } from '@/store/store'
@@ -14,6 +14,13 @@ const STATUS_VAR: Record<ClientStatus, string> = {
 }
 
 function fmt(n: number) { return n.toLocaleString('en-US') }
+
+/** Initials from a name string (up to 2 chars). */
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return name.slice(0, 2).toUpperCase()
+}
 
 interface Props { project: Project }
 
@@ -90,6 +97,35 @@ function SummaryCard({ label, value, sub, color }: { label: string; value: strin
   )
 }
 
+/** Avatar: logo image if available, else colored initials circle. */
+export function ClientAvatar({ client, size = 40 }: { client: { name: string; logo?: string }; size?: number }) {
+  const [err, setErr] = useState(false)
+  if (client.logo && !err) {
+    return (
+      <img
+        src={client.logo}
+        alt={client.name}
+        onError={() => setErr(true)}
+        className="rounded-xl object-contain bg-white"
+        style={{ width: size, height: size, flexShrink: 0 }}
+      />
+    )
+  }
+  return (
+    <div
+      className="rounded-xl flex items-center justify-center shrink-0 font-bold select-none"
+      style={{
+        width: size, height: size,
+        background: 'color-mix(in oklch, var(--iris-500) 15%, transparent)',
+        color: 'var(--iris-500)',
+        fontSize: size * 0.35,
+      }}
+    >
+      {initials(client.name)}
+    </div>
+  )
+}
+
 function ClientCard({ client: c, onEdit, onDelete }: { client: Client; onEdit: () => void; onDelete: () => void }) {
   const statusColor = STATUS_VAR[c.status]
   return (
@@ -99,12 +135,7 @@ function ClientCard({ client: c, onEdit, onDelete }: { client: Client; onEdit: (
       onClick={onEdit}
     >
       <div className="flex items-start gap-3">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: 'color-mix(in oklch, var(--iris-500) 15%, transparent)', color: 'var(--iris-500)' }}
-        >
-          <Building2 size={18} />
-        </div>
+        <ClientAvatar client={c} size={44} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{c.name}</p>
@@ -163,6 +194,7 @@ type ClientFormData = Omit<Client, 'id' | 'order' | 'createdAt' | 'updatedAt' | 
 
 function ClientForm({ initial, onSave, onCancel }: { initial?: Client; onSave: (d: ClientFormData) => void; onCancel: () => void }) {
   const [name, setName] = useState(initial?.name ?? '')
+  const [logo, setLogo] = useState(initial?.logo ?? '')
   const [contactName, setContactName] = useState(initial?.contactName ?? '')
   const [phone, setPhone] = useState(initial?.phone ?? '')
   const [email, setEmail] = useState(initial?.email ?? '')
@@ -173,11 +205,13 @@ function ClientForm({ initial, onSave, onCancel }: { initial?: Client; onSave: (
   const [deliverableCount, setDeliverableCount] = useState(initial?.deliverableCount !== undefined ? String(initial.deliverableCount) : '')
   const [status, setStatus] = useState<ClientStatus>(initial?.status ?? 'active')
   const [notes, setNotes] = useState(initial?.notes ?? '')
+  const [logoErr, setLogoErr] = useState(false)
 
   const save = () => {
     if (!name.trim()) return
     onSave({
       name,
+      logo: logo.trim() || undefined,
       contactName: contactName || undefined,
       phone: phone || undefined,
       email: email || undefined,
@@ -193,6 +227,30 @@ function ClientForm({ initial, onSave, onCancel }: { initial?: Client; onSave: (
 
   return (
     <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--iris-500)' }}>
+      {/* Logo preview + URL */}
+      <div className="flex items-center gap-3">
+        <div
+          className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
+          style={{ background: 'var(--color-surface-muted)', border: '1px solid var(--color-surface-border)' }}
+        >
+          {logo && !logoErr ? (
+            <img src={logo} alt="logo" className="w-full h-full object-contain" onError={() => setLogoErr(true)} />
+          ) : (
+            <Image size={20} style={{ color: 'var(--color-text-muted)' }} />
+          )}
+        </div>
+        <div className="flex-1">
+          <label className="axis-label mb-1 block">رابط الشعار (URL)</label>
+          <input
+            className={inputCls} style={inputStyle} dir="ltr"
+            value={logo}
+            onChange={(e) => { setLogo(e.target.value); setLogoErr(false) }}
+            placeholder="https://example.com/logo.png"
+          />
+          <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>PNG أو SVG أو JPG</p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="axis-label mb-1 block">اسم العميل</label>
