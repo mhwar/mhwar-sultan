@@ -60,7 +60,7 @@ export default function CommandPalette() {
       label: p.name,
       hint: p.nameEn,
       icon: <ProjectIcon name={p.icon} size={16} />,
-      run: () => router.push(`/projects/${p.id}`),
+      run: () => router.push(`/project?id=${p.id}`),
       group: 'المشاريع',
     }))
     return [...nav, ...proj]

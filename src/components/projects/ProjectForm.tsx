@@ -89,6 +89,7 @@ export default function ProjectForm({ onClose, initialData }: ProjectFormProps) 
       logo: form.logo || undefined,
       cover: form.cover || undefined,
       category: form.category.trim(),
+      type: typeId,
       tags: form.tags.split(/[،,]/).map((t) => t.trim()).filter(Boolean),
       links: initialData?.links ?? [],
     }
@@ -101,7 +102,7 @@ export default function ProjectForm({ onClose, initialData }: ProjectFormProps) 
       const newId = addProject({ ...data, type: typeId, tools })
       runSmartSetup(newId, typeId)
       onClose()
-      router.push(`/projects/${newId}`)
+      router.push(`/project?id=${newId}`)
     }
   }
 
@@ -338,6 +339,15 @@ export default function ProjectForm({ onClose, initialData }: ProjectFormProps) 
               ))}
             </div>
           </div>
+
+          {/* Type (edit only — create picks it in step 1) */}
+          {isEditing && (
+            <Field label="نوع المشروع" as="select" value={typeId} onChange={(v) => setTypeId(v)}>
+              {PROJECT_TYPES.map((t) => (
+                <option key={t.id} value={t.id} style={{ background: 'var(--surface-2)' }}>{t.label}</option>
+              ))}
+            </Field>
+          )}
 
           {/* Category + Tags */}
           <div className="grid grid-cols-2 gap-3">

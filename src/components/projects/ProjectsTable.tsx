@@ -1,10 +1,11 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react'
+import { ArrowUp, ArrowDown, ChevronsUpDown, Trash2 } from 'lucide-react'
 import type { Project } from '@/types'
 import StatusBadge from '@/components/shared/StatusBadge'
 import ProjectIcon from '@/lib/icons'
+import { useProjectStore } from '@/store/store'
 import { hexToRgba, timeAgoAr } from '@/lib/utils'
 
 type SortKey = 'name' | 'progress' | 'tasks' | 'updatedAt'
@@ -17,8 +18,14 @@ interface ProjectsTableProps {
 
 export default function ProjectsTable({ projects, taskCounts }: ProjectsTableProps) {
   const router = useRouter()
+  const deleteProject = useProjectStore((s) => s.deleteProject)
   const [sortKey, setSortKey] = useState<SortKey>('updatedAt')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  const handleDelete = (e: React.MouseEvent, p: Project) => {
+    e.stopPropagation()
+    if (confirm(`هل تريد حذف مشروع "${p.name}"؟`)) deleteProject(p.id)
+  }
 
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
@@ -63,11 +70,12 @@ export default function ProjectsTable({ projects, taskCounts }: ProjectsTablePro
             {header('progress', 'التقدم')}
             {header('tasks', 'المهام', true)}
             {header('updatedAt', 'آخر تحديث', true)}
+            <th className="is-end"></th>
           </tr>
         </thead>
         <tbody>
           {sorted.map((p) => (
-            <tr key={p.id} className="is-clickable" onClick={() => router.push(`/projects/${p.id}`)}>
+            <tr key={p.id} className="is-clickable" onClick={() => router.push(`/project?id=${p.id}`)}>
               <td>
                 <div className="flex items-center gap-2.5">
                   <div
@@ -91,6 +99,17 @@ export default function ProjectsTable({ projects, taskCounts }: ProjectsTablePro
               </td>
               <td className="is-end is-mono">{taskCounts[p.id] ?? 0}</td>
               <td className="is-end" style={{ color: 'var(--fg-3)' }}>{timeAgoAr(p.updatedAt)}</td>
+              <td className="is-end">
+                <button
+                  onClick={(e) => handleDelete(e, p)}
+                  className="w-8 h-8 rounded-md inline-flex items-center justify-center transition-colors hover:bg-red-500/10"
+                  style={{ color: 'var(--color-text-muted)' }}
+                  title="حذف المشروع"
+                  aria-label="حذف المشروع"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>
