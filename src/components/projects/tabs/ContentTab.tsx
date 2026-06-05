@@ -2,10 +2,10 @@
 import { useState, useMemo } from 'react'
 import {
   Plus, Layers, ChevronLeft, ChevronRight, CalendarDays, LayoutGrid, List, Search, CheckCircle2,
-  Globe, Printer,
+  Globe, Printer, AlertCircle,
 } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
-import type { Project, ContentItem, ContentStatus } from '@/types'
+import type { Project, ContentItem, ContentStatus, ContentPlatform } from '@/types'
 import { useContentStore, useClientStore } from '@/store/store'
 import Segmented from '@/components/ui/Segmented'
 import ContentDrawer from './content/ContentDrawer'
@@ -14,8 +14,10 @@ import ContentBoard from './content/ContentBoard'
 import ContentList from './content/ContentList'
 import GlobalEventsSheet from './content/GlobalEventsSheet'
 import ContentExportModal from './content/ContentExportModal'
+import { PlatformIcon } from './content/PlatformIcon'
 import {
   scheduledKey, keyInMonth, keyToISO, monthLabel, DONE_STATUSES, buildClientColorMap, CLIENT_COLORS,
+  STATUS_ORDER, STATUS_LABEL, STATUS_VAR, todayKey,
 } from './content/contentMeta'
 
 type View = 'calendar' | 'board' | 'list'
@@ -37,6 +39,8 @@ export default function ContentTab({ project }: Props) {
   const [cursor, setCursor] = useState({ year: today.getFullYear(), month: today.getMonth() })
   const [monthScoped, setMonthScoped] = useState(true)
   const [filterClient, setFilterClient] = useState<string>('all')
+  const [filterStatus, setFilterStatus] = useState<ContentStatus | 'all'>('all')
+  const [filterPlatform, setFilterPlatform] = useState<ContentPlatform | 'all'>('all')
   const [search, setSearch] = useState('')
   const [quickTitle, setQuickTitle] = useState('')
   const [quickClient, setQuickClient] = useState<string>('')
@@ -53,15 +57,28 @@ export default function ContentTab({ project }: Props) {
     return k === null || keyInMonth(k, year, month)
   }
 
-  // client + search filter
+  // client + status + platform + search filter
   const base = useMemo(() => {
     const q = search.trim().toLowerCase()
     return items.filter((i) => {
       if (filterClient !== 'all' && i.clientId !== filterClient) return false
+      if (filterStatus !== 'all' && i.status !== filterStatus) return false
+      if (filterPlatform !== 'all' && i.platform !== filterPlatform) return false
       if (q && !i.title.toLowerCase().includes(q)) return false
       return true
     })
-  }, [items, filterClient, search])
+  }, [items, filterClient, filterStatus, filterPlatform, search])
+
+  const availablePlatforms = useMemo(() => {
+    const seen = new Set<ContentPlatform>()
+    items.forEach((i) => { if (i.platform) seen.add(i.platform) })
+    return Array.from(seen)
+  }, [items])
+
+  const todayOverdue = useMemo(() => {
+    const tk = todayKey()
+    return items.filter((i) => scheduledKey(i) === tk && !DONE_STATUSES.includes(i.status))
+  }, [items])
 
   const calendarItems = useMemo(() => base.filter(inMonthOrUndated), [base, year, month]) // eslint-disable-line react-hooks/exhaustive-deps
   const scopedItems = useMemo(
@@ -113,6 +130,14 @@ export default function ContentTab({ project }: Props) {
 
   const openItem = openId ? items.find((i) => i.id === openId) : undefined
   const setStatus = (id: string, status: ContentStatus) => updateItem(id, { status })
+
+  const handleReorder = (draggedId: string, targetId: string) => {
+    const dragged = items.find((i) => i.id === draggedId)
+    const target = items.find((i) => i.id === targetId)
+    if (!dragged || !target) return
+    updateItem(draggedId, { order: target.order })
+    updateItem(targetId, { order: dragged.order })
+  }
   const reschedule = (id: string, key: string | null) =>
     updateItem(id, { publishDate: key ? keyToISO(key) : undefined })
 
@@ -345,6 +370,68 @@ export default function ContentTab({ project }: Props) {
         </div>
       )}
 
+      {/* Status filter chips */}
+      <div className="flex flex-wrap gap-1.5">
+        <Chip active={filterStatus === 'all'} onClick={() => setFilterStatus('all')} color="var(--iris-500)">
+          كل الحالات
+        </Chip>
+        {STATUS_ORDER.map((s) => (
+          <Chip key={s} active={filterStatus === s} onClick={() => setFilterStatus(filterStatus === s ? 'all' : s)} color={STATUS_VAR[s]}>
+            {STATUS_LABEL[s]}
+          </Chip>
+        ))}
+      </div>
+
+      {/* Platform filter chips */}
+      {availablePlatforms.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          <Chip active={filterPlatform === 'all'} onClick={() => setFilterPlatform('all')} color="var(--iris-500)">
+            كل المنصات
+          </Chip>
+          {availablePlatforms.map((p) => (
+            <button
+              key={p}
+              onClick={() => setFilterPlatform(filterPlatform === p ? 'all' : p)}
+              className="px-3 h-7 rounded-full text-xs font-medium transition-colors inline-flex items-center gap-1.5"
+              style={{
+                background: filterPlatform === p ? 'var(--iris-500)' : 'var(--color-surface-overlay)',
+                color: filterPlatform === p ? 'white' : 'var(--color-text-secondary)',
+                border: `1px solid ${filterPlatform === p ? 'transparent' : 'var(--color-surface-border)'}`,
+              }}
+            >
+              <PlatformIcon platform={p} size={12} />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Today overdue warning */}
+      {todayOverdue.length > 0 && (
+        <div
+          className="rounded-xl px-3 py-2.5 flex items-start gap-2.5"
+          style={{ background: 'color-mix(in oklch, var(--warning-500) 12%, transparent)', border: '1px solid color-mix(in oklch, var(--warning-500) 30%, transparent)' }}
+        >
+          <AlertCircle size={15} className="mt-0.5 shrink-0" style={{ color: 'var(--warning-500)' }} />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold mb-1" style={{ color: 'var(--warning-500)' }}>
+              <span className="axis-num">{todayOverdue.length}</span> قطعة محتوى موعدها اليوم ولم تُنشر
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {todayOverdue.map((it) => (
+                <button
+                  key={it.id}
+                  onClick={() => openEdit(it)}
+                  className="px-2 h-6 rounded-md text-xs transition-colors hover:bg-white/10 truncate max-w-[200px]"
+                  style={{ background: 'var(--color-surface-overlay)', color: 'var(--color-text-primary)', border: '1px solid var(--color-surface-border)' }}
+                >
+                  {it.title || '(بلا عنوان)'}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* View body */}
       {view === 'calendar' && (
         <ContentCalendar
@@ -377,6 +464,7 @@ export default function ContentTab({ project }: Props) {
             onOpenItem={openEdit}
             onSetStatus={setStatus}
             onDelete={deleteItem}
+            onReorder={handleReorder}
           />
         ) : (
           <Empty hasItems={items.length > 0} />

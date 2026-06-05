@@ -56,6 +56,19 @@ export default function ContentBoard({
                 </button>
               </div>
 
+              {items.length > 0 && colItems.length > 0 && (
+                <div className="mx-1.5 mb-2 h-0.5 rounded-full overflow-hidden" style={{ background: 'var(--color-surface-border)' }}>
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${Math.round(colItems.length / items.length * 100)}%`,
+                      background: STATUS_VAR[status],
+                      opacity: 0.7,
+                    }}
+                  />
+                </div>
+              )}
+
               <div className="flex flex-col gap-2 mt-1 min-h-[60px]">
                 {colItems.map((it) => (
                   <BoardCard
