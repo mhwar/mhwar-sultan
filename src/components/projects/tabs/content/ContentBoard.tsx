@@ -3,10 +3,11 @@ import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import type { ContentItem, ContentStatus } from '@/types'
 import {
-  STATUS_ORDER, STATUS_LABEL, STATUS_VAR, TYPE_LABEL, PLATFORM_LABEL, scheduledKey,
+  STATUS_ORDER, STATUS_LABEL, STATUS_VAR, TYPE_LABEL, scheduledKey,
 } from './contentMeta'
 import { formatDateShort } from '@/lib/utils'
 import { DimBadge, ChecklistMeta } from './ContentCardMeta'
+import { PlatformIcon } from './PlatformIcon'
 
 interface Props {
   items: ContentItem[]
@@ -106,7 +107,7 @@ function BoardCard({
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
         {clientName && <span>{clientName}</span>}
         <span>{TYPE_LABEL[item.type]}</span>
-        {item.platform && <span>{PLATFORM_LABEL[item.platform]}</span>}
+        {item.platform && <PlatformIcon platform={item.platform} size={12} style={{ color: 'var(--color-text-muted)' }} />}
         <DimBadge dimensions={item.dimensions} />
         <ChecklistMeta item={item} />
         {sched && <span className="num-tabular ms-auto">{formatDateShort(item.publishDate ?? item.dueDate)}</span>}
