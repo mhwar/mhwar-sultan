@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   trailingSlash: true,
   basePath: '/mhwar-sultan',
   assetPrefix: '/mhwar-sultan',
+  env: {
+    NEXT_PUBLIC_BASE_PATH: '/mhwar-sultan',
+  },
   images: {
     unoptimized: true,
   },
