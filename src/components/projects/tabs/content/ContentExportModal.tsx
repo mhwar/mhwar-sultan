@@ -2,7 +2,8 @@
 import { useState, useMemo, Fragment } from 'react'
 import { X, Printer, ChevronDown } from 'lucide-react'
 import type { Client, ContentItem } from '@/types'
-import { TYPE_LABEL, PLATFORM_LABEL, STATUS_LABEL, STATUS_VAR, scheduledKey, keyInMonth, monthLabel } from './contentMeta'
+import { TYPE_LABEL, PLATFORM_LABEL, STATUS_LABEL, STATUS_VAR, scheduledKey, keyInMonth, monthLabel, fmtDayMonth } from './contentMeta'
+import { PlatformIcon, platformCellHtml } from './PlatformIcon'
 
 interface Props {
   items: ContentItem[]
@@ -83,16 +84,16 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
     const NCOLS = 7
     const itemRow = (it: ContentItem, idx: number) => {
       const sKey = scheduledKey(it)
-      const day = sKey ? sKey.slice(8, 10) + '/' + sKey.slice(5, 7) : '—'
+      const day = fmtDayMonth(sKey)
       const sc = PRINT_STATUS_COLOR[it.status] ?? '#6b7280'
       const sb = PRINT_STATUS_BG[it.status] ?? '#f3f4f6'
       const main = `<tr>
         <td class="num center">${idx + 1}</td>
         <td class="title">${esc(it.title)}</td>
         <td>${TYPE_LABEL[it.type]}</td>
-        <td>${it.platform ? PLATFORM_LABEL[it.platform] : '—'}</td>
+        <td>${platformCellHtml(it.platform, 12, '#4b5563')}</td>
         <td class="num center">${it.dimensions ? esc(it.dimensions) : '—'}</td>
-        <td class="num center">${day}</td>
+        <td class="date-cell">${day}</td>
         <td><span class="badge" style="color:${sc};background:${sb}">
           <span class="dot" style="background:${sc}"></span>${STATUS_LABEL[it.status]}
         </span></td>
@@ -154,22 +155,24 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
 <head>
   <meta charset="UTF-8" />
   <title>جدول المحتوى — ${clientName} — ${monthLabel(year, month)}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     @page {
       size: A4 portrait;
-      margin: 18mm 15mm 22mm 15mm;
+      margin: 16mm 14mm 20mm 14mm;
     }
-    @page :first { margin-top: 14mm; }
+    @page :first { margin-top: 12mm; }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Segoe UI', Tahoma, 'Arial', sans-serif;
+      font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
       direction: rtl;
       background: #fff;
-      color: #1a1a2e;
+      color: #1e1b4b;
       font-size: 10pt;
-      line-height: 1.5;
+      line-height: 1.55;
     }
 
     /* ── Header ── */
@@ -178,80 +181,87 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
       align-items: center;
       justify-content: space-between;
       padding-bottom: 10pt;
-      border-bottom: 2.5pt solid #6366f1;
-      margin-bottom: 14pt;
+      border-bottom: 3pt solid #6366f1;
+      margin-bottom: 12pt;
     }
     .header-left { display: flex; align-items: center; gap: 10pt; }
-    .header-logo { height: 44pt; object-fit: contain; max-width: 100pt; }
-    .header-title { font-size: 16pt; font-weight: 700; color: #1a1a2e; line-height: 1.2; }
-    .header-sub { font-size: 9pt; color: #6b7280; margin-top: 2pt; }
-    .header-right { text-align: left; font-size: 8.5pt; color: #6b7280; line-height: 1.6; }
-    .header-month { font-size: 12pt; font-weight: 600; color: #6366f1; }
+    .header-logo { height: 44pt; object-fit: contain; max-width: 110pt; }
+    .header-title { font-size: 15pt; font-weight: 700; color: #1e1b4b; line-height: 1.25; }
+    .header-sub { font-size: 8.5pt; color: #6b7280; margin-top: 2pt; font-weight: 400; }
+    .header-right { text-align: left; font-size: 8pt; color: #6b7280; line-height: 1.7; }
+    .header-month { font-size: 12pt; font-weight: 700; color: #6366f1; }
 
-    /* ── Summary row ── */
+    /* ── Summary strip ── */
     .summary-row {
       display: flex;
-      gap: 12pt;
-      padding: 8pt 10pt;
-      background: #f8f8fc;
-      border-radius: 6pt;
+      gap: 10pt;
+      padding: 8pt 12pt;
+      background: linear-gradient(135deg, #f5f3ff, #eef2ff);
+      border-radius: 7pt;
       margin-bottom: 12pt;
-      border: 0.5pt solid #e5e7eb;
+      border: 0.5pt solid #e0e7ff;
     }
     .summary-item { display: flex; flex-direction: column; align-items: center; flex: 1; }
-    .summary-num { font-size: 14pt; font-weight: 700; color: #6366f1; font-variant-numeric: tabular-nums; }
-    .summary-label { font-size: 7.5pt; color: #6b7280; margin-top: 1pt; }
+    .summary-num { font-size: 15pt; font-weight: 700; color: #6366f1; font-variant-numeric: tabular-nums; }
+    .summary-label { font-size: 7pt; color: #6b7280; margin-top: 1pt; }
 
     /* ── Table ── */
-    table { width: 100%; border-collapse: collapse; margin-bottom: 12pt; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 14pt; }
 
-    thead tr { background: #6366f1; }
+    thead tr { background: linear-gradient(90deg, #6366f1, #818cf8); }
     thead th {
       color: white;
       font-weight: 600;
-      font-size: 9pt;
-      padding: 6pt 7pt;
+      font-size: 8.5pt;
+      padding: 6.5pt 8pt;
       text-align: right;
+      letter-spacing: 0.01em;
     }
     thead th.center { text-align: center; }
+    thead th:first-child { border-radius: 0 5pt 5pt 0; }
+    thead th:last-child  { border-radius: 5pt 0 0 5pt; }
 
-    tbody tr { border-bottom: 0.4pt solid #e9e9f0; }
-    tbody tr:nth-child(even) { background: #f9f9fc; }
+    tbody tr { border-bottom: 0.4pt solid #ede9fe; }
+    tbody tr:nth-child(even):not(.week-row):not(.body-row) { background: #fafafa; }
     tbody tr:last-child { border-bottom: none; }
 
-    td { padding: 5.5pt 7pt; font-size: 9.5pt; vertical-align: middle; }
-    td.num { font-variant-numeric: tabular-nums; direction: ltr; }
+    td { padding: 5pt 8pt; font-size: 9.5pt; vertical-align: middle; }
+    td.num { font-variant-numeric: tabular-nums; direction: ltr; text-align: center; }
     td.center { text-align: center; }
-    td.title { font-weight: 500; max-width: 170pt; }
+    td.title { font-weight: 500; max-width: 160pt; }
+    td.date-cell { white-space: nowrap; font-size: 8.5pt; color: #4b5563; }
 
     /* ── Week group header ── */
     tbody tr.week-row td {
       background: #eef0fb;
       color: #4338ca;
       font-weight: 700;
-      font-size: 9pt;
-      padding: 4pt 7pt;
+      font-size: 8.5pt;
+      padding: 5pt 8pt;
+      border-top: 1pt solid #c7d2fe;
     }
-    tbody tr.week-row { border-bottom: 0.4pt solid #d9ddf5; }
+    tbody tr.week-row { border-bottom: 0.4pt solid #c7d2fe; }
 
     /* ── Body (post copy) sub-row ── */
     tbody tr.body-row td.body-text {
-      color: #4b5563;
-      font-size: 8.5pt;
-      line-height: 1.6;
-      padding: 2pt 7pt 7pt;
+      color: #374151;
+      font-size: 8pt;
+      line-height: 1.65;
+      padding: 3pt 8pt 8pt 8pt;
       white-space: pre-wrap;
+      background: #fdfcff;
+      border-right: 3pt solid #c7d2fe;
     }
-    tbody tr.body-row { background: transparent !important; border-bottom: 0.4pt solid #e9e9f0; }
+    tbody tr.body-row { border-bottom: 0.5pt solid #ede9fe; }
 
     .badge {
       display: inline-flex;
       align-items: center;
       gap: 4pt;
-      padding: 1.5pt 6pt;
+      padding: 2pt 7pt;
       border-radius: 99pt;
-      font-size: 8.5pt;
-      font-weight: 500;
+      font-size: 8pt;
+      font-weight: 600;
       white-space: nowrap;
     }
     .dot {
@@ -265,13 +275,26 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
     /* ── Section title ── */
     .section-title {
       font-size: 10pt;
-      font-weight: 600;
+      font-weight: 700;
       color: #374151;
-      margin: 10pt 0 6pt;
+      margin: 12pt 0 6pt;
       padding-bottom: 4pt;
-      border-bottom: 0.8pt dashed #d1d5db;
+      border-bottom: 1pt dashed #d1d5db;
     }
     .section-title .count { font-weight: 400; color: #9ca3af; }
+
+    /* ── Approval block ── */
+    .approval-block {
+      margin-top: 20pt;
+      padding: 10pt 12pt;
+      border: 0.5pt solid #d1d5db;
+      border-radius: 6pt;
+    }
+    .approval-title { font-size: 8.5pt; font-weight: 600; color: #374151; margin-bottom: 10pt; }
+    .approval-row { display: flex; gap: 20pt; }
+    .approval-field { flex: 1; }
+    .approval-line { height: 0.5pt; background: #9ca3af; margin-bottom: 3pt; margin-top: 14pt; }
+    .approval-label { font-size: 7.5pt; color: #6b7280; }
 
     /* ── Footer ── */
     .page-footer {
@@ -282,23 +305,25 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 7.5pt;
+      font-size: 7pt;
       color: #9ca3af;
       padding: 5pt 0;
       border-top: 0.4pt solid #e5e7eb;
+      background: white;
     }
 
     /* ── Print button (hidden on print) ── */
-    .print-btn-wrap { text-align: center; margin-top: 20pt; }
+    .print-btn-wrap { text-align: center; margin-top: 20pt; padding-bottom: 10pt; }
     .print-btn {
-      padding: 9pt 24pt;
+      padding: 9pt 28pt;
       font-size: 11pt;
       cursor: pointer;
-      border-radius: 6pt;
+      border-radius: 7pt;
       background: #6366f1;
       color: white;
       border: none;
       font-family: inherit;
+      font-weight: 600;
     }
 
     @media print {
@@ -333,19 +358,34 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
   <table>
     <thead>
       <tr>
-        <th class="center" style="width:20pt">#</th>
+        <th class="center" style="width:18pt">#</th>
         <th>العنوان</th>
-        <th style="width:42pt">النوع</th>
-        <th style="width:50pt">المنصة</th>
-        <th class="center" style="width:56pt">المقاس</th>
-        <th class="center" style="width:38pt">التاريخ</th>
-        <th style="width:58pt">الحالة</th>
+        <th style="width:38pt">النوع</th>
+        <th style="width:60pt">المنصة</th>
+        <th class="center" style="width:52pt">المقاس</th>
+        <th style="width:44pt">التاريخ</th>
+        <th style="width:54pt">الحالة</th>
       </tr>
     </thead>
     <tbody>${rowsHtml}</tbody>
   </table>` : `<p style="color:#9ca3af;text-align:center;padding:16pt">لا يوجد محتوى مجدول لهذا الشهر</p>`}
 
   ${unschHtml}
+
+  <!-- Approval block -->
+  <div class="approval-block">
+    <div class="approval-title">اعتماد العميل</div>
+    <div class="approval-row">
+      <div class="approval-field">
+        <div class="approval-line"></div>
+        <div class="approval-label">الاسم والتوقيع</div>
+      </div>
+      <div class="approval-field">
+        <div class="approval-line"></div>
+        <div class="approval-label">التاريخ</div>
+      </div>
+    </div>
+  </div>
 
   <!-- Footer -->
   <div class="page-footer">
@@ -354,7 +394,7 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
   </div>
 
   <div class="print-btn-wrap">
-    <button class="print-btn" onclick="window.print()">🖨️ &nbsp;طباعة / حفظ كـ PDF</button>
+    <button class="print-btn" onclick="window.print()">طباعة / حفظ كـ PDF</button>
   </div>
 
 </body>
@@ -468,10 +508,17 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
                         <td style={{ ...cell, color: 'var(--color-text-muted)', fontSize: 12, width: 28 }}>{idx + 1}</td>
                         <td style={{ ...cell, color: 'var(--color-text-primary)', fontWeight: 500 }}>{it.title}</td>
                         <td style={{ ...cell, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{TYPE_LABEL[it.type]}</td>
-                        <td style={{ ...cell, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{it.platform ? PLATFORM_LABEL[it.platform] : '—'}</td>
+                        <td style={{ ...cell, whiteSpace: 'nowrap' }}>
+                          {it.platform ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--color-text-muted)' }}>
+                              <PlatformIcon platform={it.platform} size={12} />
+                              {PLATFORM_LABEL[it.platform]}
+                            </span>
+                          ) : <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
+                        </td>
                         <td style={{ ...cell, color: 'var(--color-text-muted)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{it.dimensions ?? '—'}</td>
-                        <td style={{ ...cell, color: 'var(--color-text-muted)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-                          {sKey ? sKey.slice(8, 10) + '/' + sKey.slice(5, 7) : '—'}
+                        <td style={{ ...cell, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                          {fmtDayMonth(sKey)}
                         </td>
                         <td style={cell}>
                           <span style={{

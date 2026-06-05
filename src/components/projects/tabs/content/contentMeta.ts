@@ -129,3 +129,10 @@ export function monthMatrix(year: number, month: number): Date[][] {
 }
 
 export function fmtNum(n: number) { return n.toLocaleString('en-US') }
+
+/** "5 يونيو" — day + long month name from a yyyy-mm-dd key, UTC-aligned, Western numerals. */
+export function fmtDayMonth(key: string | null): string {
+  if (!key) return '—'
+  return new Intl.DateTimeFormat(AR_LATN, { month: 'long', day: 'numeric', timeZone: 'UTC' })
+    .format(new Date(key + 'T00:00:00Z'))
+}

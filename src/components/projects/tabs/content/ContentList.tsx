@@ -2,11 +2,12 @@
 import { Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { ContentItem, ContentStatus } from '@/types'
 import {
-  STATUS_ORDER, STATUS_LABEL, STATUS_VAR, TYPE_LABEL, PLATFORM_LABEL,
+  STATUS_ORDER, STATUS_LABEL, STATUS_VAR, TYPE_LABEL,
   nextStatus, prevStatus, scheduledKey,
 } from './contentMeta'
 import { formatDateShort } from '@/lib/utils'
 import { DimBadge, ChecklistMeta } from './ContentCardMeta'
+import { PlatformIcon } from './PlatformIcon'
 
 interface Props {
   items: ContentItem[]
@@ -81,7 +82,7 @@ function Row({
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
           {clientName && <span>{clientName}</span>}
           <span>{TYPE_LABEL[item.type]}</span>
-          {item.platform && <span>{PLATFORM_LABEL[item.platform]}</span>}
+          {item.platform && <PlatformIcon platform={item.platform} size={12} style={{ color: 'var(--color-text-muted)' }} />}
           <DimBadge dimensions={item.dimensions} />
           <ChecklistMeta item={item} />
           {sched && <span className="num-tabular">{formatDateShort(item.publishDate ?? item.dueDate)}</span>}

@@ -6,6 +6,7 @@ import {
   TYPE_LABEL, PLATFORM_LABEL, STATUS_LABEL, STATUS_ORDER, STATUS_VAR, CONTENT_SIZES, nextStatus,
 } from './contentMeta'
 import { generateId } from '@/lib/utils'
+import { PlatformIcon } from './PlatformIcon'
 
 const fieldCls = 'w-full h-9 rounded-md px-2.5 text-sm outline-none'
 const fieldStyle = {
@@ -159,7 +160,10 @@ export default function ContentDrawer({ item, clients, accent, onUpdate, onDelet
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="axis-label mb-1 block">المنصة</label>
+                <label className="axis-label mb-1 flex items-center gap-1.5">
+                  المنصة
+                  {item.platform && <PlatformIcon platform={item.platform} size={12} style={{ color: 'var(--fg-3)' }} />}
+                </label>
                 <select className={fieldCls} style={fieldStyle} value={item.platform ?? ''} onChange={(e) => onUpdate({ platform: (e.target.value as ContentPlatform) || undefined })}>
                   <option value="">— اختر —</option>
                   {(Object.keys(PLATFORM_LABEL) as ContentPlatform[]).map((k) => <option key={k} value={k}>{PLATFORM_LABEL[k]}</option>)}

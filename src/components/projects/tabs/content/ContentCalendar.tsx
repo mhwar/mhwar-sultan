@@ -6,6 +6,7 @@ import {
   WEEKDAYS, monthMatrix, dateToKey, scheduledKey, todayKey, keyInMonth,
   STATUS_VAR, STATUS_LABEL,
 } from './contentMeta'
+import { PlatformIcon } from './PlatformIcon'
 
 interface Props {
   items: ContentItem[]
@@ -194,7 +195,8 @@ function DayChip({
       }}
     >
       <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STATUS_VAR[item.status] }} />
-      <span className="text-xs truncate" style={{ color: 'var(--color-text-primary)' }}>{item.title}</span>
+      <span className="text-xs truncate flex-1" style={{ color: 'var(--color-text-primary)' }}>{item.title}</span>
+      {item.platform && <PlatformIcon platform={item.platform} size={11} style={{ color: 'var(--color-text-muted)', opacity: 0.7 }} />}
     </button>
   )
 }
