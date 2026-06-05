@@ -81,6 +81,23 @@ export const SEED_PROJECTS: Project[] = [
     tags: ['React Native', 'Maps', 'GPS'],
     links: [],
   },
+  {
+    id: 'jasad',
+    name: 'جسد',
+    nameEn: 'Jasad',
+    description: 'إدارة المحتوى الإعلامي الشهري لجمعية جسد لمرضى السرطان — عميل واحد، 25 قطعة شهرياً، تقويم + لوحة + تقارير.',
+    status: 'active',
+    progress: 28,
+    color: '#E91E8C',
+    icon: 'heart',
+    category: 'محتوى',
+    type: 'content',
+    tools: ['overview', 'clients', 'content', 'finance', 'execution', 'notes'],
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-06-03T00:00:00Z',
+    tags: ['جمعية', 'محتوى', 'صحة'],
+    links: [],
+  },
 ]
 
 export const SEED_TASKS: Task[] = [
@@ -228,5 +245,90 @@ export const SEED_TEAM: TeamMember[] = []
 export const SEED_SCHEDULE: ScheduleEvent[] = []
 export const SEED_FINANCE: FinanceEntry[] = []
 export const SEED_KPIS: Kpi[] = []
-export const SEED_CLIENTS: Client[] = []
-export const SEED_CONTENT: ContentItem[] = []
+
+// ── جسد ─────────────────────────────────────────────────────
+// Demo content-management project: جمعية جسد (cancer patients charity).
+// Populates the "المحتوى" and "العملاء" tabs with a realistic June 2026 plan.
+export const SEED_CLIENTS: Client[] = [
+  {
+    id: 'cl-jasad-1',
+    projectId: 'jasad',
+    name: 'جمعية جسد',
+    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Pink_ribbon.svg/200px-Pink_ribbon.svg.png',
+    contactName: 'منسق التواصل والإعلام',
+    email: 'media@jasad.org.sa',
+    phone: '0500000000',
+    contractValue: 8000,
+    contractCurrency: 'SAR',
+    contractStart: '2026-01-01T00:00:00Z',
+    contractEnd: '2026-12-31T00:00:00Z',
+    deliverableCount: 25,
+    status: 'active',
+    notes: 'جمعية خيرية تُعنى بدعم مرضى السرطان وأسرهم في المملكة العربية السعودية',
+    order: 0,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  },
+]
+
+const J = 'cl-jasad-1'
+const D = (d: string) => `2026-${d}T00:00:00Z`
+
+export const SEED_CONTENT: ContentItem[] = [
+  // ── منشور نشور (1 يونيو) ──────────────────────────────────
+  { id: 'ct-01', projectId: 'jasad', clientId: J, title: 'ترحيب بشهر يونيو — أبرز فعاليات جسد هذا الشهر', type: 'post', platform: 'instagram', status: 'published', publishDate: D('06-01'), order: 0, createdAt: D('05-20') },
+  { id: 'ct-02', projectId: 'jasad', clientId: J, title: 'ستوري: مستجدات جسد — ماذا أنجزنا في مايو؟', type: 'story', platform: 'instagram', status: 'published', publishDate: D('06-01'), order: 1, createdAt: D('05-20') },
+
+  // ── 3 يونيو ───────────────────────────────────────────────
+  { id: 'ct-03', projectId: 'jasad', clientId: J, title: 'إنفوجرافيك: أكثر أنواع السرطان شيوعاً في المملكة', type: 'design', platform: 'instagram', status: 'published', publishDate: D('06-03'), order: 2, createdAt: D('05-20') },
+
+  // ── 5 يونيو (يوم البيئة العالمي) ──────────────────────────
+  { id: 'ct-04', projectId: 'jasad', clientId: J, title: 'يوم البيئة العالمي — الملوثات البيئية وعلاقتها بالسرطان', type: 'post', platform: 'twitter', status: 'published', publishDate: D('06-05'), order: 3, createdAt: D('05-22') },
+  { id: 'ct-05', projectId: 'jasad', clientId: J, title: 'ريلز: 5 عادات يومية تقلّل خطر الإصابة بالسرطان', type: 'reel', platform: 'instagram', status: 'delivered', publishDate: D('06-05'), order: 4, createdAt: D('05-22') },
+
+  // ── 7 يونيو (يوم الناجين العالمي — أول أحد في يونيو) ──────
+  { id: 'ct-06', projectId: 'jasad', clientId: J, title: 'يوم الناجين العالمي — قصة ناجية: رحلتي مع سرطان الثدي', type: 'post', platform: 'instagram', status: 'approved', publishDate: D('06-07'), order: 5, createdAt: D('05-25') },
+  { id: 'ct-07', projectId: 'jasad', clientId: J, title: 'فيديو: شهادة ناجية — من التشخيص إلى الشفاء', type: 'video', platform: 'youtube', status: 'approved', publishDate: D('06-07'), order: 6, createdAt: D('05-25') },
+  { id: 'ct-08', projectId: 'jasad', clientId: J, title: 'تصميم: بنر يوم الناجين العالمي', type: 'design', platform: 'instagram', status: 'review', publishDate: D('06-07'), order: 7, createdAt: D('05-26') },
+
+  // ── 10 يونيو ──────────────────────────────────────────────
+  { id: 'ct-09', projectId: 'jasad', clientId: J, title: 'مقال: التغذية السليمة خلال جلسات العلاج الكيماوي', type: 'article', platform: 'linkedin', status: 'review', publishDate: D('06-10'), order: 8, createdAt: D('05-28') },
+  { id: 'ct-10', projectId: 'jasad', clientId: J, title: 'منشور: دور الأسرة في دعم المريض نفسياً', type: 'post', platform: 'facebook', status: 'design', publishDate: D('06-11'), order: 9, createdAt: D('05-28') },
+
+  // ── 12 يونيو ──────────────────────────────────────────────
+  { id: 'ct-11', projectId: 'jasad', clientId: J, title: 'ريلز: يوم كامل في حياة متطوع جسد', type: 'reel', platform: 'instagram', status: 'design', publishDate: D('06-12'), order: 10, createdAt: D('05-29') },
+
+  // ── 14 يونيو (يوم المتبرع بالدم العالمي) ─────────────────
+  { id: 'ct-12', projectId: 'jasad', clientId: J, title: 'يوم المتبرع بالدم — لماذا يعتمد مريض السرطان على التبرع؟', type: 'post', platform: 'instagram', status: 'draft', publishDate: D('06-14'), order: 11, createdAt: D('06-01') },
+  { id: 'ct-13', projectId: 'jasad', clientId: J, title: 'إنفوجرافيك: رحلة التبرع بالدم وكيف تنقذ حياة', type: 'design', platform: 'twitter', status: 'draft', publishDate: D('06-14'), order: 12, createdAt: D('06-01') },
+  { id: 'ct-14', projectId: 'jasad', clientId: J, title: 'ستوري: سجّل تبرعك بالدم هذا اليوم', type: 'story', platform: 'instagram', status: 'draft', publishDate: D('06-14'), order: 13, createdAt: D('06-01') },
+
+  // ── 15 يونيو ──────────────────────────────────────────────
+  { id: 'ct-15', projectId: 'jasad', clientId: J, title: 'خبر: إطلاق برنامج الدعم النفسي الشامل لمرضى السرطان', type: 'article', platform: 'linkedin', status: 'draft', publishDate: D('06-15'), order: 14, createdAt: D('06-02') },
+
+  // ── 17 يونيو ──────────────────────────────────────────────
+  { id: 'ct-16', projectId: 'jasad', clientId: J, title: 'منشور: الدعم النفسي ليس رفاهية — هو جزء من العلاج', type: 'post', platform: 'instagram', status: 'idea', publishDate: D('06-17'), order: 15, createdAt: D('06-02') },
+
+  // ── 19 يونيو ──────────────────────────────────────────────
+  { id: 'ct-17', projectId: 'jasad', clientId: J, title: 'ستوري: استفتاء — أي خدمات جسد تفيدك أكثر؟', type: 'story', platform: 'instagram', status: 'idea', publishDate: D('06-19'), order: 16, createdAt: D('06-03') },
+
+  // ── 21 يونيو ──────────────────────────────────────────────
+  { id: 'ct-18', projectId: 'jasad', clientId: J, title: 'منشور: فوائد الرياضة الخفيفة بعد إكمال علاج السرطان', type: 'post', platform: 'twitter', status: 'idea', publishDate: D('06-21'), order: 17, createdAt: D('06-03') },
+  { id: 'ct-19', projectId: 'jasad', clientId: J, title: 'ريلز: شكراً للمتطوعين الذين غيّروا حياة المرضى', type: 'reel', platform: 'instagram', status: 'idea', publishDate: D('06-21'), order: 18, createdAt: D('06-03') },
+
+  // ── 22 يونيو ──────────────────────────────────────────────
+  { id: 'ct-20', projectId: 'jasad', clientId: J, title: 'إنفوجرافيك: خطوات الكشف المبكر عن السرطان', type: 'design', platform: 'instagram', status: 'idea', publishDate: D('06-22'), order: 19, createdAt: D('06-03') },
+
+  // ── 23 يونيو ──────────────────────────────────────────────
+  { id: 'ct-21', projectId: 'jasad', clientId: J, title: 'خبر: جسد تستقبل 50 متطوعاً جديداً في شهر يونيو', type: 'article', platform: 'linkedin', status: 'idea', publishDate: D('06-23'), order: 20, createdAt: D('06-03') },
+
+  // ── 24 يونيو ──────────────────────────────────────────────
+  { id: 'ct-22', projectId: 'jasad', clientId: J, title: 'فيديو: كيف تتحدث مع شخص مصاب بالسرطان؟', type: 'video', platform: 'youtube', status: 'idea', publishDate: D('06-24'), order: 21, createdAt: D('06-03') },
+  { id: 'ct-23', projectId: 'jasad', clientId: J, title: 'منشور: الاحتفاء بمتطوع الشهر — محمد الغامدي', type: 'post', platform: 'instagram', status: 'idea', publishDate: D('06-25'), order: 22, createdAt: D('06-03') },
+
+  // ── 27 يونيو ──────────────────────────────────────────────
+  { id: 'ct-24', projectId: 'jasad', clientId: J, title: 'تقرير: إنجازات وأرقام النصف الأول 2026', type: 'article', platform: 'linkedin', status: 'idea', publishDate: D('06-27'), order: 23, createdAt: D('06-03') },
+
+  // ── 30 يونيو ──────────────────────────────────────────────
+  { id: 'ct-25', projectId: 'jasad', clientId: J, title: 'ستوري: أبرز لحظات يونيو مع جسد', type: 'story', platform: 'instagram', status: 'idea', publishDate: D('06-30'), order: 24, createdAt: D('06-03') },
+]
