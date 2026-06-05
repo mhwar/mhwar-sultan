@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Package, TrendingUp, Zap, FileText,
-  Users2, CalendarDays, Wallet, Gauge, type LucideIcon,
+  Users2, CalendarDays, Wallet, Gauge, Building2, Layers, type LucideIcon,
 } from 'lucide-react'
 import type { Project } from '@/types'
 import OverviewTab from '@/components/projects/tabs/OverviewTab'
@@ -12,6 +12,8 @@ import TeamTab from '@/components/projects/tabs/TeamTab'
 import ScheduleTab from '@/components/projects/tabs/ScheduleTab'
 import FinanceTab from '@/components/projects/tabs/FinanceTab'
 import KpisTab from '@/components/projects/tabs/KpisTab'
+import ClientsTab from '@/components/projects/tabs/ClientsTab'
+import ContentTab from '@/components/projects/tabs/ContentTab'
 
 /**
  * A tool = a tab = a page within a project. The registry is the single source
@@ -81,6 +83,16 @@ export const TOOLS: ToolDef[] = [
     id: 'kpis', label: 'المؤشرات', icon: Gauge, group: 'التشغيل',
     description: 'لوحة مؤشرات عامة قابلة للتخصيص',
     render: (p) => <KpisTab project={p} />,
+  },
+  {
+    id: 'clients', label: 'العملاء', icon: Building2, group: 'إدارة العملاء',
+    description: 'عملاؤك وتفاصيل عقودهم الشهرية',
+    render: (p) => <ClientsTab project={p} />,
+  },
+  {
+    id: 'content', label: 'المحتوى', icon: Layers, group: 'إدارة العملاء',
+    description: 'منشورات وتصاميم وتسليمات المحتوى لكل عميل',
+    render: (p) => <ContentTab project={p} />,
   },
 ]
 

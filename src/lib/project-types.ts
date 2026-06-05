@@ -43,7 +43,7 @@ export const PROJECT_TYPES: ProjectType[] = [
     label: 'محتوى / إعلام',
     icon: 'palette',
     description: 'إنتاج محتوى ونشر — تنفيذ ومؤشرات وملاحظات',
-    defaultToolIds: ['overview', 'execution', 'kpis', 'notes'],
+    defaultToolIds: ['overview', 'clients', 'content', 'finance', 'execution', 'notes'],
     suggestedCategory: 'محتوى',
   },
   {

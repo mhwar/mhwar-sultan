@@ -242,3 +242,45 @@ export interface Kpi {
   updatedAt: string
   createdAt: string
 }
+
+// ── Client Management ─────────────────────────────────────
+export type ClientStatus = 'active' | 'paused' | 'ended'
+
+export interface Client {
+  id: string
+  projectId: string
+  name: string
+  contactName?: string
+  phone?: string
+  email?: string
+  contractValue: number
+  contractCurrency: string
+  contractStart?: string
+  contractEnd?: string
+  deliverableCount?: number
+  status: ClientStatus
+  notes?: string
+  order: number
+  createdAt: string
+  updatedAt: string
+}
+
+// ── Content Production ────────────────────────────────────
+export type ContentType = 'post' | 'design' | 'video' | 'story' | 'reel' | 'article' | 'other'
+export type ContentPlatform = 'twitter' | 'instagram' | 'linkedin' | 'tiktok' | 'youtube' | 'snapchat' | 'facebook' | 'other'
+export type ContentStatus = 'idea' | 'draft' | 'design' | 'review' | 'approved' | 'delivered' | 'published'
+
+export interface ContentItem {
+  id: string
+  projectId: string
+  clientId?: string
+  title: string
+  type: ContentType
+  platform?: ContentPlatform
+  status: ContentStatus
+  dueDate?: string
+  publishDate?: string
+  notes?: string
+  order: number
+  createdAt: string
+}
