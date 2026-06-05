@@ -27,7 +27,7 @@ export default function BillingPreviewPage() {
             معاينة — الرصيد والباقات
           </span>
           <a
-            href="/billing-preview.html"
+            href={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/billing-preview.html`}
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-1 text-xs font-semibold transition-colors hover:opacity-80"
@@ -39,9 +39,9 @@ export default function BillingPreviewPage() {
         </div>
       </div>
 
-      {/* Full iframe */}
+      {/* Full iframe — prefix with basePath for GitHub Pages */}
       <iframe
-        src="/billing-preview.html"
+        src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/billing-preview.html`}
         className="flex-1 w-full border-0"
         title="معاينة — الرصيد والباقات"
       />
