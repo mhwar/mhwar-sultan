@@ -1,14 +1,16 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, Feature, Sprint, SprintStatus, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel } from '@/types'
-import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES, SEED_SPRINTS, SEED_DOCS, SEED_METRICS, SEED_EXPERIMENTS, SEED_CHANNELS } from '@/lib/seed-data'
+import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, Feature, Sprint, SprintStatus, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, Kpi } from '@/types'
+import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES, SEED_SPRINTS, SEED_DOCS, SEED_METRICS, SEED_EXPERIMENTS, SEED_CHANNELS, SEED_TEAM, SEED_SCHEDULE, SEED_FINANCE, SEED_KPIS } from '@/lib/seed-data'
 import { domainForKind } from '@/lib/plan-kinds'
+import { FALLBACK_TOOL_IDS, DEFAULT_PROJECT_TYPE } from '@/lib/project-types'
 import { generateId, now } from '@/lib/utils'
 
 // ── Project Store ─────────────────────────────────────────
 interface ProjectStore {
   projects: Project[]
-  addProject: (data: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => void
+  /** Returns the new project's id so callers can navigate to it. */
+  addProject: (data: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => string
   updateProject: (id: string, data: Partial<Project>) => void
   deleteProject: (id: string) => void
   getProject: (id: string) => Project | undefined
@@ -19,13 +21,16 @@ export const useProjectStore = create<ProjectStore>()(
     (set, get) => ({
       projects: SEED_PROJECTS,
 
-      addProject: (data) =>
+      addProject: (data) => {
+        const id = generateId()
         set((s) => ({
           projects: [
             ...s.projects,
-            { ...data, id: generateId(), createdAt: now(), updatedAt: now() },
+            { ...data, id, createdAt: now(), updatedAt: now() },
           ],
-        })),
+        }))
+        return id
+      },
 
       updateProject: (id, data) =>
         set((s) => ({
@@ -39,7 +44,26 @@ export const useProjectStore = create<ProjectStore>()(
 
       getProject: (id) => get().projects.find((p) => p.id === id),
     }),
-    { name: 'mhwar-projects', version: 1, skipHydration: true }
+    {
+      name: 'mhwar-projects',
+      version: 2,
+      skipHydration: true,
+      // v1 → v2: backfill the modular-tools fields on existing projects.
+      // Older projects predate `type`/`tools`; treat them as technical with the
+      // legacy 5-tool layout so nothing disappears after the upgrade.
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as { projects?: Project[] } | undefined
+        if (!state) return state as never
+        if (version < 2) {
+          state.projects = (state.projects ?? []).map((p) => ({
+            ...p,
+            type: p.type ?? DEFAULT_PROJECT_TYPE,
+            tools: p.tools?.length ? p.tools : FALLBACK_TOOL_IDS,
+          }))
+        }
+        return state as never
+      },
+    }
   )
 )
 
@@ -616,6 +640,138 @@ export const useGrowthStore = create<GrowthStore>()(
         set((s) => ({ channels: s.channels.filter((c) => c.id !== id) })),
     }),
     { name: 'mhwar-growth', version: 1, skipHydration: true }
+  )
+)
+
+// ── Team Store ────────────────────────────────────────────
+interface TeamStore {
+  members: TeamMember[]
+  addMember: (data: Omit<TeamMember, 'id' | 'order' | 'createdAt'>) => string
+  updateMember: (id: string, data: Partial<TeamMember>) => void
+  deleteMember: (id: string) => void
+}
+
+export const useTeamStore = create<TeamStore>()(
+  persist(
+    (set) => ({
+      members: SEED_TEAM,
+
+      addMember: (data) => {
+        const id = generateId()
+        set((s) => {
+          const existing = s.members.filter((m) => m.projectId === data.projectId)
+          const order = existing.length > 0 ? Math.max(...existing.map((m) => m.order)) + 1 : 0
+          return { members: [...s.members, { ...data, id, order, createdAt: now() }] }
+        })
+        return id
+      },
+
+      updateMember: (id, data) =>
+        set((s) => ({ members: s.members.map((m) => (m.id === id ? { ...m, ...data } : m)) })),
+
+      deleteMember: (id) =>
+        set((s) => ({ members: s.members.filter((m) => m.id !== id) })),
+    }),
+    { name: 'mhwar-team', version: 1, skipHydration: true }
+  )
+)
+
+// ── Schedule Store ────────────────────────────────────────
+interface ScheduleStore {
+  events: ScheduleEvent[]
+  addEvent: (data: Omit<ScheduleEvent, 'id' | 'order' | 'createdAt'>) => string
+  updateEvent: (id: string, data: Partial<ScheduleEvent>) => void
+  deleteEvent: (id: string) => void
+}
+
+export const useScheduleStore = create<ScheduleStore>()(
+  persist(
+    (set) => ({
+      events: SEED_SCHEDULE,
+
+      addEvent: (data) => {
+        const id = generateId()
+        set((s) => {
+          const existing = s.events.filter((e) => e.projectId === data.projectId)
+          const order = existing.length > 0 ? Math.max(...existing.map((e) => e.order)) + 1 : 0
+          return { events: [...s.events, { ...data, id, order, createdAt: now() }] }
+        })
+        return id
+      },
+
+      updateEvent: (id, data) =>
+        set((s) => ({ events: s.events.map((e) => (e.id === id ? { ...e, ...data } : e)) })),
+
+      deleteEvent: (id) =>
+        set((s) => ({ events: s.events.filter((e) => e.id !== id) })),
+    }),
+    { name: 'mhwar-schedule', version: 1, skipHydration: true }
+  )
+)
+
+// ── Finance Store ─────────────────────────────────────────
+interface FinanceStore {
+  entries: FinanceEntry[]
+  addEntry: (data: Omit<FinanceEntry, 'id' | 'order' | 'createdAt'>) => string
+  updateEntry: (id: string, data: Partial<FinanceEntry>) => void
+  deleteEntry: (id: string) => void
+}
+
+export const useFinanceStore = create<FinanceStore>()(
+  persist(
+    (set) => ({
+      entries: SEED_FINANCE,
+
+      addEntry: (data) => {
+        const id = generateId()
+        set((s) => {
+          const existing = s.entries.filter((e) => e.projectId === data.projectId)
+          const order = existing.length > 0 ? Math.max(...existing.map((e) => e.order)) + 1 : 0
+          return { entries: [...s.entries, { ...data, id, order, createdAt: now() }] }
+        })
+        return id
+      },
+
+      updateEntry: (id, data) =>
+        set((s) => ({ entries: s.entries.map((e) => (e.id === id ? { ...e, ...data } : e)) })),
+
+      deleteEntry: (id) =>
+        set((s) => ({ entries: s.entries.filter((e) => e.id !== id) })),
+    }),
+    { name: 'mhwar-finance', version: 1, skipHydration: true }
+  )
+)
+
+// ── KPI Store ─────────────────────────────────────────────
+interface KpiStore {
+  kpis: Kpi[]
+  addKpi: (data: Omit<Kpi, 'id' | 'order' | 'createdAt' | 'updatedAt'>) => string
+  updateKpi: (id: string, data: Partial<Kpi>) => void
+  deleteKpi: (id: string) => void
+}
+
+export const useKpiStore = create<KpiStore>()(
+  persist(
+    (set) => ({
+      kpis: SEED_KPIS,
+
+      addKpi: (data) => {
+        const id = generateId()
+        set((s) => {
+          const existing = s.kpis.filter((k) => k.projectId === data.projectId)
+          const order = existing.length > 0 ? Math.max(...existing.map((k) => k.order)) + 1 : 0
+          return { kpis: [...s.kpis, { ...data, id, order, createdAt: now(), updatedAt: now() }] }
+        })
+        return id
+      },
+
+      updateKpi: (id, data) =>
+        set((s) => ({ kpis: s.kpis.map((k) => (k.id === id ? { ...k, ...data, updatedAt: now() } : k)) })),
+
+      deleteKpi: (id) =>
+        set((s) => ({ kpis: s.kpis.filter((k) => k.id !== id) })),
+    }),
+    { name: 'mhwar-kpis', version: 1, skipHydration: true }
   )
 )
 

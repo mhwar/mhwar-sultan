@@ -1,4 +1,5 @@
-import type { Project, Task, Plan, PlanPhase, Note, Sprint, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel } from '@/types'
+import type { Project, Task, Plan, PlanPhase, Note, Sprint, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, Kpi } from '@/types'
+import { FALLBACK_TOOL_IDS } from '@/lib/project-types'
 
 export const SEED_METRICS: GrowthMetric[] = [
   { id: 'mt-1', projectId: 'mehwar', name: 'مستخدمون نشطون', value: 120, unit: 'مستخدم', target: 1000, change: 15, category: 'retention', order: 0, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-06-01T00:00:00Z' },
@@ -39,6 +40,8 @@ export const SEED_PROJECTS: Project[] = [
     color: '#6366F1',
     icon: 'hexagon',
     category: 'منصة',
+    type: 'technical',
+    tools: FALLBACK_TOOL_IDS,
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-06-03T00:00:00Z',
     tags: ['Next.js', 'TypeScript', 'Tailwind', 'Zustand'],
@@ -54,6 +57,8 @@ export const SEED_PROJECTS: Project[] = [
     color: '#F59E0B',
     icon: 'tag',
     category: 'تطبيق ويب',
+    type: 'technical',
+    tools: FALLBACK_TOOL_IDS,
     createdAt: '2026-03-01T00:00:00Z',
     updatedAt: '2026-06-03T00:00:00Z',
     tags: ['React', 'Canvas API', 'PWA'],
@@ -69,6 +74,8 @@ export const SEED_PROJECTS: Project[] = [
     color: '#10B981',
     icon: 'compass',
     category: 'تطبيق جوال',
+    type: 'technical',
+    tools: FALLBACK_TOOL_IDS,
     createdAt: '2026-02-01T00:00:00Z',
     updatedAt: '2026-06-03T00:00:00Z',
     tags: ['React Native', 'Maps', 'GPS'],
@@ -215,3 +222,9 @@ export const SEED_NOTES: Note[] = [
     pinned: false,
   },
 ]
+
+// Modular-tool stores start empty; seed projects are technical and don't use them.
+export const SEED_TEAM: TeamMember[] = []
+export const SEED_SCHEDULE: ScheduleEvent[] = []
+export const SEED_FINANCE: FinanceEntry[] = []
+export const SEED_KPIS: Kpi[] = []

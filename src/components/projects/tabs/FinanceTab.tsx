@@ -1,0 +1,194 @@
+'use client'
+import { useState } from 'react'
+import { Plus, Trash2, Check, X, Wallet, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { useShallow } from 'zustand/shallow'
+import type { Project, FinanceEntry, FinanceKind, FinanceStatus } from '@/types'
+import { useFinanceStore } from '@/store/store'
+import { formatDateShort } from '@/lib/utils'
+
+const KIND_LABEL: Record<FinanceKind, string> = { income: 'إيراد', expense: 'مصروف' }
+const STATUS_LABEL: Record<FinanceStatus, string> = { planned: 'مخطط', paid: 'مدفوع', overdue: 'متأخر' }
+const STATUS_VAR: Record<FinanceStatus, string> = {
+  planned: 'var(--fg-3)', paid: 'var(--success-500)', overdue: 'var(--danger-500)',
+}
+
+function fmt(n: number) { return n.toLocaleString('en-US') }
+
+interface Props { project: Project }
+
+export default function FinanceTab({ project }: Props) {
+  const pid = project.id
+  const entries = useFinanceStore(useShallow((s) => s.entries.filter((e) => e.projectId === pid).sort((a, b) => a.order - b.order)))
+  const { addEntry, updateEntry, deleteEntry } = useFinanceStore()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
+
+  const currency = entries[0]?.currency ?? 'SAR'
+  const income = entries.filter((e) => e.kind === 'income').reduce((s, e) => s + e.amount, 0)
+  const expense = entries.filter((e) => e.kind === 'expense').reduce((s, e) => s + e.amount, 0)
+  const balance = income - expense
+
+  return (
+    <div className="space-y-5">
+      {/* Summary */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <SummaryCard label="الإيرادات" value={income} currency={currency} color="var(--success-500)" icon={<ArrowUpRight size={16} />} />
+        <SummaryCard label="المصروفات" value={expense} currency={currency} color="var(--danger-500)" icon={<ArrowDownRight size={16} />} />
+        <SummaryCard label="الرصيد" value={balance} currency={currency} color={balance >= 0 ? 'var(--iris-500)' : 'var(--danger-500)'} icon={<Wallet size={16} />} />
+      </div>
+
+      <div className="axis-card p-4 md:p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>الحركات المالية</h2>
+          <button
+            onClick={() => setAdding(true)}
+            className="flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-semibold transition-colors"
+            style={{ background: 'var(--color-surface-overlay)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
+          >
+            <Plus size={13} /> إضافة حركة
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          {entries.map((e) =>
+            editingId === e.id
+              ? <EntryForm key={e.id} initial={e} onSave={(d) => { updateEntry(e.id, d); setEditingId(null) }} onCancel={() => setEditingId(null)} />
+              : <EntryRow key={e.id} entry={e} onEdit={() => setEditingId(e.id)} onDelete={() => deleteEntry(e.id)} />
+          )}
+          {adding && (
+            <EntryForm
+              defaultCurrency={currency}
+              onSave={(d) => { addEntry({ ...d, projectId: pid }); setAdding(false) }}
+              onCancel={() => setAdding(false)}
+            />
+          )}
+        </div>
+
+        {entries.length === 0 && !adding && (
+          <div className="flex flex-col items-center gap-2 py-10 text-center">
+            <Wallet size={28} style={{ color: 'var(--color-text-muted)' }} strokeWidth={1.5} />
+            <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>لا توجد حركات مالية بعد</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SummaryCard({ label, value, currency, color, icon }: { label: string; value: number; currency: string; color: string; icon: React.ReactNode }) {
+  return (
+    <div className="rounded-xl p-4" style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)' }}>
+      <div className="flex items-center gap-2 mb-1" style={{ color }}>
+        {icon}
+        <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
+      </div>
+      <p className="axis-num text-xl font-bold" style={{ color }}>
+        {fmt(value)} <span className="text-xs font-normal" style={{ color: 'var(--color-text-muted)' }}>{currency}</span>
+      </p>
+    </div>
+  )
+}
+
+function EntryRow({ entry: e, onEdit, onDelete }: { entry: FinanceEntry; onEdit: () => void; onDelete: () => void }) {
+  const isIncome = e.kind === 'income'
+  const sign = isIncome ? '+' : '−'
+  const color = isIncome ? 'var(--success-500)' : 'var(--danger-500)'
+  return (
+    <div
+      className="group flex items-center gap-3 rounded-xl p-3 cursor-pointer transition-colors hover:bg-white/5"
+      style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)' }}
+      onClick={onEdit}
+    >
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{e.title}</p>
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          {e.category && <span>{e.category}</span>}
+          {e.date && <span className="num-tabular">{formatDateShort(e.date)}</span>}
+        </div>
+      </div>
+      <span
+        className="shrink-0 flex items-center px-2 h-6 rounded-full text-xs font-medium"
+        style={{ background: `color-mix(in oklch, ${STATUS_VAR[e.status]} 15%, transparent)`, color: STATUS_VAR[e.status] }}
+      >
+        {STATUS_LABEL[e.status]}
+      </span>
+      <span className="axis-num text-sm font-bold shrink-0 w-28 text-end" style={{ color }}>
+        {sign}{fmt(e.amount)} <span className="text-xs font-normal" style={{ color: 'var(--color-text-muted)' }}>{e.currency}</span>
+      </span>
+      <button
+        onClick={(ev) => { ev.stopPropagation(); onDelete() }}
+        className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded flex items-center justify-center transition-all shrink-0"
+        style={{ color: 'var(--danger-500)' }}
+      >
+        <Trash2 size={12} />
+      </button>
+    </div>
+  )
+}
+
+const inputCls = 'w-full h-8 rounded-md px-2 text-sm outline-none'
+const inputStyle = { background: 'var(--color-surface-muted)', border: '1px solid var(--color-surface-border)', color: 'var(--color-text-primary)' } as React.CSSProperties
+
+function EntryForm({ initial, defaultCurrency, onSave, onCancel }: { initial?: FinanceEntry; defaultCurrency?: string; onSave: (d: Omit<FinanceEntry, 'id' | 'order' | 'createdAt' | 'projectId'>) => void; onCancel: () => void }) {
+  const [title, setTitle] = useState(initial?.title ?? '')
+  const [kind, setKind] = useState<FinanceKind>(initial?.kind ?? 'expense')
+  const [amount, setAmount] = useState(initial ? String(initial.amount) : '')
+  const [currency, setCurrency] = useState(initial?.currency ?? defaultCurrency ?? 'SAR')
+  const [category, setCategory] = useState(initial?.category ?? '')
+  const [status, setStatus] = useState<FinanceStatus>(initial?.status ?? 'planned')
+  const [date, setDate] = useState(initial?.date ? initial.date.slice(0, 10) : '')
+
+  const save = () => {
+    if (!title.trim()) return
+    onSave({ title, kind, amount: parseFloat(amount) || 0, currency, category: category || undefined, status, date: date ? new Date(date).toISOString() : undefined })
+  }
+
+  return (
+    <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--iris-500)' }}>
+      <div>
+        <label className="axis-label mb-1 block">البيان</label>
+        <input className={inputCls} style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="مثال: إيجار القاعة" autoFocus />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="axis-label mb-1 block">النوع</label>
+          <select className={inputCls} style={inputStyle} value={kind} onChange={(e) => setKind(e.target.value as FinanceKind)}>
+            {(Object.keys(KIND_LABEL) as FinanceKind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="axis-label mb-1 block">الحالة</label>
+          <select className={inputCls} style={inputStyle} value={status} onChange={(e) => setStatus(e.target.value as FinanceStatus)}>
+            {(Object.keys(STATUS_LABEL) as FinanceStatus[]).map((k) => <option key={k} value={k}>{STATUS_LABEL[k]}</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <label className="axis-label mb-1 block">المبلغ</label>
+          <input type="number" className={inputCls} style={inputStyle} value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </div>
+        <div>
+          <label className="axis-label mb-1 block">العملة</label>
+          <input className={inputCls} style={inputStyle} value={currency} onChange={(e) => setCurrency(e.target.value)} />
+        </div>
+        <div>
+          <label className="axis-label mb-1 block">التاريخ</label>
+          <input type="date" className={inputCls} style={inputStyle} value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+      </div>
+      <div>
+        <label className="axis-label mb-1 block">التصنيف</label>
+        <input className={inputCls} style={inputStyle} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="مثال: لوجستيات" />
+      </div>
+      <div className="flex gap-2 pt-1">
+        <button onClick={save} className="flex items-center gap-1 px-3 h-7 rounded-md text-xs font-semibold" style={{ background: 'var(--iris-500)', color: 'white' }}>
+          <Check size={12} /> حفظ
+        </button>
+        <button onClick={onCancel} className="flex items-center gap-1 px-3 h-7 rounded-md text-xs" style={{ background: 'var(--color-surface-muted)', color: 'var(--color-text-muted)', border: '1px solid var(--color-surface-border)' }}>
+          <X size={12} /> إلغاء
+        </button>
+      </div>
+    </div>
+  )
+}

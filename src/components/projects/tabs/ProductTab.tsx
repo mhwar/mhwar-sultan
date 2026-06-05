@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import { usePlanStore, useProjectStore, useDocumentStore } from '@/store/store'
-import type { Project, PlanPhase, DocType } from '@/types'
+import type { Project, DocType } from '@/types'
 import { domainForKind } from '@/lib/plan-kinds'
 import PlanWorkspace from '@/components/projects/PlanWorkspace'
 import SendToSprintMenu from '@/components/projects/SendToSprintMenu'
@@ -15,7 +15,6 @@ import Segmented from '@/components/ui/Segmented'
 
 interface ProductTabProps {
   project: Project
-  phases: PlanPhase[]
 }
 
 const DOC_TYPE_LABELS: Record<DocType, string> = {
@@ -43,10 +42,14 @@ function detectLinkIcon(url: string): React.ElementType {
 
 type FeatureFilter = 'all' | 'todo' | 'done'
 
-export default function ProductTab({ project, phases }: ProductTabProps) {
+export default function ProductTab({ project }: ProductTabProps) {
   const updateProject = useProjectStore((s) => s.updateProject)
   const { addDoc, deleteDoc, docs: allDocs } = useDocumentStore()
   const { toggleFeature } = usePlanStore()
+
+  const phases = usePlanStore(useShallow((s) =>
+    [...s.phases.filter((ph) => ph.projectId === project.id)].sort((a, b) => a.order - b.order)
+  ))
 
   const productPlanIds = usePlanStore(useShallow((s) =>
     s.plans

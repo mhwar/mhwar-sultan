@@ -1,9 +1,13 @@
 'use client'
 import { useState } from 'react'
-import { X, ImagePlus, Trash2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { X, ImagePlus, Trash2, ArrowRight, Check } from 'lucide-react'
 import { useProjectStore } from '@/store/store'
 import type { Project, ProjectStatus } from '@/types'
 import ProjectIcon, { PROJECT_ICON_KEYS, DEFAULT_PROJECT_ICON, resolveProjectIcon } from '@/lib/icons'
+import { PROJECT_TYPES, getProjectType, DEFAULT_PROJECT_TYPE } from '@/lib/project-types'
+import { getTool } from '@/lib/tool-registry'
+import { runSmartSetup } from '@/lib/smart-setup'
 import { hexToRgba } from '@/lib/utils'
 import Field from '@/components/ui/Field'
 import Button from '@/components/ui/Button'
@@ -27,8 +31,13 @@ const COLOR_OPTIONS = [
 ]
 
 export default function ProjectForm({ onClose, initialData }: ProjectFormProps) {
+  const router = useRouter()
   const { addProject, updateProject } = useProjectStore()
   const isEditing = !!initialData
+
+  // Create flow is a 2-step wizard (type → details). Edit jumps straight to details.
+  const [step, setStep] = useState<1 | 2>(isEditing ? 2 : 1)
+  const [typeId, setTypeId] = useState<string>(initialData?.type ?? DEFAULT_PROJECT_TYPE)
 
   const [form, setForm] = useState({
     name: initialData?.name ?? '',
@@ -43,6 +52,18 @@ export default function ProjectForm({ onClose, initialData }: ProjectFormProps) 
     category: initialData?.category ?? '',
     tags: initialData?.tags?.join('، ') ?? '',
   })
+
+  // Pick a type in step 1: prefill category + a matching icon, then advance.
+  const chooseType = (id: string) => {
+    setTypeId(id)
+    const t = getProjectType(id)
+    setForm((f) => ({
+      ...f,
+      category: f.category.trim() ? f.category : t.suggestedCategory,
+      icon: PROJECT_ICON_KEYS.includes(t.icon) ? t.icon : f.icon,
+    }))
+    setStep(2)
+  }
 
   const onPick = (e: React.ChangeEvent<HTMLInputElement>, key: 'logo' | 'cover') => {
     const file = e.target.files?.[0]
@@ -74,10 +95,14 @@ export default function ProjectForm({ onClose, initialData }: ProjectFormProps) 
 
     if (isEditing) {
       updateProject(initialData.id, data)
+      onClose()
     } else {
-      addProject(data)
+      const tools = getProjectType(typeId).defaultToolIds.filter((t) => getTool(t))
+      const newId = addProject({ ...data, type: typeId, tools })
+      runSmartSetup(newId, typeId)
+      onClose()
+      router.push(`/projects/${newId}`)
     }
-    onClose()
   }
 
   return (
@@ -100,15 +125,81 @@ export default function ProjectForm({ onClose, initialData }: ProjectFormProps) 
           className="flex items-center justify-between px-5 py-4"
           style={{ borderBottom: '1px solid var(--border-subtle)' }}
         >
-          <h2 className="text-base font-bold" style={{ color: 'var(--fg-1)' }}>
-            {isEditing ? 'تعديل المشروع' : 'مشروع جديد'}
-          </h2>
+          <div className="flex items-center gap-2">
+            {!isEditing && step === 2 && (
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="w-7 h-7 rounded-md flex items-center justify-center transition-colors hover:bg-white/5"
+                style={{ color: 'var(--color-text-muted)' }}
+                aria-label="رجوع"
+              >
+                <ArrowRight size={15} data-flip-rtl />
+              </button>
+            )}
+            <h2 className="text-base font-bold" style={{ color: 'var(--fg-1)' }}>
+              {isEditing ? 'تعديل المشروع' : step === 1 ? 'اختر نوع المشروع' : 'تفاصيل المشروع'}
+            </h2>
+          </div>
           <IconButton onClick={onClose} aria-label="إغلاق">
             <X size={16} />
           </IconButton>
         </div>
 
+        {/* Step 1 — project type selection (create only) */}
+        {!isEditing && step === 1 ? (
+          <div className="p-5 space-y-3">
+            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              يحدّد النوع الأدوات الافتراضية للمشروع، ويمكنك تعديلها لاحقاً من مكتبة الأدوات
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {PROJECT_TYPES.map((t) => {
+                const active = typeId === t.id
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => chooseType(t.id)}
+                    className="text-start rounded-xl p-4 transition-colors hover:bg-white/5"
+                    style={{
+                      background: 'var(--color-surface-overlay)',
+                      border: `1px solid ${active ? 'var(--iris-500)' : 'var(--color-surface-border)'}`,
+                    }}
+                  >
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <div
+                        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                        style={{ background: 'color-mix(in oklch, var(--iris-500) 15%, transparent)', color: 'var(--iris-500)' }}
+                      >
+                        <ProjectIcon name={t.icon} size={18} />
+                      </div>
+                      <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{t.label}</span>
+                    </div>
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>{t.description}</p>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {t.defaultToolIds.map((id) => getTool(id)).filter(Boolean).map((tool) => (
+                        <span key={tool!.id} className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--color-surface-muted)', color: 'var(--color-text-muted)' }}>
+                          {tool!.label}
+                        </span>
+                      ))}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {!isEditing && (
+            <div
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
+              style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)', color: 'var(--color-text-secondary)' }}
+            >
+              <Check size={13} style={{ color: 'var(--iris-500)' }} />
+              النوع: <span className="font-semibold">{getProjectType(typeId).label}</span>
+              <button type="button" onClick={() => setStep(1)} className="ms-auto font-medium" style={{ color: 'var(--color-brand)' }}>تغيير</button>
+            </div>
+          )}
           <Field label="اسم المشروع" required value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
 
           <Field label="الاسم بالإنجليزية" value={form.nameEn} dir="ltr" onChange={(v) => setForm({ ...form, nameEn: v })} />
@@ -264,6 +355,7 @@ export default function ProjectForm({ onClose, initialData }: ProjectFormProps) 
             </Button>
           </div>
         </form>
+        )}
       </div>
     </div>
   )
