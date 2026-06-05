@@ -250,6 +250,7 @@ export interface Client {
   id: string
   projectId: string
   name: string
+  logo?: string
   contactName?: string
   phone?: string
   email?: string
