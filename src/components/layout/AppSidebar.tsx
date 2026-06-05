@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
-import { LayoutDashboard, FolderKanban, BarChart3, Settings, Plus, X, Search } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, BarChart3, Settings, Plus, X, Search, Wallet } from 'lucide-react'
 import { useProjectStore } from '@/store/store'
 import ThemeToggle from '@/components/shared/ThemeToggle'
 
@@ -164,8 +164,21 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
             </div>
           </div>
 
-          {/* Footer — settings */}
-          <div className="pt-2 mt-2" style={{ borderTop: '1px solid var(--color-surface-border)' }}>
+          {/* Footer — settings + billing preview */}
+          <div className="pt-2 mt-2 space-y-0.5" style={{ borderTop: '1px solid var(--color-surface-border)' }}>
+            <Link
+              href="/billing"
+              className={`sidebar-nav-item${pathname === '/billing' ? ' active' : ''}`}
+            >
+              <Wallet size={17} />
+              <span>الرصيد والباقات</span>
+              <span
+                className="ms-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                style={{ background: 'var(--color-surface-overlay)', color: 'var(--color-text-muted)', border: '1px solid var(--color-surface-border)' }}
+              >
+                معاينة
+              </span>
+            </Link>
             <Link
               href="/settings"
               className={`sidebar-nav-item${pathname === '/settings' ? ' active' : ''}`}
