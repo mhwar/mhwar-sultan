@@ -1,4 +1,4 @@
-import type { Project, Task, Plan, PlanPhase, Note, Sprint, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, Kpi } from '@/types'
+import type { Project, Task, Plan, PlanPhase, Note, Sprint, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, Kpi, Client, ContentItem } from '@/types'
 import { FALLBACK_TOOL_IDS } from '@/lib/project-types'
 
 export const SEED_METRICS: GrowthMetric[] = [
@@ -228,3 +228,5 @@ export const SEED_TEAM: TeamMember[] = []
 export const SEED_SCHEDULE: ScheduleEvent[] = []
 export const SEED_FINANCE: FinanceEntry[] = []
 export const SEED_KPIS: Kpi[] = []
+export const SEED_CLIENTS: Client[] = []
+export const SEED_CONTENT: ContentItem[] = []

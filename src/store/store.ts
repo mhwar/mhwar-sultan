@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, Feature, Sprint, SprintStatus, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, Kpi } from '@/types'
-import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES, SEED_SPRINTS, SEED_DOCS, SEED_METRICS, SEED_EXPERIMENTS, SEED_CHANNELS, SEED_TEAM, SEED_SCHEDULE, SEED_FINANCE, SEED_KPIS } from '@/lib/seed-data'
+import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, Feature, Sprint, SprintStatus, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, Kpi, Client, ContentItem } from '@/types'
+import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES, SEED_SPRINTS, SEED_DOCS, SEED_METRICS, SEED_EXPERIMENTS, SEED_CHANNELS, SEED_TEAM, SEED_SCHEDULE, SEED_FINANCE, SEED_KPIS, SEED_CLIENTS, SEED_CONTENT } from '@/lib/seed-data'
 import { domainForKind } from '@/lib/plan-kinds'
 import { FALLBACK_TOOL_IDS, DEFAULT_PROJECT_TYPE } from '@/lib/project-types'
 import { generateId, now } from '@/lib/utils'
@@ -772,6 +772,72 @@ export const useKpiStore = create<KpiStore>()(
         set((s) => ({ kpis: s.kpis.filter((k) => k.id !== id) })),
     }),
     { name: 'mhwar-kpis', version: 1, skipHydration: true }
+  )
+)
+
+// ── Client Store ──────────────────────────────────────────
+interface ClientStore {
+  clients: Client[]
+  addClient: (data: Omit<Client, 'id' | 'order' | 'createdAt' | 'updatedAt'>) => string
+  updateClient: (id: string, data: Partial<Client>) => void
+  deleteClient: (id: string) => void
+}
+
+export const useClientStore = create<ClientStore>()(
+  persist(
+    (set) => ({
+      clients: SEED_CLIENTS,
+
+      addClient: (data) => {
+        const id = generateId()
+        set((s) => {
+          const existing = s.clients.filter((c) => c.projectId === data.projectId)
+          const order = existing.length > 0 ? Math.max(...existing.map((c) => c.order)) + 1 : 0
+          return { clients: [...s.clients, { ...data, id, order, createdAt: now(), updatedAt: now() }] }
+        })
+        return id
+      },
+
+      updateClient: (id, data) =>
+        set((s) => ({ clients: s.clients.map((c) => (c.id === id ? { ...c, ...data, updatedAt: now() } : c)) })),
+
+      deleteClient: (id) =>
+        set((s) => ({ clients: s.clients.filter((c) => c.id !== id) })),
+    }),
+    { name: 'mhwar-clients', version: 1, skipHydration: true }
+  )
+)
+
+// ── Content Store ─────────────────────────────────────────
+interface ContentStore {
+  items: ContentItem[]
+  addItem: (data: Omit<ContentItem, 'id' | 'order' | 'createdAt'>) => string
+  updateItem: (id: string, data: Partial<ContentItem>) => void
+  deleteItem: (id: string) => void
+}
+
+export const useContentStore = create<ContentStore>()(
+  persist(
+    (set) => ({
+      items: SEED_CONTENT,
+
+      addItem: (data) => {
+        const id = generateId()
+        set((s) => {
+          const existing = s.items.filter((i) => i.projectId === data.projectId)
+          const order = existing.length > 0 ? Math.max(...existing.map((i) => i.order)) + 1 : 0
+          return { items: [...s.items, { ...data, id, order, createdAt: now() }] }
+        })
+        return id
+      },
+
+      updateItem: (id, data) =>
+        set((s) => ({ items: s.items.map((i) => (i.id === id ? { ...i, ...data } : i)) })),
+
+      deleteItem: (id) =>
+        set((s) => ({ items: s.items.filter((i) => i.id !== id) })),
+    }),
+    { name: 'mhwar-content', version: 1, skipHydration: true }
   )
 )
 

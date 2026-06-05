@@ -1,6 +1,6 @@
 'use client'
 import { useEffect } from 'react'
-import { useProjectStore, useTaskStore, usePlanStore, useNoteStore, useSprintStore, useDocumentStore, useGrowthStore, useTeamStore, useScheduleStore, useFinanceStore, useKpiStore, bootstrapSprints } from '@/store/store'
+import { useProjectStore, useTaskStore, usePlanStore, useNoteStore, useSprintStore, useDocumentStore, useGrowthStore, useTeamStore, useScheduleStore, useFinanceStore, useKpiStore, useClientStore, useContentStore, bootstrapSprints } from '@/store/store'
 import { useThemeStore } from '@/store/themeStore'
 
 // Rehydrates all Zustand persist stores from localStorage after the initial
@@ -20,6 +20,8 @@ export default function StoreHydration() {
     useScheduleStore.persist.rehydrate()
     useFinanceStore.persist.rehydrate()
     useKpiStore.persist.rehydrate()
+    useClientStore.persist.rehydrate()
+    useContentStore.persist.rehydrate()
     // After every store is hydrated (synchronous, localStorage-backed), run the
     // one-time legacy `agile` plan → sprint migration. Guarded internally.
     bootstrapSprints()
