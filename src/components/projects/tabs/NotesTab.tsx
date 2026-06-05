@@ -1,6 +1,7 @@
 'use client'
 import { useState, useCallback } from 'react'
 import { Plus, Pin, Trash2, FileText } from 'lucide-react'
+import { useShallow } from 'zustand/shallow'
 import { useNoteStore } from '@/store/store'
 import type { Project, Note } from '@/types'
 import EmptyState from '@/components/shared/EmptyState'
@@ -8,11 +9,17 @@ import { formatDateAr } from '@/lib/utils'
 
 interface NotesTabProps {
   project: Project
-  notes: Note[]
 }
 
-export default function NotesTab({ project, notes }: NotesTabProps) {
+export default function NotesTab({ project }: NotesTabProps) {
   const { addNote, updateNote, deleteNote } = useNoteStore()
+  const notes = useNoteStore(useShallow((s) =>
+    [...s.notes.filter((n) => n.projectId === project.id)].sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1
+      if (!a.pinned && b.pinned) return 1
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    })
+  ))
   const [activeId, setActiveId] = useState<string | null>(notes[0]?.id ?? null)
   const activeNote = notes.find((n) => n.id === activeId)
   const [localContent, setLocalContent] = useState(activeNote?.content ?? '')

@@ -2,8 +2,8 @@
 import { useMemo, useState } from 'react'
 import { Plus, Zap, Pencil, Inbox, LayoutList, Calendar, Target } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
-import { useSprintStore } from '@/store/store'
-import type { Project, Task } from '@/types'
+import { useSprintStore, useTaskStore } from '@/store/store'
+import type { Project } from '@/types'
 import EmptyState from '@/components/shared/EmptyState'
 import Button from '@/components/ui/Button'
 import TaskViews from '@/components/projects/TaskViews'
@@ -15,10 +15,10 @@ type Scope = 'all' | 'backlog' | string
 
 interface ExecutionTabProps {
   project: Project
-  tasks: Task[]
 }
 
-export default function ExecutionTab({ project, tasks }: ExecutionTabProps) {
+export default function ExecutionTab({ project }: ExecutionTabProps) {
+  const tasks = useTaskStore(useShallow((s) => s.tasks.filter((t) => t.projectId === project.id)))
   const sprints = useSprintStore(useShallow((s) => s.sprints.filter((sp) => sp.projectId === project.id).sort((a, b) => a.order - b.order)))
   const addSprint = useSprintStore((s) => s.addSprint)
   // `null` means "not yet chosen" → fall back to the active sprint (or first).

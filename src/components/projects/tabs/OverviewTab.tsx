@@ -1,17 +1,19 @@
 'use client'
 import { ExternalLink, Tag, Calendar, Layers } from 'lucide-react'
-import type { Project, Task, PlanPhase } from '@/types'
+import { useShallow } from 'zustand/shallow'
+import type { Project } from '@/types'
+import { useTaskStore, usePlanStore } from '@/store/store'
 import StatusBadge from '@/components/shared/StatusBadge'
 import ProgressBar from '@/components/shared/ProgressBar'
 import { formatDateAr, hexToRgba } from '@/lib/utils'
 
 interface OverviewTabProps {
   project: Project
-  tasks: Task[]
-  phases: PlanPhase[]
 }
 
-export default function OverviewTab({ project, tasks, phases }: OverviewTabProps) {
+export default function OverviewTab({ project }: OverviewTabProps) {
+  const tasks = useTaskStore(useShallow((s) => s.tasks.filter((t) => t.projectId === project.id)))
+  const phases = usePlanStore(useShallow((s) => s.phases.filter((ph) => ph.projectId === project.id)))
   const doneTasks = tasks.filter((t) => t.status === 'done').length
   const donePhases = phases.filter((ph) => ph.status === 'completed').length
 

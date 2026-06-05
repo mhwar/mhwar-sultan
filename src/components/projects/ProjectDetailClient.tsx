@@ -1,29 +1,17 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, Edit2, Trash2, LayoutDashboard, Package, TrendingUp, Zap, FileText, Calendar, Clock } from 'lucide-react'
+import { ArrowRight, Edit2, Trash2, Calendar, Clock, Plus } from 'lucide-react'
 import Link from 'next/link'
 import StatusBadge from '@/components/shared/StatusBadge'
 import ProjectForm from '@/components/projects/ProjectForm'
-import OverviewTab from '@/components/projects/tabs/OverviewTab'
-import ProductTab from '@/components/projects/tabs/ProductTab'
-import GrowthTab from '@/components/projects/tabs/GrowthTab'
-import ExecutionTab from '@/components/projects/tabs/ExecutionTab'
-import NotesTab from '@/components/projects/tabs/NotesTab'
-import { useProjectStore, useTaskStore, usePlanStore, useNoteStore, useSprintStore } from '@/store/store'
+import ToolsLibrarySheet from '@/components/projects/ToolsLibrarySheet'
+import { useProjectStore, useTaskStore, useNoteStore, useSprintStore } from '@/store/store'
 import { useShallow } from 'zustand/shallow'
+import { getTool } from '@/lib/tool-registry'
+import { FALLBACK_TOOL_IDS } from '@/lib/project-types'
 import ProjectIcon from '@/lib/icons'
 import { hexToRgba, formatDateAr } from '@/lib/utils'
-
-type Tab = 'overview' | 'product' | 'growth' | 'execution' | 'notes'
-
-const TABS: { id: Tab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
-  { id: 'overview',  label: 'نظرة عامة', icon: LayoutDashboard },
-  { id: 'product',   label: 'المنتج',    icon: Package         },
-  { id: 'growth',    label: 'النمو',     icon: TrendingUp      },
-  { id: 'execution', label: 'التنفيذ',   icon: Zap             },
-  { id: 'notes',     label: 'الملاحظات', icon: FileText        },
-]
 
 interface Props {
   id: string
@@ -34,9 +22,6 @@ export default function ProjectDetailClient({ id }: Props) {
   const project = useProjectStore((s) => s.projects.find((p) => p.id === id))
   const { deleteProject } = useProjectStore()
   const tasks = useTaskStore(useShallow((s) => s.tasks.filter((t) => t.projectId === id)))
-  const phases = usePlanStore(useShallow((s) =>
-    [...s.phases.filter((ph) => ph.projectId === id)].sort((a, b) => a.order - b.order)
-  ))
   const notes = useNoteStore(useShallow((s) =>
     [...s.notes.filter((n) => n.projectId === id)].sort((a, b) => {
       if (a.pinned && !b.pinned) return -1
@@ -45,11 +30,22 @@ export default function ProjectDetailClient({ id }: Props) {
     })
   ))
   const sprints = useSprintStore(useShallow((s) => s.sprints.filter((sp) => sp.projectId === id)))
-  const [activeTab, setActiveTab] = useState<Tab>('overview')
+  const [activeTab, setActiveTab] = useState<string>('')
   const [showEdit, setShowEdit] = useState(false)
+  const [showTools, setShowTools] = useState(false)
   const [hydrated, setHydrated] = useState(false)
 
   useEffect(() => { setHydrated(true) }, [])
+
+  // Tools enabled for this project (with legacy fallback), resolved via the registry.
+  const toolIds = (project?.tools?.length ? project.tools : FALLBACK_TOOL_IDS).filter((t) => getTool(t))
+
+  // Keep the active tab valid: default to the first tool, and recover if the
+  // current tab gets removed from the library.
+  useEffect(() => {
+    if (toolIds.length === 0) return
+    if (!activeTab || !toolIds.includes(activeTab)) setActiveTab(toolIds[0])
+  }, [toolIds.join(','), activeTab])
 
   if (!hydrated) {
     return (
@@ -222,7 +218,10 @@ export default function ProjectDetailClient({ id }: Props) {
             className="flex gap-1 overflow-x-auto no-scrollbar mt-1"
             style={{ borderTop: '1px solid var(--color-surface-border)', marginInline: '-1rem', paddingInline: '1rem' }}
           >
-            {TABS.map(({ id: tabId, label, icon: Icon }) => {
+            {toolIds.map((tabId) => {
+              const tool = getTool(tabId)
+              if (!tool) return null
+              const Icon = tool.icon
               const isActive = activeTab === tabId
               return (
                 <button
@@ -232,7 +231,7 @@ export default function ProjectDetailClient({ id }: Props) {
                   style={{ color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}
                 >
                   <Icon size={14} />
-                  {label}
+                  {tool.label}
                   {tabId === 'execution' && tasks.length > 0 && (
                     <span
                       className="axis-num text-xs px-1.5 rounded-full font-semibold"
@@ -247,20 +246,28 @@ export default function ProjectDetailClient({ id }: Props) {
                 </button>
               )
             })}
+
+            {/* Add tool — opens the tools library */}
+            <button
+              onClick={() => setShowTools(true)}
+              className="axis-tab flex items-center gap-1.5 px-3 py-3 text-sm font-medium whitespace-nowrap"
+              style={{ color: 'var(--color-text-muted)' }}
+              title="إضافة أداة"
+            >
+              <Plus size={14} />
+              أداة
+            </button>
           </div>
         </div>
       </div>
 
       {/* Tab content */}
       <div>
-        {activeTab === 'overview'  && <OverviewTab  project={project} tasks={tasks} phases={phases} />}
-        {activeTab === 'product'   && <ProductTab   project={project} phases={phases} />}
-        {activeTab === 'growth'    && <GrowthTab    project={project} />}
-        {activeTab === 'execution' && <ExecutionTab project={project} tasks={tasks} />}
-        {activeTab === 'notes'     && <NotesTab     project={project} notes={notes} />}
+        {getTool(activeTab)?.render(project)}
       </div>
 
       {showEdit && <ProjectForm onClose={() => setShowEdit(false)} initialData={project} />}
+      {showTools && <ToolsLibrarySheet project={project} onClose={() => setShowTools(false)} />}
     </div>
   )
 }
