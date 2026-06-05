@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, Fragment } from 'react'
 import { X, Printer, ChevronDown } from 'lucide-react'
 import type { Client, ContentItem } from '@/types'
 import { TYPE_LABEL, PLATFORM_LABEL, STATUS_LABEL, STATUS_VAR, scheduledKey, keyInMonth, monthLabel } from './contentMeta'
@@ -33,8 +33,21 @@ const PRINT_STATUS_BG: Record<string, string> = {
   published: '#eef2ff',
 }
 
+const WEEK_LABELS = ['الأسبوع الأول', 'الأسبوع الثاني', 'الأسبوع الثالث', 'الأسبوع الرابع', 'الأسبوع الخامس', 'الأسبوع السادس']
+/** 1-based week of month from a yyyy-mm-dd key (day 1-7 → week 1, etc.). */
+function weekOfMonth(key: string | null): number {
+  if (!key) return 0
+  return Math.ceil(Number(key.slice(8, 10)) / 7)
+}
+/** Escape user text for safe injection into the print window HTML. */
+function esc(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
+}
+
 export default function ContentExportModal({ items, clients, clientColorMap, year, month, onClose }: Props) {
   const [selectedClientId, setSelectedClientId] = useState<string>(clients[0]?.id ?? '__all')
+  const [includeBody, setIncludeBody] = useState(false)
+  const [groupByWeek, setGroupByWeek] = useState(true)
 
   const selectedClient = clients.find((c) => c.id === selectedClientId)
 
@@ -67,22 +80,43 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
       : ''
     const printedAt = new Date().toLocaleDateString('ar-SA-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' })
 
-    const rowsHtml = monthItems.map((it, idx) => {
+    const NCOLS = 7
+    const itemRow = (it: ContentItem, idx: number) => {
       const sKey = scheduledKey(it)
       const day = sKey ? sKey.slice(8, 10) + '/' + sKey.slice(5, 7) : '—'
       const sc = PRINT_STATUS_COLOR[it.status] ?? '#6b7280'
       const sb = PRINT_STATUS_BG[it.status] ?? '#f3f4f6'
-      return `<tr>
+      const main = `<tr>
         <td class="num center">${idx + 1}</td>
-        <td class="title">${it.title}</td>
+        <td class="title">${esc(it.title)}</td>
         <td>${TYPE_LABEL[it.type]}</td>
         <td>${it.platform ? PLATFORM_LABEL[it.platform] : '—'}</td>
+        <td class="num center">${it.dimensions ? esc(it.dimensions) : '—'}</td>
         <td class="num center">${day}</td>
         <td><span class="badge" style="color:${sc};background:${sb}">
           <span class="dot" style="background:${sc}"></span>${STATUS_LABEL[it.status]}
         </span></td>
       </tr>`
-    }).join('')
+      const bodyRow = includeBody && it.body
+        ? `<tr class="body-row"><td></td><td colspan="${NCOLS - 1}" class="body-text">${esc(it.body).replace(/\n/g, '<br/>')}</td></tr>`
+        : ''
+      return main + bodyRow
+    }
+
+    let rowsHtml = ''
+    if (groupByWeek) {
+      let lastWeek = -1
+      monthItems.forEach((it, idx) => {
+        const wk = weekOfMonth(scheduledKey(it))
+        if (wk !== lastWeek) {
+          lastWeek = wk
+          rowsHtml += `<tr class="week-row"><td colspan="${NCOLS}">${WEEK_LABELS[wk - 1] ?? 'محتوى الشهر'}</td></tr>`
+        }
+        rowsHtml += itemRow(it, idx)
+      })
+    } else {
+      rowsHtml = monthItems.map((it, idx) => itemRow(it, idx)).join('')
+    }
 
     const unschHtml = unscheduled.length > 0 ? `
       <h3 class="section-title">بدون موعد نشر <span class="count">(${unscheduled.length})</span></h3>
@@ -188,7 +222,27 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
     td { padding: 5.5pt 7pt; font-size: 9.5pt; vertical-align: middle; }
     td.num { font-variant-numeric: tabular-nums; direction: ltr; }
     td.center { text-align: center; }
-    td.title { font-weight: 500; max-width: 180pt; }
+    td.title { font-weight: 500; max-width: 170pt; }
+
+    /* ── Week group header ── */
+    tbody tr.week-row td {
+      background: #eef0fb;
+      color: #4338ca;
+      font-weight: 700;
+      font-size: 9pt;
+      padding: 4pt 7pt;
+    }
+    tbody tr.week-row { border-bottom: 0.4pt solid #d9ddf5; }
+
+    /* ── Body (post copy) sub-row ── */
+    tbody tr.body-row td.body-text {
+      color: #4b5563;
+      font-size: 8.5pt;
+      line-height: 1.6;
+      padding: 2pt 7pt 7pt;
+      white-space: pre-wrap;
+    }
+    tbody tr.body-row { background: transparent !important; border-bottom: 0.4pt solid #e9e9f0; }
 
     .badge {
       display: inline-flex;
@@ -279,12 +333,13 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
   <table>
     <thead>
       <tr>
-        <th class="center" style="width:22pt">#</th>
+        <th class="center" style="width:20pt">#</th>
         <th>العنوان</th>
-        <th style="width:46pt">النوع</th>
-        <th style="width:54pt">المنصة</th>
-        <th class="center" style="width:40pt">التاريخ</th>
-        <th style="width:62pt">الحالة</th>
+        <th style="width:42pt">النوع</th>
+        <th style="width:50pt">المنصة</th>
+        <th class="center" style="width:56pt">المقاس</th>
+        <th class="center" style="width:38pt">التاريخ</th>
+        <th style="width:58pt">الحالة</th>
       </tr>
     </thead>
     <tbody>${rowsHtml}</tbody>
@@ -368,6 +423,13 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
           </button>
         </div>
 
+        {/* Options */}
+        <div className="px-5 py-2.5 flex items-center gap-2 flex-wrap shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>خيارات:</span>
+          <Toggle active={includeBody} onClick={() => setIncludeBody((v) => !v)}>تضمين نص المنشور</Toggle>
+          <Toggle active={groupByWeek} onClick={() => setGroupByWeek((v) => !v)}>تجميع حسب الأسبوع</Toggle>
+        </div>
+
         {/* Preview table */}
         <div className="overflow-y-auto flex-1 p-5">
           {/* Summary strip */}
@@ -385,7 +447,7 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr>
-                  {['#', 'العنوان', 'النوع', 'المنصة', 'التاريخ', 'الحالة'].map((h) => (
+                  {['#', 'العنوان', 'النوع', 'المنصة', 'المقاس', 'التاريخ', 'الحالة'].map((h) => (
                     <th key={h} style={{
                       textAlign: 'right', padding: '7px 10px', fontSize: 11,
                       fontWeight: 600, color: 'var(--color-text-muted)',
@@ -399,27 +461,39 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
                 {monthItems.map((it, idx) => {
                   const sKey = scheduledKey(it)
                   const statusColor = STATUS_VAR[it.status]
+                  const cell = { padding: '7px 10px', borderBottom: '1px solid var(--color-surface-border)' } as React.CSSProperties
                   return (
-                    <tr key={it.id}>
-                      <td style={{ padding: '7px 10px', borderBottom: '1px solid var(--color-surface-border)', color: 'var(--color-text-muted)', fontSize: 12, width: 28 }}>{idx + 1}</td>
-                      <td style={{ padding: '7px 10px', borderBottom: '1px solid var(--color-surface-border)', color: 'var(--color-text-primary)', fontWeight: 500 }}>{it.title}</td>
-                      <td style={{ padding: '7px 10px', borderBottom: '1px solid var(--color-surface-border)', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{TYPE_LABEL[it.type]}</td>
-                      <td style={{ padding: '7px 10px', borderBottom: '1px solid var(--color-surface-border)', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{it.platform ? PLATFORM_LABEL[it.platform] : '—'}</td>
-                      <td style={{ padding: '7px 10px', borderBottom: '1px solid var(--color-surface-border)', color: 'var(--color-text-muted)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-                        {sKey ? sKey.slice(8, 10) + '/' + sKey.slice(5, 7) : '—'}
-                      </td>
-                      <td style={{ padding: '7px 10px', borderBottom: '1px solid var(--color-surface-border)' }}>
-                        <span style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 5,
-                          padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap',
-                          background: `color-mix(in oklch, ${statusColor} 15%, transparent)`,
-                          color: statusColor,
-                        }}>
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor, display: 'inline-block', flexShrink: 0 }} />
-                          {STATUS_LABEL[it.status]}
-                        </span>
-                      </td>
-                    </tr>
+                    <Fragment key={it.id}>
+                      <tr>
+                        <td style={{ ...cell, color: 'var(--color-text-muted)', fontSize: 12, width: 28 }}>{idx + 1}</td>
+                        <td style={{ ...cell, color: 'var(--color-text-primary)', fontWeight: 500 }}>{it.title}</td>
+                        <td style={{ ...cell, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{TYPE_LABEL[it.type]}</td>
+                        <td style={{ ...cell, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{it.platform ? PLATFORM_LABEL[it.platform] : '—'}</td>
+                        <td style={{ ...cell, color: 'var(--color-text-muted)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{it.dimensions ?? '—'}</td>
+                        <td style={{ ...cell, color: 'var(--color-text-muted)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                          {sKey ? sKey.slice(8, 10) + '/' + sKey.slice(5, 7) : '—'}
+                        </td>
+                        <td style={cell}>
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 5,
+                            padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap',
+                            background: `color-mix(in oklch, ${statusColor} 15%, transparent)`,
+                            color: statusColor,
+                          }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor, display: 'inline-block', flexShrink: 0 }} />
+                            {STATUS_LABEL[it.status]}
+                          </span>
+                        </td>
+                      </tr>
+                      {includeBody && it.body && (
+                        <tr>
+                          <td />
+                          <td colSpan={6} style={{ padding: '0 10px 8px', color: 'var(--color-text-muted)', fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap', borderBottom: '1px solid var(--color-surface-border)' }}>
+                            {it.body}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   )
                 })}
               </tbody>
@@ -471,5 +545,21 @@ function Stat({ label, value, color }: { label: string; value: number; color: st
       <span className="axis-num text-lg font-bold" style={{ color }}>{value}</span>
       <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
     </div>
+  )
+}
+
+function Toggle({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className="px-2.5 h-7 rounded-full text-xs font-medium transition-colors"
+      style={{
+        background: active ? 'color-mix(in oklch, var(--iris-500) 15%, transparent)' : 'var(--color-surface-overlay)',
+        color: active ? 'var(--iris-500)' : 'var(--color-text-muted)',
+        border: `1px solid ${active ? 'var(--iris-500)' : 'var(--color-surface-border)'}`,
+      }}
+    >
+      {children}
+    </button>
   )
 }

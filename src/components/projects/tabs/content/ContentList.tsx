@@ -6,6 +6,7 @@ import {
   nextStatus, prevStatus, scheduledKey,
 } from './contentMeta'
 import { formatDateShort } from '@/lib/utils'
+import { DimBadge, ChecklistMeta } from './ContentCardMeta'
 
 interface Props {
   items: ContentItem[]
@@ -71,15 +72,18 @@ function Row({
   return (
     <div
       className="group flex items-center gap-3 rounded-xl p-3 cursor-pointer transition-colors hover:bg-white/5"
-      style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)', borderInlineStart: `3px solid ${color}` }}
+      style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)', borderInlineStart: `2px solid ${color}` }}
       onClick={onOpen}
     >
+      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: STATUS_VAR[item.status] }} />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{item.title}</p>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          {clientName && <span className="font-medium" style={{ color }}>{clientName}</span>}
+          {clientName && <span>{clientName}</span>}
           <span>{TYPE_LABEL[item.type]}</span>
           {item.platform && <span>{PLATFORM_LABEL[item.platform]}</span>}
+          <DimBadge dimensions={item.dimensions} />
+          <ChecklistMeta item={item} />
           {sched && <span className="num-tabular">{formatDateShort(item.publishDate ?? item.dueDate)}</span>}
         </div>
       </div>

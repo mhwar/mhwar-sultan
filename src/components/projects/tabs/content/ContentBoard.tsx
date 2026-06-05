@@ -6,6 +6,7 @@ import {
   STATUS_ORDER, STATUS_LABEL, STATUS_VAR, TYPE_LABEL, PLATFORM_LABEL, scheduledKey,
 } from './contentMeta'
 import { formatDateShort } from '@/lib/utils'
+import { DimBadge, ChecklistMeta } from './ContentCardMeta'
 
 interface Props {
   items: ContentItem[]
@@ -92,17 +93,22 @@ function BoardCard({
       onClick={onClick}
       className="rounded-lg p-2.5 transition-colors hover:bg-white/5"
       style={{
-        background: 'var(--color-surface-muted)',
+        background: 'var(--color-surface-overlay)',
         border: '1px solid var(--color-surface-border)',
-        borderInlineStart: `3px solid ${color}`,
+        borderInlineStart: `2px solid ${color}`,
         cursor: 'grab',
       }}
     >
-      <p className="text-sm font-medium leading-snug mb-1.5" style={{ color: 'var(--color-text-primary)' }}>{item.title}</p>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STATUS_VAR[item.status] }} />
+        <p className="text-sm font-medium leading-snug" style={{ color: 'var(--color-text-primary)' }}>{item.title}</p>
+      </div>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-        {clientName && <span className="font-medium" style={{ color }}>{clientName}</span>}
+        {clientName && <span>{clientName}</span>}
         <span>{TYPE_LABEL[item.type]}</span>
         {item.platform && <span>{PLATFORM_LABEL[item.platform]}</span>}
+        <DimBadge dimensions={item.dimensions} />
+        <ChecklistMeta item={item} />
         {sched && <span className="num-tabular ms-auto">{formatDateShort(item.publishDate ?? item.dueDate)}</span>}
       </div>
     </div>

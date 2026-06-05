@@ -8,23 +8,17 @@ import { useShallow } from 'zustand/shallow'
 import type { Project, ContentItem, ContentStatus } from '@/types'
 import { useContentStore, useClientStore } from '@/store/store'
 import Segmented from '@/components/ui/Segmented'
-import ContentForm, { type ContentFormData } from './content/ContentForm'
+import ContentDrawer from './content/ContentDrawer'
 import ContentCalendar from './content/ContentCalendar'
 import ContentBoard from './content/ContentBoard'
 import ContentList from './content/ContentList'
 import GlobalEventsSheet from './content/GlobalEventsSheet'
 import ContentExportModal from './content/ContentExportModal'
 import {
-  scheduledKey, keyInMonth, keyToISO, monthLabel, DONE_STATUSES, buildClientColorMap,
+  scheduledKey, keyInMonth, keyToISO, monthLabel, DONE_STATUSES, buildClientColorMap, CLIENT_COLORS,
 } from './content/contentMeta'
 
 type View = 'calendar' | 'board' | 'list'
-
-interface EditorState {
-  open: boolean
-  item?: ContentItem
-  presets?: Partial<ContentItem>
-}
 
 interface Props { project: Project }
 
@@ -46,7 +40,7 @@ export default function ContentTab({ project }: Props) {
   const [search, setSearch] = useState('')
   const [quickTitle, setQuickTitle] = useState('')
   const [quickClient, setQuickClient] = useState<string>('')
-  const [editor, setEditor] = useState<EditorState>({ open: false })
+  const [openId, setOpenId] = useState<string | null>(null)
   const [showGlobalEvents, setShowGlobalEvents] = useState(false)
   const [showExport, setShowExport] = useState(false)
 
@@ -104,19 +98,20 @@ export default function ContentTab({ project }: Props) {
   const isThisMonth = year === today.getFullYear() && month === today.getMonth()
 
   /* ── Mutations ── */
-  const openNew = (presets?: Partial<ContentItem>) => setEditor({ open: true, presets })
-  const openEdit = (item: ContentItem) => setEditor({ open: true, item })
-  const closeEditor = () => setEditor({ open: false })
+  // Create-then-open: the drawer edits live, so new items are created up front
+  // and removed on close if left empty (no title, no body).
+  const openNew = (presets?: Partial<ContentItem>) => {
+    const id = addItem({ projectId: pid, title: '', type: 'post', status: 'idea', ...presets })
+    setOpenId(id)
+  }
+  const openEdit = (item: ContentItem) => setOpenId(item.id)
+  const closeDrawer = () => {
+    const cur = openId ? items.find((i) => i.id === openId) : undefined
+    if (cur && !cur.title.trim() && !cur.body?.trim()) deleteItem(cur.id)
+    setOpenId(null)
+  }
 
-  const handleSave = (data: ContentFormData) => {
-    if (editor.item) updateItem(editor.item.id, data)
-    else addItem({ ...data, projectId: pid })
-    closeEditor()
-  }
-  const handleDelete = () => {
-    if (editor.item) deleteItem(editor.item.id)
-    closeEditor()
-  }
+  const openItem = openId ? items.find((i) => i.id === openId) : undefined
   const setStatus = (id: string, status: ContentStatus) => updateItem(id, { status })
   const reschedule = (id: string, key: string | null) =>
     updateItem(id, { publishDate: key ? keyToISO(key) : undefined })
@@ -388,14 +383,14 @@ export default function ContentTab({ project }: Props) {
         )
       )}
 
-      {editor.open && (
-        <ContentForm
-          initial={editor.item}
-          presets={editor.presets}
+      {openItem && (
+        <ContentDrawer
+          item={openItem}
           clients={clients}
-          onSave={handleSave}
-          onDelete={editor.item ? handleDelete : undefined}
-          onClose={closeEditor}
+          accent={openItem.clientId ? (clientColorMap[openItem.clientId] ?? CLIENT_COLORS[0]) : CLIENT_COLORS[0]}
+          onUpdate={(data) => updateItem(openItem.id, data)}
+          onDelete={() => deleteItem(openItem.id)}
+          onClose={closeDrawer}
         />
       )}
 

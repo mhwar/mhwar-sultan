@@ -271,6 +271,12 @@ export type ContentType = 'post' | 'design' | 'video' | 'story' | 'reel' | 'arti
 export type ContentPlatform = 'twitter' | 'instagram' | 'linkedin' | 'tiktok' | 'youtube' | 'snapchat' | 'facebook' | 'other'
 export type ContentStatus = 'idea' | 'draft' | 'design' | 'review' | 'approved' | 'delivered' | 'published'
 
+export interface ContentChecklistItem {
+  id: string
+  title: string
+  done: boolean
+}
+
 export interface ContentItem {
   id: string
   projectId: string
@@ -281,6 +287,9 @@ export interface ContentItem {
   status: ContentStatus
   dueDate?: string
   publishDate?: string
+  body?: string          // نص المنشور / الكوبي الفعلي
+  dimensions?: string    // مقاس التصميم مثل "1080×1080"
+  checklist?: ContentChecklistItem[]
   notes?: string
   order: number
   createdAt: string
