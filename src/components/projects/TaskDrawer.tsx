@@ -1,8 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { X, Trash2, Calendar, Clock, Hash, Flag, CheckCircle2, CircleDashed, Loader, Map, Zap, User } from 'lucide-react'
+import { X, Trash2, Calendar, Clock, Hash, Flag, CheckCircle2, CircleDashed, Loader, Map, Zap, User, Briefcase } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
-import { useTaskStore, usePlanStore, useSprintStore, useTeamStore } from '@/store/store'
+import { useTaskStore, usePlanStore, useSprintStore, useTeamStore, useProjectStore } from '@/store/store'
 import type { Task, Project, TaskStatus, TaskPriority } from '@/types'
 import Segmented from '@/components/ui/Segmented'
 import Field from '@/components/ui/Field'
@@ -32,6 +32,7 @@ interface TaskDrawerProps {
 
 export default function TaskDrawer({ task, project, onClose }: TaskDrawerProps) {
   const { updateTask, deleteTask } = useTaskStore()
+  const allProjects = useProjectStore(useShallow((s) => s.projects))
   const plans = usePlanStore(useShallow((s) => s.plans.filter((p) => p.projectId === project?.id).sort((a, b) => a.order - b.order)))
   const projectPhases = usePlanStore(useShallow((s) => s.phases.filter((p) => p.projectId === project?.id).sort((a, b) => a.order - b.order)))
   const sprints = useSprintStore(useShallow((s) => s.sprints.filter((sp) => sp.projectId === project?.id).sort((a, b) => a.order - b.order)))
@@ -67,12 +68,10 @@ export default function TaskDrawer({ task, project, onClose }: TaskDrawerProps) 
           <div className="px-5 pt-4 pb-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                {project && (
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: accent }} />
-                    <span className="axis-label" style={{ letterSpacing: '0.06em' }}>{project.name}</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: accent }} />
+                  <span className="axis-label" style={{ letterSpacing: '0.06em' }}>{project?.name ?? 'مهمة حرة'}</span>
+                </div>
                 <textarea
                   value={task.title}
                   onChange={(e) => set({ title: e.target.value })}
@@ -156,6 +155,22 @@ export default function TaskDrawer({ task, project, onClose }: TaskDrawerProps) 
               </select>
             </section>
           )}
+
+          {/* Project assignment */}
+          <section>
+            <div className="drawer-section__title"><span className="inline-flex items-center gap-1.5"><Briefcase size={11} />المشروع</span></div>
+            <select
+              value={task.projectId ?? ''}
+              onChange={(e) => set({ projectId: e.target.value || undefined, phaseId: undefined, milestoneId: undefined, sprintId: undefined })}
+              className="w-full text-sm px-3 py-2.5 outline-none"
+              style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', color: 'var(--fg-1)' }}
+            >
+              <option value="">بلا مشروع</option>
+              {allProjects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </section>
 
           {/* Linked phase + milestone */}
           {projectPhases.length > 0 && (

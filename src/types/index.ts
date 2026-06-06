@@ -34,7 +34,7 @@ export interface Project {
 
 export interface Task {
   id: string
-  projectId: string
+  projectId?: string
   phaseId?: string
   milestoneId?: string
   sprintId?: string

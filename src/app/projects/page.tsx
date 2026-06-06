@@ -37,7 +37,7 @@ export default function ProjectsPage() {
   })
 
   const taskCounts = tasks.reduce<Record<string, number>>((acc, t) => {
-    acc[t.projectId] = (acc[t.projectId] ?? 0) + 1
+    if (t.projectId) acc[t.projectId] = (acc[t.projectId] ?? 0) + 1
     return acc
   }, {})
 
