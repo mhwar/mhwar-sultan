@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
+import { useState, useCallback, useRef, useMemo, useEffect, useLayoutEffect } from 'react'
 import {
   Plus, Pin, Trash2, FileText, Users, ListChecks, GitBranch, Lightbulb,
   Bold, Italic, Heading, List, ListTodo, Quote, Code, Link2, Minus,
@@ -17,6 +17,9 @@ import {
 const TEMPLATE_ICON: Record<string, React.ComponentType<{ size?: number }>> = {
   FileText, Users, ListChecks, GitBranch, Lightbulb,
 }
+
+// Layout effect on the client, no-op on the server (avoids the SSR warning).
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 interface NotesTabProps {
   project: Project
@@ -40,6 +43,18 @@ export default function NotesTab({ project }: NotesTabProps) {
   const [showTemplates, setShowTemplates] = useState(false)
   const [tagInput, setTagInput] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  // Selection to restore after a toolbar edit re-renders the controlled textarea.
+  const pendingSel = useRef<[number, number] | null>(null)
+
+  useIsoLayoutEffect(() => {
+    const sel = pendingSel.current
+    const ta = textareaRef.current
+    if (sel && ta) {
+      ta.focus()
+      ta.setSelectionRange(sel[0], sel[1])
+      pendingSel.current = null
+    }
+  })
 
   const selectNote = useCallback((note: Note) => {
     setActiveId(note.id)
@@ -73,12 +88,11 @@ export default function NotesTab({ project }: NotesTabProps) {
   }, [notes, search])
 
   /* ── Markdown toolbar actions (operate on the textarea selection) ── */
+  // Stash the selection then update content; useIsoLayoutEffect restores it after
+  // React commits the new textarea value (avoids the rAF race that lost the caret).
   const applyEdit = (next: string, selStart: number, selEnd: number) => {
+    pendingSel.current = [selStart, selEnd]
     setLocalContent(next)
-    requestAnimationFrame(() => {
-      const ta = textareaRef.current
-      if (ta) { ta.focus(); ta.setSelectionRange(selStart, selEnd) }
-    })
   }
 
   const wrap = (before: string, after = before) => {
@@ -95,8 +109,16 @@ export default function NotesTab({ project }: NotesTabProps) {
     if (!ta) return
     const { selectionStart: s } = ta
     const lineStart = localContent.lastIndexOf('\n', s - 1) + 1
-    const next = localContent.slice(0, lineStart) + prefix + localContent.slice(lineStart)
-    applyEdit(next, s + prefix.length, s + prefix.length)
+    const rest = localContent.slice(lineStart)
+    if (rest.startsWith(prefix)) {
+      // Toggle the prefix off if it's already there (avoids "## ## " buildup).
+      const next = localContent.slice(0, lineStart) + rest.slice(prefix.length)
+      const pos = Math.max(lineStart, s - prefix.length)
+      applyEdit(next, pos, pos)
+    } else {
+      const next = localContent.slice(0, lineStart) + prefix + rest
+      applyEdit(next, s + prefix.length, s + prefix.length)
+    }
   }
 
   const insertBlock = (text: string) => {
@@ -413,8 +435,10 @@ export default function NotesTab({ project }: NotesTabProps) {
 function ToolBtn({ icon, title, onClick }: { icon: React.ReactNode; title: string; onClick: () => void }) {
   return (
     <button
-      onClick={onClick}
       type="button"
+      // Prevent the button from stealing focus/selection away from the textarea.
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
       className="w-8 h-8 rounded-md flex items-center justify-center transition-colors hover:bg-white/10"
       style={{ color: 'var(--color-text-muted)' }}
       title={title}
