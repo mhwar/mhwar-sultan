@@ -1,15 +1,15 @@
 'use client'
 import { useMemo, useState } from 'react'
 import {
-  Plus, CheckSquare, Calendar, CalendarRange, CalendarDays, Grid3x3,
-  ChevronRight, ChevronLeft, Briefcase,
+  CheckSquare, Calendar, CalendarRange, CalendarDays, Grid3x3,
+  ChevronRight, ChevronLeft, Briefcase, Zap, LayoutGrid, CalendarCheck2,
 } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import AppLayout from '@/components/layout/AppLayout'
 import PageHeader from '@/components/shared/PageHeader'
 import Segmented from '@/components/ui/Segmented'
 import Button from '@/components/ui/Button'
-import { useTaskStore, useProjectStore, useTeamStore, usePortfolioStore } from '@/store/store'
+import { useTaskStore, useProjectStore, useTeamStore, usePortfolioStore, useSprintStore } from '@/store/store'
 import type { Task, TaskStatus, TaskPriority } from '@/types'
 import {
   monthLabel, dateToKey, todayKey, keyToISO, fmtDayMonth,
@@ -24,12 +24,15 @@ import type { TaskViewProps } from '@/components/tasks/shared'
 import TasksCalendarWeek from '@/components/tasks/TasksCalendarWeek'
 import TasksCalendarDay from '@/components/tasks/TasksCalendarDay'
 import TasksCalendarYear from '@/components/tasks/TasksCalendarYear'
+import TasksCalendarYearFull from '@/components/tasks/TasksCalendarYearFull'
+import AddTaskPanel from '@/components/tasks/AddTaskPanel'
+import SprintManager from '@/components/tasks/SprintManager'
 
 type View = 'day' | 'week' | 'month' | 'year'
+type YearStyle = 'compact' | 'full'
 
 const STATUS_ORDER: TaskStatus[] = ['todo', 'in-progress', 'done']
 const PRIORITY_ORDER: TaskPriority[] = ['high', 'medium', 'low']
-const DAY_MS = 24 * 3600 * 1000
 
 function shiftDay(key: string, days: number): string {
   const d = new Date(key + 'T00:00:00Z')
@@ -49,9 +52,11 @@ export default function TasksPage() {
   const projects = useProjectStore(useShallow((s) => s.projects))
   const members = useTeamStore(useShallow((s) => s.members))
   const portfolios = usePortfolioStore(useShallow((s) => s.portfolios))
+  const sprints = useSprintStore(useShallow((s) => s.sprints))
 
   const today = new Date()
   const [view, setView] = useState<View>('month')
+  const [yearStyle, setYearStyle] = useState<YearStyle>('compact')
   const [cursor, setCursor] = useState({ year: today.getFullYear(), month: today.getMonth() })
   const [anchorDay, setAnchorDay] = useState<string>(todayKey())
   const [filterPortfolio, setFilterPortfolio] = useState<string>('all')
@@ -61,23 +66,20 @@ export default function TasksPage() {
   const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>('all')
   const [openId, setOpenId] = useState<string | null>(null)
   const [showPortfolios, setShowPortfolios] = useState(false)
-  const [quickTitle, setQuickTitle] = useState('')
-  const [quickProject, setQuickProject] = useState<string>('')
+  const [showSprintManager, setShowSprintManager] = useState(false)
 
   const projectColorMap = useMemo(() => Object.fromEntries(projects.map((p) => [p.id, p.color])), [projects])
   const projectNameMap = useMemo(() => Object.fromEntries(projects.map((p) => [p.id, p.name])), [projects])
   const assigneeNameMap = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m.name])), [members])
 
-  // Projects allowed by the selected portfolio.
   const portfolioProjectIds = useMemo(() => {
     if (filterPortfolio === 'all') return null
     const pf = portfolios.find((p) => p.id === filterPortfolio)
     return pf ? new Set(pf.projectIds) : new Set<string>()
   }, [filterPortfolio, portfolios])
 
-  // Tasks within portfolio + project scope (before assignee/priority/status).
   const scopeTasks = useMemo(() => tasks.filter((t) => {
-    if (portfolioProjectIds && !portfolioProjectIds.has(t.projectId)) return false
+    if (portfolioProjectIds && (!t.projectId || !portfolioProjectIds.has(t.projectId))) return false
     if (filterProject !== 'all' && t.projectId !== filterProject) return false
     return true
   }), [tasks, portfolioProjectIds, filterProject])
@@ -105,23 +107,19 @@ export default function TasksPage() {
   const reschedule = (id: string, key: string | null) =>
     updateTask(id, { dueDate: key ? keyToISO(key) : undefined })
 
-  const chosenProject = filterProject !== 'all' ? filterProject : projects[0]?.id
   const addOnDay = (key: string) => {
-    if (!chosenProject) return
-    const id = addTask({ projectId: chosenProject, title: 'مهمة جديدة', status: 'todo', priority: 'medium', dueDate: keyToISO(key) })
+    const pid = filterProject !== 'all' ? filterProject : projects[0]?.id
+    const id = addTask({ projectId: pid, title: 'مهمة جديدة', status: 'todo', priority: 'medium', dueDate: keyToISO(key) })
     if (id) setOpenId(id)
   }
 
-  const quickAdd = () => {
-    const t = quickTitle.trim()
-    const pid = quickProject || chosenProject
-    if (!t || !pid) return
-    addTask({ projectId: pid, title: t, status: 'todo', priority: 'medium' })
-    setQuickTitle('')
+  const handleAddTask = (data: Omit<Task, 'id' | 'createdAt'>) => {
+    const id = addTask(data)
+    if (id) setOpenId(id)
   }
 
   const openItem = openId ? tasks.find((t) => t.id === openId) : undefined
-  const openProject = openItem ? projects.find((p) => p.id === openItem.projectId) : undefined
+  const openProject = openItem?.projectId ? projects.find((p) => p.id === openItem.projectId) : undefined
 
   /* ── Time navigation ── */
   const stepTime = (dir: -1 | 1) => {
@@ -162,7 +160,10 @@ export default function TasksPage() {
           title="المهام"
           sub={`${base.length} مهمة ضمن النطاق`}
           actions={
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              <Button variant="secondary" size="sm" onClick={() => setShowSprintManager(true)}>
+                <Zap size={14} /> السبرنتات
+              </Button>
               <Button variant="secondary" size="sm" onClick={() => setShowPortfolios(true)}>
                 <Briefcase size={14} /> المحافظ
               </Button>
@@ -179,6 +180,35 @@ export default function TasksPage() {
             </div>
           }
         />
+
+        {/* Year style toggle (only visible in year view) */}
+        {view === 'year' && (
+          <div className="flex items-center gap-1">
+            <span className="text-xs me-2" style={{ color: 'var(--color-text-muted)' }}>نمط العرض:</span>
+            <button
+              onClick={() => setYearStyle('compact')}
+              className="flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium transition-colors"
+              style={{
+                background: yearStyle === 'compact' ? 'var(--iris-500)' : 'var(--color-surface-overlay)',
+                color: yearStyle === 'compact' ? 'white' : 'var(--color-text-secondary)',
+                border: `1px solid ${yearStyle === 'compact' ? 'transparent' : 'var(--color-surface-border)'}`,
+              }}
+            >
+              <LayoutGrid size={13} /> مدمج
+            </button>
+            <button
+              onClick={() => setYearStyle('full')}
+              className="flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium transition-colors"
+              style={{
+                background: yearStyle === 'full' ? 'var(--iris-500)' : 'var(--color-surface-overlay)',
+                color: yearStyle === 'full' ? 'white' : 'var(--color-text-secondary)',
+                border: `1px solid ${yearStyle === 'full' ? 'transparent' : 'var(--color-surface-border)'}`,
+              }}
+            >
+              <CalendarCheck2 size={13} /> تفصيلي
+            </button>
+          </div>
+        )}
 
         {/* Time navigator + summary */}
         <div className="flex items-center gap-3 flex-wrap">
@@ -202,31 +232,14 @@ export default function TasksPage() {
           </span>
         </div>
 
-        {/* Quick add */}
-        <div className="flex items-center gap-2 rounded-xl p-2" style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)' }}>
-          <span className="w-7 h-7 rounded-md flex items-center justify-center shrink-0" style={{ background: 'var(--iris-500)', color: 'white' }}>
-            <Plus size={15} />
-          </span>
-          <input
-            value={quickTitle}
-            onChange={(e) => setQuickTitle(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') quickAdd() }}
-            placeholder="اكتب مهمة ثم اختر المشروع واضغط Enter…"
-            className="flex-1 min-w-0 bg-transparent text-sm outline-none"
-            style={{ color: 'var(--color-text-primary)' }}
-          />
-          <select
-            value={quickProject || chosenProject || ''}
-            onChange={(e) => setQuickProject(e.target.value)}
-            className="h-8 rounded-md px-2 text-xs outline-none shrink-0 max-w-[150px]"
-            style={{ background: 'var(--color-surface-muted)', border: '1px solid var(--color-surface-border)', color: 'var(--color-text-secondary)' }}
-          >
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-          <button onClick={quickAdd} disabled={!quickTitle.trim()} className="px-3 h-8 rounded-md text-xs font-semibold shrink-0 transition-opacity disabled:opacity-40" style={{ background: 'var(--iris-500)', color: 'white' }}>
-            إضافة
-          </button>
-        </div>
+        {/* Add task panel */}
+        <AddTaskPanel
+          projects={projects}
+          sprints={sprints}
+          defaultProjectId={filterProject !== 'all' ? filterProject : projects[0]?.id}
+          onAdd={handleAddTask}
+          onNewSprint={() => setShowSprintManager(true)}
+        />
 
         {/* Filters */}
         {portfolios.length > 0 && (
@@ -266,14 +279,20 @@ export default function TasksPage() {
 
         {/* View body */}
         <div className="axis-card p-3 md:p-4">
-          {projects.length === 0 ? (
-            <p className="text-sm text-center py-10" style={{ color: 'var(--color-text-muted)' }}>أنشئ مشروعاً أولاً لإضافة المهام</p>
-          ) : view === 'month' ? (
+          {view === 'month' ? (
             <TasksCalendarMonth year={year} month={month} {...viewProps} />
           ) : view === 'week' ? (
             <TasksCalendarWeek anchorDay={anchorDay} {...viewProps} />
           ) : view === 'day' ? (
             <TasksCalendarDay anchorDay={anchorDay} {...viewProps} />
+          ) : yearStyle === 'full' ? (
+            <TasksCalendarYearFull
+              year={year}
+              tasks={base}
+              projectColorMap={projectColorMap}
+              onPickMonth={(m) => { setCursor((c) => ({ ...c, month: m })); setView('month') }}
+              onPickDay={(k) => { setAnchorDay(k); setView('day') }}
+            />
           ) : (
             <TasksCalendarYear
               year={year}
@@ -289,6 +308,7 @@ export default function TasksPage() {
         <TaskDrawer task={openItem} project={openProject} onClose={() => setOpenId(null)} />
       )}
       {showPortfolios && <PortfolioManager onClose={() => setShowPortfolios(false)} />}
+      {showSprintManager && <SprintManager onClose={() => setShowSprintManager(false)} />}
     </AppLayout>
   )
 }

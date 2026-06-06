@@ -19,8 +19,8 @@ export default function DashboardPage() {
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 3)
 
-  const todayTasks = tasks.filter((t) => t.dueDate?.slice(0, 10) === todayStr && t.status !== 'done').slice(0, 6)
-  const overdueTasks = tasks.filter((t) => t.dueDate && t.dueDate.slice(0, 10) < todayStr && t.status !== 'done').slice(0, 4)
+  const todayTasks = tasks.filter((t) => t.projectId && t.dueDate?.slice(0, 10) === todayStr && t.status !== 'done').slice(0, 6)
+  const overdueTasks = tasks.filter((t) => t.projectId && t.dueDate && t.dueDate.slice(0, 10) < todayStr && t.status !== 'done').slice(0, 4)
   const overdueFinance = financeEntries.filter((e) => e.status === 'overdue').slice(0, 4)
   const todayContent = contentItems.filter((i) => {
     const k = (i.publishDate ?? i.dueDate)?.slice(0, 10)

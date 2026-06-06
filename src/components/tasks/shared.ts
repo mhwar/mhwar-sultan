@@ -18,8 +18,8 @@ export function chipPropsFor(
   p: TaskViewProps,
 ): { color: string; projectName?: string; assigneeInitial?: string } {
   return {
-    color: p.projectColorMap[task.projectId] ?? 'var(--fg-3)',
-    projectName: p.projectNameMap[task.projectId],
+    color: task.projectId ? (p.projectColorMap[task.projectId] ?? 'var(--fg-3)') : 'var(--color-surface-border)',
+    projectName: task.projectId ? p.projectNameMap[task.projectId] : undefined,
     assigneeInitial: task.assigneeId ? p.assigneeNameMap[task.assigneeId]?.[0] : undefined,
   }
 }

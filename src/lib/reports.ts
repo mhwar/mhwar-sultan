@@ -59,7 +59,7 @@ export function recentActivity(
   notes: { id: string; projectId: string; title: string; updatedAt: string }[],
   limit = 6,
 ): ActivityItem[] {
-  const nameOf = (pid: string) => projects.find((p) => p.id === pid)?.name ?? '—'
+  const nameOf = (pid: string | undefined) => (pid ? projects.find((p) => p.id === pid)?.name : undefined) ?? '—'
   const taskItems: ActivityItem[] = tasks.map((t) => ({
     id: `t-${t.id}`,
     kind: 'task',
