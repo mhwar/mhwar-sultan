@@ -1,8 +1,8 @@
 'use client'
 import { useMemo, useState } from 'react'
 import {
-  CheckSquare, Calendar, CalendarRange, CalendarDays, Grid3x3,
-  ChevronRight, ChevronLeft, Briefcase, Zap, LayoutGrid, CalendarCheck2,
+  Calendar, CalendarRange, CalendarDays, Grid3x3,
+  ChevronRight, ChevronLeft, Briefcase, Zap, LayoutGrid, CalendarCheck2, Download,
 } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import AppLayout from '@/components/layout/AppLayout'
@@ -14,11 +14,11 @@ import type { Task, TaskStatus, TaskPriority } from '@/types'
 import {
   monthLabel, dateToKey, todayKey, keyToISO, fmtDayMonth,
 } from '@/components/projects/tabs/content/contentMeta'
-import {
-  TASK_STATUS_LABELS, PRIORITY_LABELS, TASK_STATUS_VAR, PRIORITY_VAR, formatDateAr,
-} from '@/lib/utils'
+import { formatDateAr } from '@/lib/utils'
 import TaskDrawer from '@/components/projects/TaskDrawer'
 import PortfolioManager from '@/components/tasks/PortfolioManager'
+import TaskFilterBar from '@/components/tasks/TaskFilterBar'
+import TaskExportModal from '@/components/tasks/TaskExportModal'
 import TasksCalendarMonth from '@/components/tasks/TasksCalendarMonth'
 import type { TaskViewProps } from '@/components/tasks/shared'
 import TasksCalendarWeek from '@/components/tasks/TasksCalendarWeek'
@@ -30,9 +30,6 @@ import SprintManager from '@/components/tasks/SprintManager'
 
 type View = 'day' | 'week' | 'month' | 'year'
 type YearStyle = 'compact' | 'full'
-
-const STATUS_ORDER: TaskStatus[] = ['todo', 'in-progress', 'done']
-const PRIORITY_ORDER: TaskPriority[] = ['high', 'medium', 'low']
 
 function shiftDay(key: string, days: number): string {
   const d = new Date(key + 'T00:00:00Z')
@@ -67,6 +64,7 @@ export default function TasksPage() {
   const [openId, setOpenId] = useState<string | null>(null)
   const [showPortfolios, setShowPortfolios] = useState(false)
   const [showSprintManager, setShowSprintManager] = useState(false)
+  const [showExport, setShowExport] = useState(false)
 
   const projectColorMap = useMemo(() => Object.fromEntries(projects.map((p) => [p.id, p.color])), [projects])
   const projectNameMap = useMemo(() => Object.fromEntries(projects.map((p) => [p.id, p.name])), [projects])
@@ -97,6 +95,24 @@ export default function TasksPage() {
     return true
   }), [scopeTasks, filterAssignee, filterPriority, filterStatus])
 
+  const taskCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const t of tasks) {
+      if (t.projectId) {
+        for (const pf of portfolios) {
+          if (pf.projectIds.includes(t.projectId)) {
+            m.set(`pf:${pf.id}`, (m.get(`pf:${pf.id}`) ?? 0) + 1)
+          }
+        }
+        m.set(`pr:${t.projectId}`, (m.get(`pr:${t.projectId}`) ?? 0) + 1)
+      }
+      m.set(`st:${t.status}`, (m.get(`st:${t.status}`) ?? 0) + 1)
+      m.set(`pr2:${t.priority}`, (m.get(`pr2:${t.priority}`) ?? 0) + 1)
+      if (t.assigneeId) m.set(`as:${t.assigneeId}`, (m.get(`as:${t.assigneeId}`) ?? 0) + 1)
+    }
+    return m
+  }, [tasks, portfolios])
+
   const scheduledInRange = useMemo(() => {
     const scheduled = base.filter((t) => t.dueDate)
     const done = scheduled.filter((t) => t.status === 'done').length
@@ -121,7 +137,6 @@ export default function TasksPage() {
   const openItem = openId ? tasks.find((t) => t.id === openId) : undefined
   const openProject = openItem?.projectId ? projects.find((p) => p.id === openItem.projectId) : undefined
 
-  /* ── Time navigation ── */
   const stepTime = (dir: -1 | 1) => {
     if (view === 'month') {
       const d = new Date(Date.UTC(year, month + dir, 1))
@@ -161,6 +176,9 @@ export default function TasksPage() {
           sub={`${base.length} مهمة ضمن النطاق`}
           actions={
             <div className="flex items-center gap-2 flex-wrap justify-end">
+              <Button variant="secondary" size="sm" onClick={() => setShowExport(true)}>
+                <Download size={14} /> تصدير
+              </Button>
               <Button variant="secondary" size="sm" onClick={() => setShowSprintManager(true)}>
                 <Zap size={14} /> السبرنتات
               </Button>
@@ -181,29 +199,21 @@ export default function TasksPage() {
           }
         />
 
-        {/* Year style toggle (only visible in year view) */}
+        {/* Year style toggle */}
         {view === 'year' && (
           <div className="flex items-center gap-1">
             <span className="text-xs me-2" style={{ color: 'var(--color-text-muted)' }}>نمط العرض:</span>
             <button
               onClick={() => setYearStyle('compact')}
               className="flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium transition-colors"
-              style={{
-                background: yearStyle === 'compact' ? 'var(--iris-500)' : 'var(--color-surface-overlay)',
-                color: yearStyle === 'compact' ? 'white' : 'var(--color-text-secondary)',
-                border: `1px solid ${yearStyle === 'compact' ? 'transparent' : 'var(--color-surface-border)'}`,
-              }}
+              style={{ background: yearStyle === 'compact' ? 'var(--iris-500)' : 'var(--color-surface-overlay)', color: yearStyle === 'compact' ? 'white' : 'var(--color-text-secondary)', border: `1px solid ${yearStyle === 'compact' ? 'transparent' : 'var(--color-surface-border)'}` }}
             >
               <LayoutGrid size={13} /> مدمج
             </button>
             <button
               onClick={() => setYearStyle('full')}
               className="flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium transition-colors"
-              style={{
-                background: yearStyle === 'full' ? 'var(--iris-500)' : 'var(--color-surface-overlay)',
-                color: yearStyle === 'full' ? 'white' : 'var(--color-text-secondary)',
-                border: `1px solid ${yearStyle === 'full' ? 'transparent' : 'var(--color-surface-border)'}`,
-              }}
+              style={{ background: yearStyle === 'full' ? 'var(--iris-500)' : 'var(--color-surface-overlay)', color: yearStyle === 'full' ? 'white' : 'var(--color-text-secondary)', border: `1px solid ${yearStyle === 'full' ? 'transparent' : 'var(--color-surface-border)'}` }}
             >
               <CalendarCheck2 size={13} /> تفصيلي
             </button>
@@ -242,40 +252,22 @@ export default function TasksPage() {
         />
 
         {/* Filters */}
-        {portfolios.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            <Chip active={filterPortfolio === 'all'} onClick={() => setFilterPortfolio('all')} color="var(--iris-500)">كل المحافظ</Chip>
-            {portfolios.map((pf) => (
-              <Chip key={pf.id} active={filterPortfolio === pf.id} onClick={() => setFilterPortfolio(filterPortfolio === pf.id ? 'all' : pf.id)} color={pf.color}>{pf.name}</Chip>
-            ))}
-          </div>
-        )}
-
-        <div className="flex flex-wrap gap-1.5">
-          <Chip active={filterProject === 'all'} onClick={() => setFilterProject('all')} color="var(--iris-500)">كل المشاريع</Chip>
-          {projects.map((p) => (
-            <Chip key={p.id} active={filterProject === p.id} onClick={() => setFilterProject(filterProject === p.id ? 'all' : p.id)} color={p.color}>{p.name}</Chip>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap gap-1.5">
-          <Chip active={filterStatus === 'all'} onClick={() => setFilterStatus('all')} color="var(--iris-500)">كل الحالات</Chip>
-          {STATUS_ORDER.map((s) => (
-            <Chip key={s} active={filterStatus === s} onClick={() => setFilterStatus(filterStatus === s ? 'all' : s)} color={TASK_STATUS_VAR[s]}>{TASK_STATUS_LABELS[s]}</Chip>
-          ))}
-          {PRIORITY_ORDER.map((pr) => (
-            <Chip key={pr} active={filterPriority === pr} onClick={() => setFilterPriority(filterPriority === pr ? 'all' : pr)} color={PRIORITY_VAR[pr]}>{PRIORITY_LABELS[pr]}</Chip>
-          ))}
-        </div>
-
-        {availableAssignees.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            <Chip active={filterAssignee === 'all'} onClick={() => setFilterAssignee('all')} color="var(--iris-500)">كل المسؤولين</Chip>
-            {availableAssignees.map((m) => (
-              <Chip key={m.id} active={filterAssignee === m.id} onClick={() => setFilterAssignee(filterAssignee === m.id ? 'all' : m.id)} color="var(--iris-500)">{m.name}</Chip>
-            ))}
-          </div>
-        )}
+        <TaskFilterBar
+          portfolios={portfolios}
+          projects={projects}
+          assignees={availableAssignees}
+          taskCounts={taskCounts}
+          filterPortfolio={filterPortfolio}
+          setFilterPortfolio={setFilterPortfolio}
+          filterProject={filterProject}
+          setFilterProject={setFilterProject}
+          filterAssignee={filterAssignee}
+          setFilterAssignee={setFilterAssignee}
+          filterPriority={filterPriority}
+          setFilterPriority={setFilterPriority}
+          filterStatus={filterStatus}
+          setFilterStatus={setFilterStatus}
+        />
 
         {/* View body */}
         <div className="axis-card p-3 md:p-4">
@@ -309,23 +301,19 @@ export default function TasksPage() {
       )}
       {showPortfolios && <PortfolioManager onClose={() => setShowPortfolios(false)} />}
       {showSprintManager && <SprintManager onClose={() => setShowSprintManager(false)} />}
+      {showExport && (
+        <TaskExportModal
+          tasks={tasks}
+          projects={projects}
+          portfolios={portfolios}
+          sprints={sprints}
+          assigneeNameMap={assigneeNameMap}
+          projectNameMap={projectNameMap}
+          cursor={cursor}
+          anchorDay={anchorDay}
+          onClose={() => setShowExport(false)}
+        />
+      )}
     </AppLayout>
-  )
-}
-
-function Chip({ active, onClick, color, children }: { active: boolean; onClick: () => void; color: string; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className="px-3 h-7 rounded-full text-xs font-medium transition-colors inline-flex items-center gap-1.5"
-      style={{
-        background: active ? color : 'var(--color-surface-overlay)',
-        color: active ? 'white' : 'var(--color-text-secondary)',
-        border: `1px solid ${active ? 'transparent' : 'var(--color-surface-border)'}`,
-      }}
-    >
-      {!active && <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />}
-      {children}
-    </button>
   )
 }
