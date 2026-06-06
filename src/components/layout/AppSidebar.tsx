@@ -2,13 +2,14 @@
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
-import { LayoutDashboard, FolderKanban, BarChart3, Settings, Plus, X, Search, Wallet } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, BarChart3, Settings, Plus, X, Search, Wallet, CheckSquare } from 'lucide-react'
 import { useProjectStore } from '@/store/store'
 import ThemeToggle from '@/components/shared/ThemeToggle'
 
 const navItems = [
   { href: '/',         label: 'لوحة التحكم', icon: LayoutDashboard },
   { href: '/projects', label: 'المشاريع',    icon: FolderKanban    },
+  { href: '/tasks',    label: 'المهام',      icon: CheckSquare     },
   { href: '/reports',  label: 'التقارير',    icon: BarChart3       },
 ]
 

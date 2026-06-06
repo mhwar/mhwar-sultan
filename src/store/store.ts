@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, Feature, Sprint, SprintStatus, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, Kpi, Client, ContentItem } from '@/types'
-import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES, SEED_SPRINTS, SEED_DOCS, SEED_METRICS, SEED_EXPERIMENTS, SEED_CHANNELS, SEED_TEAM, SEED_SCHEDULE, SEED_FINANCE, SEED_KPIS, SEED_CLIENTS, SEED_CONTENT } from '@/lib/seed-data'
+import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, Feature, Sprint, SprintStatus, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, Kpi, Client, ContentItem, Portfolio } from '@/types'
+import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES, SEED_SPRINTS, SEED_DOCS, SEED_METRICS, SEED_EXPERIMENTS, SEED_CHANNELS, SEED_TEAM, SEED_SCHEDULE, SEED_FINANCE, SEED_KPIS, SEED_CLIENTS, SEED_CONTENT, SEED_PORTFOLIOS } from '@/lib/seed-data'
 import { domainForKind } from '@/lib/plan-kinds'
 import { FALLBACK_TOOL_IDS, DEFAULT_PROJECT_TYPE } from '@/lib/project-types'
 import { generateId, now } from '@/lib/utils'
@@ -70,7 +70,7 @@ export const useProjectStore = create<ProjectStore>()(
 // ── Task Store ────────────────────────────────────────────
 interface TaskStore {
   tasks: Task[]
-  addTask: (data: Omit<Task, 'id' | 'createdAt'>) => void
+  addTask: (data: Omit<Task, 'id' | 'createdAt'>) => string
   updateTask: (id: string, data: Partial<Task>) => void
   deleteTask: (id: string) => void
   moveTask: (id: string, status: TaskStatus) => void
@@ -82,10 +82,13 @@ export const useTaskStore = create<TaskStore>()(
     (set, get) => ({
       tasks: SEED_TASKS,
 
-      addTask: (data) =>
+      addTask: (data) => {
+        const id = generateId()
         set((s) => ({
-          tasks: [...s.tasks, { ...data, id: generateId(), createdAt: now() }],
-        })),
+          tasks: [...s.tasks, { ...data, id, createdAt: now() }],
+        }))
+        return id
+      },
 
       updateTask: (id, data) => {
         set((s) => ({
@@ -841,6 +844,35 @@ export const useContentStore = create<ContentStore>()(
         set((s) => ({ items: s.items.filter((i) => i.id !== id) })),
     }),
     { name: 'mhwar-content', version: 1, skipHydration: true }
+  )
+)
+
+// ── Portfolio Store ───────────────────────────────────────
+interface PortfolioStore {
+  portfolios: Portfolio[]
+  addPortfolio: (data: Omit<Portfolio, 'id' | 'createdAt' | 'updatedAt'>) => string
+  updatePortfolio: (id: string, data: Partial<Portfolio>) => void
+  deletePortfolio: (id: string) => void
+}
+
+export const usePortfolioStore = create<PortfolioStore>()(
+  persist(
+    (set) => ({
+      portfolios: SEED_PORTFOLIOS,
+
+      addPortfolio: (data) => {
+        const id = generateId()
+        set((s) => ({ portfolios: [...s.portfolios, { ...data, id, createdAt: now(), updatedAt: now() }] }))
+        return id
+      },
+
+      updatePortfolio: (id, data) =>
+        set((s) => ({ portfolios: s.portfolios.map((p) => (p.id === id ? { ...p, ...data, updatedAt: now() } : p)) })),
+
+      deletePortfolio: (id) =>
+        set((s) => ({ portfolios: s.portfolios.filter((p) => p.id !== id) })),
+    }),
+    { name: 'mhwar-portfolios', version: 1, skipHydration: true }
   )
 )
 
