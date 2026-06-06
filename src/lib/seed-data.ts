@@ -25,8 +25,53 @@ export const SEED_PLANS: Plan[] = [
 ]
 
 export const SEED_SPRINTS: Sprint[] = [
-  { id: 'sp-mehwar-1', projectId: 'mehwar', name: 'سبرنت ١: صفحة المشاريع', goal: 'إطلاق صفحة المشاريع كاملة الوظائف', status: 'active', startDate: '2026-06-01T00:00:00Z', dueDate: '2026-06-14T00:00:00Z', order: 1, createdAt: '2026-06-01T00:00:00Z' },
-  { id: 'sp-mehwar-2', projectId: 'mehwar', name: 'سبرنت ٢: نظام المهام', goal: 'كانبان وسحب وإفلات وعرض جدول', status: 'planned', startDate: '2026-06-15T00:00:00Z', dueDate: '2026-06-28T00:00:00Z', order: 2, createdAt: '2026-06-01T00:00:00Z' },
+  {
+    id: 'sp-mehwar-1', projectId: 'mehwar', name: 'مبادرة: إطلاق لوحة المهام التفاعلية',
+    goal: 'تسليم لوحة مهام متكاملة بعروض متعددة وفلاتر متقدمة',
+    status: 'active', startDate: '2026-06-01T00:00:00Z', dueDate: '2026-06-28T00:00:00Z', order: 1,
+    lead: 'tm1',
+    checklist: [
+      { id: 'sc-1-1', title: 'اعتماد التصميم النهائي', done: true },
+      { id: 'sc-1-2', title: 'تطوير عروض التقويم (يوم/أسبوع/شهر/سنة)', done: true },
+      { id: 'sc-1-3', title: 'شريط الفلاتر المتقدم', done: false },
+      { id: 'sc-1-4', title: 'اختبار القبول مع الفريق', done: false },
+    ],
+    updates: [
+      { id: 'su-1-1', text: 'اكتمل عرض البرنامج السنوي ومراجعته مع التصميم.', createdAt: '2026-06-04T09:00:00Z' },
+      { id: 'su-1-2', text: 'بدء العمل على شريط الفلاتر — التسليم المتوقع نهاية الأسبوع.', createdAt: '2026-06-05T13:30:00Z' },
+    ],
+    createdAt: '2026-06-01T00:00:00Z',
+  },
+  {
+    id: 'sp-mehwar-2', projectId: 'mehwar', name: 'مبادرة: نظام المهام والمبادرات',
+    goal: 'بنية بيانات المهام والمبادرات والربط بينها',
+    status: 'planned', startDate: '2026-06-15T00:00:00Z', dueDate: '2026-07-10T00:00:00Z', order: 2,
+    lead: 'tm4',
+    checklist: [
+      { id: 'sc-2-1', title: 'نمذجة بيانات المهام', done: true },
+      { id: 'sc-2-2', title: 'ربط المهام بالمبادرات', done: false },
+    ],
+    createdAt: '2026-06-01T00:00:00Z',
+  },
+  {
+    id: 'sp-mehwar-3', projectId: 'mehwar', name: 'تنظيم ملتقى محور التقني السنوي',
+    goal: 'إقامة ملتقى يضم 300 مشارك مع متحدثين ورعاة وبرنامج متكامل',
+    status: 'active', startDate: '2026-06-01T00:00:00Z', dueDate: '2026-11-20T00:00:00Z', order: 3,
+    lead: 'tm1',
+    checklist: [
+      { id: 'sc-3-1', title: 'تحديد الموعد والمكان', done: true },
+      { id: 'sc-3-2', title: 'التعاقد مع المتحدثين', done: true },
+      { id: 'sc-3-3', title: 'استقطاب الرعاة', done: false },
+      { id: 'sc-3-4', title: 'فتح باب التسجيل', done: false },
+      { id: 'sc-3-5', title: 'إعداد الأجندة والبرنامج', done: false },
+      { id: 'sc-3-6', title: 'التغطية الإعلامية', done: false },
+    ],
+    updates: [
+      { id: 'su-3-1', text: 'تم حجز قاعة المؤتمرات الرئيسية ليوم 15 نوفمبر.', createdAt: '2026-06-02T10:00:00Z' },
+      { id: 'su-3-2', text: 'تأكيد مشاركة 4 متحدثين رئيسيين، التواصل جارٍ مع البقية.', createdAt: '2026-06-05T16:00:00Z' },
+    ],
+    createdAt: '2026-06-01T00:00:00Z',
+  },
 ]
 
 export const SEED_PROJECTS: Project[] = [
@@ -146,7 +191,7 @@ export const SEED_TASKS: Task[] = [
     subtasks: [
       { id: 'sub-t4-1', title: 'تصميم نموذج البيانات للمهام', done: true },
       { id: 'sub-t4-2', title: 'تطوير مخزن Zustand للمهام', done: true },
-      { id: 'sub-t4-3', title: 'ربط المهام بالمراحل والسبرنتات', done: false },
+      { id: 'sub-t4-3', title: 'ربط المهام بالمبادرات', done: false },
     ],
     createdAt: '2026-02-15T00:00:00Z',
   },
