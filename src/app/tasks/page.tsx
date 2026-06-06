@@ -180,7 +180,7 @@ export default function TasksPage() {
                 <Download size={14} /> تصدير
               </Button>
               <Button variant="secondary" size="sm" onClick={() => setShowSprintManager(true)}>
-                <Zap size={14} /> السبرنتات
+                <Zap size={14} /> المراحل
               </Button>
               <Button variant="secondary" size="sm" onClick={() => setShowPortfolios(true)}>
                 <Briefcase size={14} /> المحافظ

@@ -32,6 +32,12 @@ export interface Project {
   links?: { label: string; url: string }[]
 }
 
+export interface TaskSubtask {
+  id: string
+  title: string
+  done: boolean
+}
+
 export interface Task {
   id: string
   projectId?: string
@@ -45,6 +51,9 @@ export interface Task {
   priority: TaskPriority
   startDate?: string
   dueDate?: string
+  subtasks?: TaskSubtask[]
+  tags?: string[]
+  timeEstimate?: number
   createdAt: string
 }
 
