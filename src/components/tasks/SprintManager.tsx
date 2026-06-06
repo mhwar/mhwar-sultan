@@ -39,7 +39,7 @@ export default function SprintManager({ onClose }: Props) {
         <div className="axis-drawer__head">
           <div className="flex items-center gap-2 flex-1">
             <Zap size={18} style={{ color: 'var(--iris-500)' }} />
-            <span className="axis-drawer__title">السبرنتات</span>
+            <span className="axis-drawer__title">المراحل</span>
           </div>
           <button className="axis-iconbtn axis-iconbtn--md axis-iconbtn--ghost shrink-0" onClick={close} aria-label="إغلاق">
             <X size={16} />
@@ -53,7 +53,7 @@ export default function SprintManager({ onClose }: Props) {
               className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors"
               style={{ background: 'color-mix(in oklch, var(--iris-500) 12%, transparent)', color: 'var(--iris-500)', border: '1px dashed color-mix(in oklch, var(--iris-500) 40%, transparent)' }}
             >
-              <Plus size={15} /> سبرنت جديد
+              <Plus size={15} /> مرحلة جديدة
             </button>
           )}
 
@@ -74,7 +74,7 @@ export default function SprintManager({ onClose }: Props) {
           )}
 
           {sprints.length === 0 ? (
-            <p className="text-sm text-center py-6" style={{ color: 'var(--color-text-muted)' }}>لا سبرنتات بعد</p>
+            <p className="text-sm text-center py-6" style={{ color: 'var(--color-text-muted)' }}>لا مراحل بعد</p>
           ) : (
             <div className="space-y-2">
               {[...sprints].reverse().map((sp) => (
@@ -150,14 +150,14 @@ function SprintForm({ projects, onSave, onCancel }: { projects: { id: string; na
 
   return (
     <div className="rounded-xl p-3 space-y-3" style={{ background: 'var(--color-surface-muted)', border: '1px solid var(--color-surface-border)' }}>
-      <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>سبرنت جديد</p>
+      <p className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>مرحلة جديدة</p>
 
       <div className="flex flex-col gap-1">
         <label className="text-xs font-semibold" style={{ color: 'var(--color-text-muted)' }}>الاسم *</label>
         <input
           value={f.name}
           onChange={(e) => set({ name: e.target.value })}
-          placeholder="مثال: سبرنت التجهيز"
+          placeholder="مثال: مرحلة التجهيز"
           className="h-8 rounded-md px-2 text-sm outline-none w-full"
           style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)', color: 'var(--color-text-primary)' }}
         />
@@ -221,7 +221,7 @@ function SprintForm({ projects, onSave, onCancel }: { projects: { id: string; na
         <input
           value={f.goal}
           onChange={(e) => set({ goal: e.target.value })}
-          placeholder="ما الذي ينجزه هذا السبرنت؟"
+          placeholder="ما الذي تنجزه هذه المرحلة؟"
           className="h-8 rounded-md px-2 text-sm outline-none w-full"
           style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)', color: 'var(--color-text-primary)' }}
         />
