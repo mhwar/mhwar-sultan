@@ -1,11 +1,11 @@
 'use client'
-import { useMemo, useState } from 'react'
-import { Plus, Printer } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Plus, Printer, X, CalendarDays } from 'lucide-react'
 import type { Task } from '@/types'
 import {
   WEEKDAYS, monthMatrix, dateToKey, dayKey, todayKey, keyInMonth, monthLabel,
 } from '@/components/projects/tabs/content/contentMeta'
-import { TASK_STATUS_LABELS, PRIORITY_LABELS, PRIORITY_VAR, formatDateAr } from '@/lib/utils'
+import { TASK_STATUS_LABELS, PRIORITY_LABELS, PRIORITY_VAR, TASK_STATUS_VAR, formatDateAr } from '@/lib/utils'
 import type { TaskViewProps } from './shared'
 
 interface Props extends TaskViewProps {
@@ -14,6 +14,10 @@ interface Props extends TaskViewProps {
   months: number[]
   /** true = annual grid (weeks laid horizontally); false = single month (weeks stacked). */
   dense: boolean
+  /** Navigate to the dedicated day view. */
+  onOpenDayView?: (key: string) => void
+  /** Smoothly add a task to a day from the day panel; returns the new id. */
+  onQuickAddOnDay?: (key: string, title: string) => string | undefined
 }
 
 const DAY_W = 78          // px — fixed day-cell width in dense mode
@@ -22,11 +26,15 @@ const FREE_COLOR = 'var(--color-text-muted)'
 
 interface HoverState { task: Task; left: number; top: number }
 
-export default function TasksCalendarProgram({ year, months, dense, ...p }: Props) {
-  const { tasks, projectColorMap, projectNameMap, assigneeNameMap, onOpenItem, onAddOnDay, onReschedule } = p
+export default function TasksCalendarProgram({ year, months, dense, onOpenDayView, onQuickAddOnDay, ...p }: Props) {
+  const { tasks, projectColorMap, projectNameMap, assigneeNameMap, onOpenItem, onReschedule } = p
   const today = todayKey()
   const [hover, setHover] = useState<HoverState | null>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [autoFocusAdd, setAutoFocusAdd] = useState(false)
+
+  const openDay = (key: string, focusAdd = false) => { setHover(null); setAutoFocusAdd(focusAdd); setSelectedDay(key) }
 
   // ── Map every task to each day it covers (spans repeat across days) ──
   const byDay = useMemo(() => {
@@ -137,25 +145,28 @@ export default function TasksCalendarProgram({ year, months, dense, ...p }: Prop
         }}
       >
         <div className="flex items-center justify-between">
-          <span
-            className="axis-num flex items-center justify-center rounded-full font-semibold"
+          <button
+            onClick={() => inMonth && openDay(key)}
+            className="axis-num flex items-center justify-center rounded-full font-semibold transition-colors hover:brightness-110"
             style={{
               width: dense ? 16 : 22, height: dense ? 16 : 22,
               fontSize: dense ? '0.6rem' : '0.72rem',
               background: isToday ? 'var(--iris-500)' : 'transparent',
               color: isToday ? '#fff' : 'var(--color-text-secondary)',
+              cursor: inMonth ? 'pointer' : 'default',
             }}
+            aria-label={inMonth ? `عرض يوم ${date.getUTCDate()}` : undefined}
           >
             {date.getUTCDate()}
-          </span>
-          {!dense && inMonth && (
+          </button>
+          {inMonth && (
             <button
-              onClick={() => onAddOnDay(key)}
-              className="opacity-0 group-hover/cell:opacity-100 w-5 h-5 rounded flex items-center justify-center transition-all hover:bg-white/10"
-              style={{ color: 'var(--color-text-muted)' }}
-              aria-label="إضافة"
+              onClick={() => openDay(key, true)}
+              className="opacity-0 group-hover/cell:opacity-100 rounded flex items-center justify-center transition-all hover:bg-white/10"
+              style={{ width: dense ? 16 : 20, height: dense ? 16 : 20, color: 'var(--color-text-muted)' }}
+              aria-label="إضافة مهمة"
             >
-              <Plus size={13} />
+              <Plus size={dense ? 12 : 13} />
             </button>
           )}
         </div>
@@ -163,9 +174,9 @@ export default function TasksCalendarProgram({ year, months, dense, ...p }: Prop
         {dayTasks.slice(0, maxChips).map((t) => <Chip key={t.id + key} t={t} />)}
         {dayTasks.length > maxChips && (
           <button
-            onClick={() => (dense ? onOpenItem(dayTasks[maxChips]) : onAddOnDay(key))}
-            className="text-start ps-0.5"
-            style={{ fontSize: dense ? '0.55rem' : '0.65rem', color: 'var(--color-text-muted)' }}
+            onClick={() => openDay(key)}
+            className="text-start ps-0.5 font-medium transition-colors hover:underline"
+            style={{ fontSize: dense ? '0.55rem' : '0.65rem', color: 'var(--iris-500)' }}
           >
             +{dayTasks.length - maxChips} المزيد
           </button>
@@ -184,6 +195,27 @@ export default function TasksCalendarProgram({ year, months, dense, ...p }: Prop
     w.document.write(html)
     w.document.close()
   }
+
+  // Shared overlays rendered in both layouts
+  const overlays = (
+    <>
+      <HoverCard hover={hover} projectNameMap={projectNameMap} assigneeNameMap={assigneeNameMap} colorOf={colorOf} />
+      {selectedDay && (
+        <DayPanel
+          dayKey={selectedDay}
+          tasks={byDay.get(selectedDay) ?? []}
+          autoFocusAdd={autoFocusAdd}
+          colorOf={colorOf}
+          projectNameMap={projectNameMap}
+          assigneeNameMap={assigneeNameMap}
+          onOpenItem={onOpenItem}
+          onOpenDayView={onOpenDayView}
+          onQuickAddOnDay={onQuickAddOnDay}
+          onClose={() => setSelectedDay(null)}
+        />
+      )}
+    </>
+  )
 
   // ════════════════════ DENSE (annual program) ════════════════════
   if (dense) {
@@ -261,7 +293,7 @@ export default function TasksCalendarProgram({ year, months, dense, ...p }: Prop
             })}
           </div>
         </div>
-        <HoverCard hover={hover} projectNameMap={projectNameMap} assigneeNameMap={assigneeNameMap} colorOf={colorOf} />
+        {overlays}
       </>
     )
   }
@@ -283,7 +315,7 @@ export default function TasksCalendarProgram({ year, months, dense, ...p }: Prop
           </div>
         ))}
       </div>
-      <HoverCard hover={hover} projectNameMap={projectNameMap} assigneeNameMap={assigneeNameMap} colorOf={colorOf} />
+      {overlays}
     </>
   )
 }
@@ -331,6 +363,148 @@ function HoverCard({
       <p className="text-xs mt-2 pt-2 border-t" style={{ borderColor: 'var(--color-surface-border)', color: 'var(--color-text-muted)' }}>
         انقر لفتح المهمة
       </p>
+    </div>
+  )
+}
+
+// ── Day side panel: lists all of a day's tasks + smooth quick-add ──
+function DayPanel({
+  dayKey: key, tasks, autoFocusAdd, colorOf, projectNameMap, assigneeNameMap,
+  onOpenItem, onOpenDayView, onQuickAddOnDay, onClose,
+}: {
+  dayKey: string
+  tasks: Task[]
+  autoFocusAdd: boolean
+  colorOf: (t: Task) => string
+  projectNameMap: Record<string, string>
+  assigneeNameMap: Record<string, string>
+  onOpenItem: (t: Task) => void
+  onOpenDayView?: (key: string) => void
+  onQuickAddOnDay?: (key: string, title: string) => string | undefined
+  onClose: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [title, setTitle] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { requestAnimationFrame(() => setOpen(true)) }, [])
+  useEffect(() => { if (autoFocusAdd) requestAnimationFrame(() => inputRef.current?.focus()) }, [autoFocusAdd])
+
+  const close = () => { setOpen(false); setTimeout(onClose, 320) }
+
+  const dateLabel = formatDateAr(key + 'T00:00:00Z')
+  const done = tasks.filter((t) => t.status === 'done').length
+
+  const add = () => {
+    const t = title.trim()
+    if (!t || !onQuickAddOnDay) return
+    onQuickAddOnDay(key, t)
+    setTitle('')
+    requestAnimationFrame(() => inputRef.current?.focus())
+  }
+
+  return (
+    <div className={`axis-drawer-overlay ${open ? 'is-open' : ''}`}>
+      <div className="axis-drawer-overlay__scrim" onClick={close} />
+      <div className="axis-drawer" style={{ width: 440 }}>
+        {/* Header */}
+        <div className="axis-drawer__head">
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'color-mix(in oklch, var(--iris-500) 15%, transparent)' }}>
+              <CalendarDays size={17} style={{ color: 'var(--iris-500)' }} />
+            </div>
+            <div className="min-w-0">
+              <p className="axis-drawer__title">{dateLabel}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                <span className="axis-num">{tasks.length}</span> مهمة
+                {tasks.length > 0 && <> · <span className="axis-num">{done}</span> منجزة</>}
+              </p>
+            </div>
+          </div>
+          <button className="axis-iconbtn axis-iconbtn--md axis-iconbtn--ghost shrink-0" onClick={close} aria-label="إغلاق">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="axis-drawer__body space-y-3">
+          {/* Quick add */}
+          {onQuickAddOnDay && (
+            <div className="flex items-center gap-2">
+              <input
+                ref={inputRef}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') add() }}
+                placeholder="أضف مهمة لهذا اليوم…"
+                className="flex-1 h-9 rounded-lg px-3 text-sm outline-none"
+                style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)', color: 'var(--color-text-primary)' }}
+              />
+              <button
+                onClick={add}
+                disabled={!title.trim()}
+                className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 disabled:opacity-40"
+                style={{ background: 'var(--iris-500)', color: '#fff' }}
+                aria-label="إضافة"
+              >
+                <Plus size={16} />
+              </button>
+            </div>
+          )}
+
+          {/* Task list */}
+          {tasks.length === 0 ? (
+            <p className="text-sm text-center py-10" style={{ color: 'var(--color-text-muted)' }}>لا مهام في هذا اليوم</p>
+          ) : (
+            <div className="space-y-1.5">
+              {tasks.map((t) => {
+                const color = colorOf(t)
+                const isFree = !t.projectId
+                const assignee = t.assigneeId ? assigneeNameMap[t.assigneeId] : undefined
+                const project = t.projectId ? projectNameMap[t.projectId] : 'بلا مشروع'
+                const isDone = t.status === 'done'
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => onOpenItem(t)}
+                    className="w-full text-start rounded-xl p-3 flex items-start gap-2.5 transition-colors hover:bg-white/5"
+                    style={{ background: 'var(--color-surface-muted)', border: '1px solid var(--color-surface-border)', borderInlineStart: `3px solid ${isFree ? 'var(--color-surface-border)' : color}` }}
+                  >
+                    <span className="w-2 h-2 rounded-full shrink-0 mt-1.5" style={{ background: TASK_STATUS_VAR[t.status] }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold leading-snug" style={{ color: 'var(--color-text-primary)', textDecoration: isDone ? 'line-through' : 'none', opacity: isDone ? 0.6 : 1 }}>
+                        {t.title}
+                      </p>
+                      <div className="flex items-center flex-wrap gap-x-2.5 gap-y-0.5 mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                        <span>{project}</span>
+                        {assignee && <span>· {assignee}</span>}
+                        <span>· {TASK_STATUS_LABELS[t.status]}</span>
+                        <span className="flex items-center gap-1">·
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: PRIORITY_VAR[t.priority] }} />
+                          {PRIORITY_LABELS[t.priority]}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        {onOpenDayView && (
+          <div className="px-5 py-3" style={{ borderTop: '1px solid var(--color-surface-border)' }}>
+            <button
+              onClick={() => { onOpenDayView(key); close() }}
+              className="flex items-center justify-center gap-2 w-full h-9 rounded-lg text-sm font-semibold transition-colors"
+              style={{ background: 'var(--color-surface-overlay)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
+            >
+              <CalendarDays size={15} /> فتح عرض اليوم كاملًا
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
