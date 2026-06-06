@@ -493,7 +493,7 @@ export function bootstrapSprints() {
 // ── Note Store ────────────────────────────────────────────
 interface NoteStore {
   notes: Note[]
-  addNote: (data: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => void
+  addNote: (data: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => string
   updateNote: (id: string, data: Partial<Note>) => void
   deleteNote: (id: string) => void
   getProjectNotes: (projectId: string) => Note[]
@@ -504,13 +504,16 @@ export const useNoteStore = create<NoteStore>()(
     (set, get) => ({
       notes: SEED_NOTES,
 
-      addNote: (data) =>
+      addNote: (data) => {
+        const id = generateId()
         set((s) => ({
           notes: [
             ...s.notes,
-            { ...data, id: generateId(), createdAt: now(), updatedAt: now() },
+            { ...data, id, createdAt: now(), updatedAt: now() },
           ],
-        })),
+        }))
+        return id
+      },
 
       updateNote: (id, data) =>
         set((s) => ({
