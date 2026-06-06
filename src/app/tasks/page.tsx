@@ -132,6 +132,14 @@ export default function TasksPage() {
     if (id) setOpenId(id)
   }
 
+  // Smooth add from the program day panel — keep the panel open (don't open the drawer).
+  const quickAddOnDay = (key: string, title: string) => {
+    const pid = filterProject !== 'all' ? filterProject : undefined
+    return addTask({ projectId: pid, title, status: 'todo', priority: 'medium', dueDate: keyToISO(key) })
+  }
+
+  const openDayView = (key: string) => { setAnchorDay(key); setView('day') }
+
   const handleAddTask = (data: Omit<Task, 'id' | 'createdAt'>) => {
     const id = addTask(data)
     if (id) setOpenId(id)
@@ -296,7 +304,7 @@ export default function TasksPage() {
         <div className="axis-card p-3 md:p-4">
           {view === 'month' ? (
             monthStyle === 'program' ? (
-              <TasksCalendarProgram year={year} months={[month]} dense={false} {...viewProps} />
+              <TasksCalendarProgram year={year} months={[month]} dense={false} onOpenDayView={openDayView} onQuickAddOnDay={quickAddOnDay} {...viewProps} />
             ) : (
               <TasksCalendarMonth year={year} month={month} {...viewProps} />
             )
@@ -305,7 +313,7 @@ export default function TasksPage() {
           ) : view === 'day' ? (
             <TasksCalendarDay anchorDay={anchorDay} {...viewProps} />
           ) : yearStyle === 'program' ? (
-            <TasksCalendarProgram year={year} months={Array.from({ length: 12 }, (_, i) => i)} dense {...viewProps} />
+            <TasksCalendarProgram year={year} months={Array.from({ length: 12 }, (_, i) => i)} dense onOpenDayView={openDayView} onQuickAddOnDay={quickAddOnDay} {...viewProps} />
           ) : yearStyle === 'full' ? (
             <TasksCalendarYearFull
               year={year}
