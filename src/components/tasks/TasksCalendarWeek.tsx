@@ -4,7 +4,6 @@ import { Plus } from 'lucide-react'
 import type { Task } from '@/types'
 import { WEEKDAYS, dateToKey, dayKey, todayKey } from '@/components/projects/tabs/content/contentMeta'
 import TaskChip from './TaskChip'
-import UnscheduledBacklog from './UnscheduledBacklog'
 import { chipPropsFor, type TaskViewProps } from './shared'
 
 interface Props extends TaskViewProps {
@@ -140,8 +139,6 @@ export default function TasksCalendarWeek({ anchorDay, ...p }: Props) {
           </div>
         </div>
       </div>
-
-      <UnscheduledBacklog tasks={unscheduled} viewProps={p} />
     </div>
   )
 }

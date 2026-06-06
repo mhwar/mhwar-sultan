@@ -1,6 +1,6 @@
 'use client'
 import { useEffect } from 'react'
-import { useProjectStore, useTaskStore, usePlanStore, useNoteStore, useSprintStore, useDocumentStore, useGrowthStore, useTeamStore, useScheduleStore, useFinanceStore, useKpiStore, useClientStore, useContentStore, usePortfolioStore, bootstrapSprints } from '@/store/store'
+import { useProjectStore, useTaskStore, usePlanStore, useNoteStore, useSprintStore, useDocumentStore, useGrowthStore, useTeamStore, useScheduleStore, useFinanceStore, useKpiStore, useClientStore, useContentStore, usePortfolioStore, useTaskFilterStore, bootstrapSprints } from '@/store/store'
 import { useThemeStore } from '@/store/themeStore'
 import { SEED_PROJECTS, SEED_CLIENTS, SEED_CONTENT } from '@/lib/seed-data'
 
@@ -59,6 +59,7 @@ export default function StoreHydration() {
     useClientStore.persist.rehydrate()
     useContentStore.persist.rehydrate()
     usePortfolioStore.persist.rehydrate()
+    useTaskFilterStore.persist.rehydrate()
     // After every store is hydrated (synchronous, localStorage-backed), run the
     // one-time legacy `agile` plan → sprint migration. Guarded internally.
     bootstrapSprints()

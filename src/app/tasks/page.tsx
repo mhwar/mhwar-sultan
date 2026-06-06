@@ -9,7 +9,7 @@ import AppLayout from '@/components/layout/AppLayout'
 import PageHeader from '@/components/shared/PageHeader'
 import Segmented from '@/components/ui/Segmented'
 import Button from '@/components/ui/Button'
-import { useTaskStore, useProjectStore, useTeamStore, usePortfolioStore, useSprintStore } from '@/store/store'
+import { useTaskStore, useProjectStore, useTeamStore, usePortfolioStore, useSprintStore, useTaskFilterStore } from '@/store/store'
 import type { Task, TaskStatus, TaskPriority } from '@/types'
 import {
   monthLabel, dateToKey, todayKey, keyToISO, fmtDayMonth,
@@ -19,6 +19,7 @@ import TaskDrawer from '@/components/projects/TaskDrawer'
 import PortfolioManager from '@/components/tasks/PortfolioManager'
 import TaskFilterBar from '@/components/tasks/TaskFilterBar'
 import TaskExportModal from '@/components/tasks/TaskExportModal'
+import UnscheduledBacklog from '@/components/tasks/UnscheduledBacklog'
 import TasksCalendarMonth from '@/components/tasks/TasksCalendarMonth'
 import type { TaskViewProps } from '@/components/tasks/shared'
 import TasksCalendarWeek from '@/components/tasks/TasksCalendarWeek'
@@ -59,11 +60,21 @@ export default function TasksPage() {
   const [monthStyle, setMonthStyle] = useState<MonthStyle>('grid')
   const [cursor, setCursor] = useState({ year: today.getFullYear(), month: today.getMonth() })
   const [anchorDay, setAnchorDay] = useState<string>(todayKey())
-  const [filterPortfolio, setFilterPortfolio] = useState<string>('all')
-  const [filterProject, setFilterProject] = useState<string>('all')
-  const [filterAssignee, setFilterAssignee] = useState<string>('all')
-  const [filterPriority, setFilterPriority] = useState<TaskPriority | 'all'>('all')
-  const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>('all')
+  // Persisted filters + named presets (survive reload).
+  const filters = useTaskFilterStore(useShallow((s) => s.filters))
+  const setFilters = useTaskFilterStore((s) => s.setFilters)
+  const presets = useTaskFilterStore(useShallow((s) => s.presets))
+  const { savePreset, applyPreset, deletePreset } = useTaskFilterStore()
+  const filterPortfolio = filters.portfolio
+  const filterProject = filters.project
+  const filterAssignee = filters.assignee
+  const filterPriority = filters.priority
+  const filterStatus = filters.status
+  const setFilterPortfolio = (v: string) => setFilters({ portfolio: v })
+  const setFilterProject = (v: string) => setFilters({ project: v })
+  const setFilterAssignee = (v: string) => setFilters({ assignee: v })
+  const setFilterPriority = (v: TaskPriority | 'all') => setFilters({ priority: v })
+  const setFilterStatus = (v: TaskStatus | 'all') => setFilters({ status: v })
   const [openId, setOpenId] = useState<string | null>(null)
   const [showPortfolios, setShowPortfolios] = useState(false)
   const [showSprintManager, setShowSprintManager] = useState(false)
@@ -97,6 +108,9 @@ export default function TasksPage() {
     if (filterStatus !== 'all' && t.status !== filterStatus) return false
     return true
   }), [scopeTasks, filterAssignee, filterPriority, filterStatus])
+
+  // Unscheduled tasks (no due date) within the active scope/filters — shown in a top box.
+  const scopedUnscheduled = useMemo(() => base.filter((t) => !t.dueDate), [base])
 
   const taskCounts = useMemo(() => {
     const m = new Map<string, number>()
@@ -298,7 +312,16 @@ export default function TasksPage() {
           setFilterPriority={setFilterPriority}
           filterStatus={filterStatus}
           setFilterStatus={setFilterStatus}
+          presets={presets}
+          onSavePreset={savePreset}
+          onApplyPreset={applyPreset}
+          onDeletePreset={deletePreset}
         />
+
+        {/* Unscheduled box (top) */}
+        {scopedUnscheduled.length > 0 && (
+          <UnscheduledBacklog tasks={scopedUnscheduled} viewProps={viewProps} />
+        )}
 
         {/* View body */}
         <div className="axis-card p-3 md:p-4">

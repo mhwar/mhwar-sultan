@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, Feature, Sprint, SprintStatus, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, Kpi, Client, ContentItem, Portfolio } from '@/types'
+import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, TaskPriority, Feature, Sprint, SprintStatus, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, Kpi, Client, ContentItem, Portfolio } from '@/types'
 import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES, SEED_SPRINTS, SEED_DOCS, SEED_METRICS, SEED_EXPERIMENTS, SEED_CHANNELS, SEED_TEAM, SEED_SCHEDULE, SEED_FINANCE, SEED_KPIS, SEED_CLIENTS, SEED_CONTENT, SEED_PORTFOLIOS } from '@/lib/seed-data'
 import { domainForKind } from '@/lib/plan-kinds'
 import { FALLBACK_TOOL_IDS, DEFAULT_PROJECT_TYPE } from '@/lib/project-types'
@@ -933,6 +933,53 @@ export const usePortfolioStore = create<PortfolioStore>()(
         set((s) => ({ portfolios: s.portfolios.filter((p) => p.id !== id) })),
     }),
     { name: 'mhwar-portfolios', version: 1, skipHydration: true }
+  )
+)
+
+// ── Task Filters Store (persisted active filters + named presets) ──
+export interface TaskFilters {
+  portfolio: string
+  project: string
+  assignee: string
+  priority: TaskPriority | 'all'
+  status: TaskStatus | 'all'
+}
+export interface TaskFilterPreset {
+  id: string
+  name: string
+  filters: TaskFilters
+}
+export const EMPTY_TASK_FILTERS: TaskFilters = {
+  portfolio: 'all', project: 'all', assignee: 'all', priority: 'all', status: 'all',
+}
+interface TaskFilterStore {
+  filters: TaskFilters
+  presets: TaskFilterPreset[]
+  setFilters: (patch: Partial<TaskFilters>) => void
+  resetFilters: () => void
+  savePreset: (name: string) => string
+  applyPreset: (id: string) => void
+  deletePreset: (id: string) => void
+}
+export const useTaskFilterStore = create<TaskFilterStore>()(
+  persist(
+    (set, get) => ({
+      filters: { ...EMPTY_TASK_FILTERS },
+      presets: [],
+      setFilters: (patch) => set((s) => ({ filters: { ...s.filters, ...patch } })),
+      resetFilters: () => set({ filters: { ...EMPTY_TASK_FILTERS } }),
+      savePreset: (name) => {
+        const id = generateId()
+        set((s) => ({ presets: [...s.presets, { id, name, filters: { ...s.filters } }] }))
+        return id
+      },
+      applyPreset: (id) => {
+        const p = get().presets.find((x) => x.id === id)
+        if (p) set({ filters: { ...p.filters } })
+      },
+      deletePreset: (id) => set((s) => ({ presets: s.presets.filter((p) => p.id !== id) })),
+    }),
+    { name: 'mhwar-task-filters', version: 1, skipHydration: true }
   )
 )
 

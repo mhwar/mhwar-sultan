@@ -1,8 +1,9 @@
 'use client'
 import { useState } from 'react'
-import { SlidersHorizontal, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { SlidersHorizontal, X, ChevronDown, ChevronUp, Bookmark, BookmarkPlus, Check } from 'lucide-react'
 import type { Portfolio, Project, TaskPriority, TaskStatus } from '@/types'
 import type { TeamMember } from '@/types'
+import type { TaskFilterPreset } from '@/store/store'
 import { TASK_STATUS_LABELS, PRIORITY_LABELS, TASK_STATUS_VAR, PRIORITY_VAR } from '@/lib/utils'
 import ProjectIcon from '@/lib/icons'
 
@@ -24,6 +25,10 @@ interface Props {
   setFilterPriority: (v: TaskPriority | 'all') => void
   filterStatus: TaskStatus | 'all'
   setFilterStatus: (v: TaskStatus | 'all') => void
+  presets: TaskFilterPreset[]
+  onSavePreset: (name: string) => void
+  onApplyPreset: (id: string) => void
+  onDeletePreset: (id: string) => void
 }
 
 export default function TaskFilterBar({
@@ -33,8 +38,11 @@ export default function TaskFilterBar({
   filterAssignee, setFilterAssignee,
   filterPriority, setFilterPriority,
   filterStatus, setFilterStatus,
+  presets, onSavePreset, onApplyPreset, onDeletePreset,
 }: Props) {
   const [expanded, setExpanded] = useState(false)
+  const [naming, setNaming] = useState(false)
+  const [presetName, setPresetName] = useState('')
 
   const activeCount = [
     filterPortfolio !== 'all',
@@ -50,6 +58,14 @@ export default function TaskFilterBar({
     setFilterAssignee('all')
     setFilterPriority('all')
     setFilterStatus('all')
+  }
+
+  const doSave = () => {
+    const n = presetName.trim()
+    if (!n) return
+    onSavePreset(n)
+    setPresetName('')
+    setNaming(false)
   }
 
   // Active filter chips for the collapsed summary
@@ -126,6 +142,51 @@ export default function TaskFilterBar({
       {/* Expanded panel */}
       {expanded && (
         <div className="border-t px-3 pb-3 space-y-3 pt-3" style={{ borderColor: 'var(--color-surface-border)' }}>
+          {/* Saved filter presets */}
+          <FilterSection label="الفلاتر المحفوظة">
+            {presets.map((preset) => (
+              <span
+                key={preset.id}
+                className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-full text-xs font-medium transition-colors"
+                style={{ background: 'var(--color-surface-muted)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
+              >
+                <button onClick={() => onApplyPreset(preset.id)} className="flex items-center gap-1.5 hover:opacity-70 transition-opacity">
+                  <Bookmark size={11} style={{ color: 'var(--iris-500)' }} />
+                  {preset.name}
+                </button>
+                <button onClick={() => onDeletePreset(preset.id)} className="flex items-center hover:opacity-60 transition-opacity" aria-label="حذف">
+                  <X size={10} />
+                </button>
+              </span>
+            ))}
+
+            {naming ? (
+              <span className="inline-flex items-center gap-1 h-7 rounded-full ps-2.5 pe-1" style={{ background: 'var(--color-surface-muted)', border: '1px solid var(--iris-500)' }}>
+                <input
+                  autoFocus
+                  value={presetName}
+                  onChange={(e) => setPresetName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') doSave(); if (e.key === 'Escape') { setNaming(false); setPresetName('') } }}
+                  placeholder="اسم الفلتر…"
+                  className="bg-transparent text-xs outline-none w-24"
+                  style={{ color: 'var(--color-text-primary)' }}
+                />
+                <button onClick={doSave} disabled={!presetName.trim()} className="w-5 h-5 rounded-full flex items-center justify-center disabled:opacity-40" style={{ background: 'var(--iris-500)', color: '#fff' }} aria-label="حفظ">
+                  <Check size={11} />
+                </button>
+              </span>
+            ) : (
+              <button
+                onClick={() => setNaming(true)}
+                disabled={activeCount === 0}
+                className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-full text-xs font-medium transition-colors disabled:opacity-40"
+                style={{ background: 'color-mix(in oklch, var(--iris-500) 12%, transparent)', color: 'var(--iris-500)', border: '1px dashed color-mix(in oklch, var(--iris-500) 40%, transparent)' }}
+              >
+                <BookmarkPlus size={12} /> حفظ الفلاتر الحالية
+              </button>
+            )}
+          </FilterSection>
+
           {/* Portfolio section */}
           {portfolios.length > 0 && (
             <FilterSection label="المحافظ">

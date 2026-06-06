@@ -1,6 +1,6 @@
 'use client'
 import type { Task } from '@/types'
-import { TASK_STATUS_VAR, TASK_STATUS_LABELS, PRIORITY_LABELS } from '@/lib/utils'
+import { TASK_STATUS_LABELS, PRIORITY_LABELS } from '@/lib/utils'
 
 interface Props {
   task: Task
@@ -23,14 +23,13 @@ export default function TaskChip({ task, color, projectName, assigneeInitial, on
       style={{
         background: 'var(--color-surface-muted)',
         border: '1px solid var(--color-surface-border)',
-        borderInlineStart: `2px solid ${color}`,
         cursor: 'grab',
         maxWidth: inline ? 220 : '100%',
       }}
     >
       <span
         className="w-1.5 h-1.5 rounded-full shrink-0"
-        style={{ background: TASK_STATUS_VAR[task.status] }}
+        style={{ background: color }}
       />
       <span
         className="text-xs truncate flex-1"

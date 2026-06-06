@@ -1,11 +1,11 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, Printer, X, CalendarDays } from 'lucide-react'
+import { Plus, Printer, X, CalendarDays, ChevronsUpDown, ChevronsDownUp } from 'lucide-react'
 import type { Task } from '@/types'
 import {
   WEEKDAYS, monthMatrix, dateToKey, dayKey, todayKey, keyInMonth, monthLabel,
 } from '@/components/projects/tabs/content/contentMeta'
-import { TASK_STATUS_LABELS, PRIORITY_LABELS, PRIORITY_VAR, TASK_STATUS_VAR, formatDateAr } from '@/lib/utils'
+import { TASK_STATUS_LABELS, PRIORITY_LABELS, PRIORITY_VAR, formatDateAr } from '@/lib/utils'
 import type { TaskViewProps } from './shared'
 
 interface Props extends TaskViewProps {
@@ -33,6 +33,7 @@ export default function TasksCalendarProgram({ year, months, dense, onOpenDayVie
   const [dragOver, setDragOver] = useState<string | null>(null)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [autoFocusAdd, setAutoFocusAdd] = useState(false)
+  const [expandRows, setExpandRows] = useState(false)
 
   const openDay = (key: string, focusAdd = false) => { setHover(null); setAutoFocusAdd(focusAdd); setSelectedDay(key) }
 
@@ -70,7 +71,7 @@ export default function TasksCalendarProgram({ year, months, dense, onOpenDayVie
     setHover({ task: t, left, top })
   }
 
-  const maxChips = dense ? 3 : 5
+  const maxChips = expandRows ? Infinity : (dense ? 3 : 5)
 
   // ── A single colored task chip (project color, title + assignee) ──
   const Chip = ({ t }: { t: Task }) => {
@@ -88,7 +89,7 @@ export default function TasksCalendarProgram({ year, months, dense, onOpenDayVie
         className="w-full text-start rounded transition-transform hover:scale-[1.02] hover:z-10 relative"
         style={{
           background: isFree ? 'var(--color-surface-muted)' : color,
-          borderInlineStart: isFree ? `2px solid ${FREE_COLOR}` : 'none',
+          border: isFree ? '1px solid var(--color-surface-border)' : 'none',
           padding: dense ? '2px 4px' : '4px 6px',
           opacity: done ? 0.55 : 1,
           cursor: dense ? 'pointer' : 'grab',
@@ -227,15 +228,29 @@ export default function TasksCalendarProgram({ year, months, dense, onOpenDayVie
         {/* Toolbar */}
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            البرنامج السنوي — مرّر فوق أي مهمة لعرض تفاصيلها، وانقر لفتحها
+            البرنامج السنوي — مرّر فوق أي مهمة لعرض تفاصيلها، وانقر على اليوم لإدارته
           </p>
-          <button
-            onClick={printProgram}
-            className="flex items-center gap-1.5 px-3 h-8 rounded-lg text-xs font-semibold transition-colors"
-            style={{ background: 'var(--iris-500)', color: '#fff' }}
-          >
-            <Printer size={14} /> طباعة البرنامج السنوي
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setExpandRows((v) => !v)}
+              className="flex items-center gap-1.5 px-3 h-8 rounded-lg text-xs font-semibold transition-colors"
+              style={{
+                background: expandRows ? 'color-mix(in oklch, var(--iris-500) 12%, transparent)' : 'var(--color-surface-overlay)',
+                color: expandRows ? 'var(--iris-500)' : 'var(--color-text-secondary)',
+                border: `1px solid ${expandRows ? 'color-mix(in oklch, var(--iris-500) 40%, transparent)' : 'var(--color-surface-border)'}`,
+              }}
+            >
+              {expandRows ? <ChevronsDownUp size={14} /> : <ChevronsUpDown size={14} />}
+              {expandRows ? 'تصغير الصفوف' : 'تمديد الصفوف'}
+            </button>
+            <button
+              onClick={printProgram}
+              className="flex items-center gap-1.5 px-3 h-8 rounded-lg text-xs font-semibold transition-colors"
+              style={{ background: 'var(--iris-500)', color: '#fff' }}
+            >
+              <Printer size={14} /> طباعة البرنامج السنوي
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto -mx-1 px-1 pb-2">
@@ -468,9 +483,9 @@ function DayPanel({
                     key={t.id}
                     onClick={() => onOpenItem(t)}
                     className="w-full text-start rounded-xl p-3 flex items-start gap-2.5 transition-colors hover:bg-white/5"
-                    style={{ background: 'var(--color-surface-muted)', border: '1px solid var(--color-surface-border)', borderInlineStart: `3px solid ${isFree ? 'var(--color-surface-border)' : color}` }}
+                    style={{ background: 'var(--color-surface-muted)', border: '1px solid var(--color-surface-border)' }}
                   >
-                    <span className="w-2 h-2 rounded-full shrink-0 mt-1.5" style={{ background: TASK_STATUS_VAR[t.status] }} />
+                    <span className="w-2 h-2 rounded-full shrink-0 mt-1.5" style={{ background: isFree ? 'var(--color-text-muted)' : color }} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold leading-snug" style={{ color: 'var(--color-text-primary)', textDecoration: isDone ? 'line-through' : 'none', opacity: isDone ? 0.6 : 1 }}>
                         {t.title}
