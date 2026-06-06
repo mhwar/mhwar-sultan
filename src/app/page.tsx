@@ -1,24 +1,33 @@
 'use client'
-import { ArrowLeft, Plus } from 'lucide-react'
+import { ArrowLeft, Plus, AlertCircle, Clock, Wallet } from 'lucide-react'
 import Link from 'next/link'
 import AppLayout from '@/components/layout/AppLayout'
 import StatsGrid from '@/components/dashboard/StatsGrid'
 import ProjectCard from '@/components/projects/ProjectCard'
-import { useProjectStore, useTaskStore } from '@/store/store'
+import { useProjectStore, useTaskStore, useFinanceStore, useContentStore } from '@/store/store'
 import { formatDateAr } from '@/lib/utils'
 
 export default function DashboardPage() {
   const projects = useProjectStore((s) => s.projects)
   const tasks = useTaskStore((s) => s.tasks)
+  const financeEntries = useFinanceStore((s) => s.entries)
+  const contentItems = useContentStore((s) => s.items)
+
+  const todayStr = new Date().toISOString().slice(0, 10)
 
   const recentProjects = [...projects]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 3)
 
-  const doneTasks = [...tasks]
-    .filter((t) => t.status === 'done')
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5)
+  const todayTasks = tasks.filter((t) => t.dueDate?.slice(0, 10) === todayStr && t.status !== 'done').slice(0, 6)
+  const overdueTasks = tasks.filter((t) => t.dueDate && t.dueDate.slice(0, 10) < todayStr && t.status !== 'done').slice(0, 4)
+  const overdueFinance = financeEntries.filter((e) => e.status === 'overdue').slice(0, 4)
+  const todayContent = contentItems.filter((i) => {
+    const k = (i.publishDate ?? i.dueDate)?.slice(0, 10)
+    return k === todayStr && i.status !== 'delivered' && i.status !== 'published'
+  }).slice(0, 4)
+
+  const urgentCount = todayTasks.length + overdueTasks.length + overdueFinance.length + todayContent.length
 
   return (
     <AppLayout>
@@ -74,36 +83,100 @@ export default function DashboardPage() {
 
           {/* Side column — 1/3 */}
           <div className="space-y-4">
-            {/* Completed tasks */}
+            {/* Today panel */}
             <div className="axis-card p-4">
-              <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                المهام المنجزة
-              </h3>
-              {doneTasks.length === 0 ? (
-                <p className="text-xs text-center py-4" style={{ color: 'var(--color-text-muted)' }}>
-                  لا توجد مهام منجزة بعد
-                </p>
-              ) : (
-                <div className="space-y-0.5">
-                  {doneTasks.map((task) => {
-                    const project = projects.find((p) => p.id === task.projectId)
-                    return (
-                      <div key={task.id} className="flex items-center gap-2.5 py-2">
-                        <div
-                          className="w-1.5 h-1.5 rounded-full shrink-0"
-                          style={{ background: project?.color ?? 'var(--color-brand)' }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate" style={{ color: 'var(--color-text-secondary)', textDecoration: 'line-through' }}>
-                            {task.title}
-                          </p>
-                          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                            {project?.name}
-                          </p>
-                        </div>
-                      </div>
-                    )
-                  })}
+              <div className="flex items-center gap-2 mb-3">
+                <h3 className="text-sm font-semibold flex-1" style={{ color: 'var(--color-text-primary)' }}>اليوم</h3>
+                {urgentCount > 0 && (
+                  <span className="axis-num text-xs px-1.5 py-0.5 rounded-full font-semibold" style={{ background: 'color-mix(in oklch, var(--warning-500) 15%, transparent)', color: 'var(--warning-500)' }}>
+                    {urgentCount}
+                  </span>
+                )}
+              </div>
+
+              {urgentCount === 0 && (
+                <p className="text-xs text-center py-4" style={{ color: 'var(--color-text-muted)' }}>لا توجد مستحقات اليوم</p>
+              )}
+
+              {todayTasks.length > 0 && (
+                <div className="mb-3">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Clock size={11} style={{ color: 'var(--iris-500)' }} />
+                    <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>مهام اليوم</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {todayTasks.map((t) => {
+                      const proj = projects.find((p) => p.id === t.projectId)
+                      return (
+                        <Link key={t.id} href={`/projects/${t.projectId}`} className="flex items-center gap-2 py-1.5 hover:opacity-80 transition-opacity">
+                          <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: proj?.color ?? 'var(--iris-500)' }} />
+                          <p className="text-xs truncate flex-1" style={{ color: 'var(--color-text-secondary)' }}>{t.title}</p>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {todayContent.length > 0 && (
+                <div className="mb-3">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <AlertCircle size={11} style={{ color: 'var(--warning-500)' }} />
+                    <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>محتوى موعده اليوم</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {todayContent.map((c) => {
+                      const proj = projects.find((p) => p.id === c.projectId)
+                      return (
+                        <Link key={c.id} href={`/projects/${c.projectId}`} className="flex items-center gap-2 py-1.5 hover:opacity-80 transition-opacity">
+                          <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: proj?.color ?? 'var(--warning-500)' }} />
+                          <p className="text-xs truncate flex-1" style={{ color: 'var(--color-text-secondary)' }}>{c.title || '(بلا عنوان)'}</p>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {overdueTasks.length > 0 && (
+                <div className="mb-3">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <AlertCircle size={11} style={{ color: 'var(--danger-500)' }} />
+                    <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>مهام متأخرة</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {overdueTasks.map((t) => {
+                      const proj = projects.find((p) => p.id === t.projectId)
+                      return (
+                        <Link key={t.id} href={`/projects/${t.projectId}`} className="flex items-center gap-2 py-1.5 hover:opacity-80 transition-opacity">
+                          <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: 'var(--danger-500)' }} />
+                          <p className="text-xs truncate flex-1" style={{ color: 'var(--color-text-secondary)' }}>{t.title}</p>
+                          <span className="text-xs shrink-0" style={{ color: 'var(--color-text-muted)' }}>{proj?.name}</span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {overdueFinance.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Wallet size={11} style={{ color: 'var(--danger-500)' }} />
+                    <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>مستحقات متأخرة</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {overdueFinance.map((e) => {
+                      const proj = projects.find((p) => p.id === e.projectId)
+                      return (
+                        <Link key={e.id} href={`/projects/${e.projectId}`} className="flex items-center gap-2 py-1.5 hover:opacity-80 transition-opacity">
+                          <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: 'var(--danger-500)' }} />
+                          <p className="text-xs truncate flex-1" style={{ color: 'var(--color-text-secondary)' }}>{e.title}</p>
+                          <span className="axis-num text-xs shrink-0" style={{ color: 'var(--danger-500)' }}>{e.amount.toLocaleString('en-US')}</span>
+                        </Link>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </div>

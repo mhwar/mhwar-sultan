@@ -37,6 +37,17 @@ export default function FinanceTab({ project }: Props) {
         <SummaryCard label="الرصيد" value={balance} currency={currency} color={balance >= 0 ? 'var(--iris-500)' : 'var(--danger-500)'} icon={<Wallet size={16} />} />
       </div>
 
+      {/* Charts */}
+      {entries.length >= 2 && (
+        <div className="axis-card p-4 md:p-6">
+          <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>التوزيع</h3>
+          <div className="flex items-start gap-6 flex-wrap">
+            <DonutChart income={income} expense={expense} />
+            <CategoryBars entries={entries} currency={currency} />
+          </div>
+        </div>
+      )}
+
       <div className="axis-card p-4 md:p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>الحركات المالية</h2>
@@ -122,6 +133,73 @@ function EntryRow({ entry: e, onEdit, onDelete }: { entry: FinanceEntry; onEdit:
       >
         <Trash2 size={12} />
       </button>
+    </div>
+  )
+}
+
+function DonutChart({ income, expense }: { income: number; expense: number }) {
+  const total = income + expense
+  if (total === 0) return null
+  const r = 26, cx = 35, cy = 35
+  const circ = 2 * Math.PI * r
+  const incomeDash = (income / total) * circ
+  const expenseDash = (expense / total) * circ
+  return (
+    <div className="shrink-0 flex flex-col items-center gap-2">
+      <svg width={70} height={70}>
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--color-surface-muted)" strokeWidth={9} />
+        {income > 0 && (
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--success-500)" strokeWidth={9}
+            strokeDasharray={`${incomeDash} ${circ}`}
+            transform={`rotate(-90 ${cx} ${cy})`}
+          />
+        )}
+        {expense > 0 && (
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--danger-500)" strokeWidth={9}
+            strokeDasharray={`${expenseDash} ${circ}`}
+            strokeDashoffset={-incomeDash}
+            transform={`rotate(-90 ${cx} ${cy})`}
+          />
+        )}
+      </svg>
+      <div className="flex gap-3 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: 'var(--success-500)' }} />إيراد</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: 'var(--danger-500)' }} />مصروف</span>
+      </div>
+    </div>
+  )
+}
+
+function CategoryBars({ entries, currency }: { entries: FinanceEntry[]; currency: string }) {
+  const grouped: Record<string, { income: number; expense: number }> = {}
+  for (const e of entries) {
+    const cat = e.category || 'غير مصنف'
+    if (!grouped[cat]) grouped[cat] = { income: 0, expense: 0 }
+    grouped[cat][e.kind] += e.amount
+  }
+  const cats = Object.entries(grouped)
+    .sort((a, b) => (b[1].income + b[1].expense) - (a[1].income + a[1].expense))
+    .slice(0, 5)
+  const maxTotal = Math.max(...cats.map(([, v]) => v.income + v.expense))
+  return (
+    <div className="flex-1 min-w-0 space-y-2.5">
+      {cats.map(([name, { income, expense }]) => {
+        const total = income + expense
+        const incW = maxTotal > 0 ? (income / maxTotal) * 100 : 0
+        const expW = maxTotal > 0 ? (expense / maxTotal) * 100 : 0
+        return (
+          <div key={name}>
+            <div className="flex justify-between text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>
+              <span className="truncate">{name}</span>
+              <span className="axis-num shrink-0 ms-2">{fmt(total)} {currency}</span>
+            </div>
+            <div className="h-1.5 rounded-full flex gap-px overflow-hidden" style={{ background: 'var(--color-surface-muted)' }}>
+              {income > 0 && <div className="h-full rounded-full" style={{ width: `${incW}%`, background: 'var(--success-500)' }} />}
+              {expense > 0 && <div className="h-full rounded-full" style={{ width: `${expW}%`, background: 'var(--danger-500)' }} />}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
