@@ -274,6 +274,17 @@ export interface Client {
   updatedAt: string
 }
 
+// ── Portfolio (cross-project grouping) ────────────────────
+export interface Portfolio {
+  id: string
+  name: string
+  color: string
+  icon?: string
+  projectIds: string[]
+  createdAt: string
+  updatedAt: string
+}
+
 // ── Content Production ────────────────────────────────────
 export type ContentType = 'post' | 'design' | 'video' | 'story' | 'reel' | 'article' | 'other'
 export type ContentPlatform = 'twitter' | 'instagram' | 'linkedin' | 'tiktok' | 'youtube' | 'snapchat' | 'facebook' | 'other'

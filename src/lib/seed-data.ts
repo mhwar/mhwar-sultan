@@ -1,4 +1,4 @@
-import type { Project, Task, Plan, PlanPhase, Note, Sprint, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, Kpi, Client, ContentItem } from '@/types'
+import type { Project, Task, Plan, PlanPhase, Note, Sprint, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, Kpi, Client, ContentItem, Portfolio } from '@/types'
 import { FALLBACK_TOOL_IDS } from '@/lib/project-types'
 
 export const SEED_METRICS: GrowthMetric[] = [
@@ -331,4 +331,9 @@ export const SEED_CONTENT: ContentItem[] = [
 
   // ── 30 يونيو ──────────────────────────────────────────────
   { id: 'ct-25', projectId: 'jasad', clientId: J, title: 'ستوري: أبرز لحظات يونيو مع جسد', type: 'story', platform: 'instagram', status: 'idea', publishDate: D('06-30'), order: 24, createdAt: D('06-03') },
+]
+
+export const SEED_PORTFOLIOS: Portfolio[] = [
+  { id: 'pf-product', name: 'منتجات رقمية', color: 'var(--iris-500)', icon: 'rocket', projectIds: ['mehwar', 'mellasaq', 'bawsala'], createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' },
+  { id: 'pf-clients', name: 'عملاء المحتوى', color: 'var(--success-500)', icon: 'target', projectIds: ['jasad'], createdAt: '2026-03-01T00:00:00Z', updatedAt: '2026-03-01T00:00:00Z' },
 ]
