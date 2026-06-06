@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react'
 import {
   Calendar, CalendarRange, CalendarDays, Grid3x3,
-  ChevronRight, ChevronLeft, Briefcase, Zap, LayoutGrid, CalendarCheck2, Download,
+  ChevronRight, ChevronLeft, Briefcase, Zap, LayoutGrid, CalendarCheck2, Download, Rows3, LayoutDashboard,
 } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import AppLayout from '@/components/layout/AppLayout'
@@ -25,11 +25,13 @@ import TasksCalendarWeek from '@/components/tasks/TasksCalendarWeek'
 import TasksCalendarDay from '@/components/tasks/TasksCalendarDay'
 import TasksCalendarYear from '@/components/tasks/TasksCalendarYear'
 import TasksCalendarYearFull from '@/components/tasks/TasksCalendarYearFull'
+import TasksCalendarProgram from '@/components/tasks/TasksCalendarProgram'
 import AddTaskPanel from '@/components/tasks/AddTaskPanel'
 import SprintManager from '@/components/tasks/SprintManager'
 
 type View = 'day' | 'week' | 'month' | 'year'
-type YearStyle = 'compact' | 'full'
+type YearStyle = 'compact' | 'full' | 'program'
+type MonthStyle = 'grid' | 'program'
 
 function shiftDay(key: string, days: number): string {
   const d = new Date(key + 'T00:00:00Z')
@@ -54,6 +56,7 @@ export default function TasksPage() {
   const today = new Date()
   const [view, setView] = useState<View>('month')
   const [yearStyle, setYearStyle] = useState<YearStyle>('compact')
+  const [monthStyle, setMonthStyle] = useState<MonthStyle>('grid')
   const [cursor, setCursor] = useState({ year: today.getFullYear(), month: today.getMonth() })
   const [anchorDay, setAnchorDay] = useState<string>(todayKey())
   const [filterPortfolio, setFilterPortfolio] = useState<string>('all')
@@ -201,22 +204,42 @@ export default function TasksPage() {
 
         {/* Year style toggle */}
         {view === 'year' && (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-wrap">
             <span className="text-xs me-2" style={{ color: 'var(--color-text-muted)' }}>نمط العرض:</span>
-            <button
-              onClick={() => setYearStyle('compact')}
-              className="flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium transition-colors"
-              style={{ background: yearStyle === 'compact' ? 'var(--iris-500)' : 'var(--color-surface-overlay)', color: yearStyle === 'compact' ? 'white' : 'var(--color-text-secondary)', border: `1px solid ${yearStyle === 'compact' ? 'transparent' : 'var(--color-surface-border)'}` }}
-            >
-              <LayoutGrid size={13} /> مدمج
-            </button>
-            <button
-              onClick={() => setYearStyle('full')}
-              className="flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium transition-colors"
-              style={{ background: yearStyle === 'full' ? 'var(--iris-500)' : 'var(--color-surface-overlay)', color: yearStyle === 'full' ? 'white' : 'var(--color-text-secondary)', border: `1px solid ${yearStyle === 'full' ? 'transparent' : 'var(--color-surface-border)'}` }}
-            >
-              <CalendarCheck2 size={13} /> تفصيلي
-            </button>
+            {([
+              { v: 'compact' as YearStyle, icon: <LayoutGrid size={13} />, label: 'مدمج' },
+              { v: 'full' as YearStyle, icon: <CalendarCheck2 size={13} />, label: 'تفصيلي' },
+              { v: 'program' as YearStyle, icon: <Rows3 size={13} />, label: 'البرنامج السنوي' },
+            ]).map(({ v, icon, label }) => (
+              <button
+                key={v}
+                onClick={() => setYearStyle(v)}
+                className="flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium transition-colors"
+                style={{ background: yearStyle === v ? 'var(--iris-500)' : 'var(--color-surface-overlay)', color: yearStyle === v ? 'white' : 'var(--color-text-secondary)', border: `1px solid ${yearStyle === v ? 'transparent' : 'var(--color-surface-border)'}` }}
+              >
+                {icon} {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Month style toggle */}
+        {view === 'month' && (
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="text-xs me-2" style={{ color: 'var(--color-text-muted)' }}>نمط العرض:</span>
+            {([
+              { v: 'grid' as MonthStyle, icon: <LayoutGrid size={13} />, label: 'شبكة' },
+              { v: 'program' as MonthStyle, icon: <LayoutDashboard size={13} />, label: 'البرنامج' },
+            ]).map(({ v, icon, label }) => (
+              <button
+                key={v}
+                onClick={() => setMonthStyle(v)}
+                className="flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium transition-colors"
+                style={{ background: monthStyle === v ? 'var(--iris-500)' : 'var(--color-surface-overlay)', color: monthStyle === v ? 'white' : 'var(--color-text-secondary)', border: `1px solid ${monthStyle === v ? 'transparent' : 'var(--color-surface-border)'}` }}
+              >
+                {icon} {label}
+              </button>
+            ))}
           </div>
         )}
 
@@ -272,11 +295,17 @@ export default function TasksPage() {
         {/* View body */}
         <div className="axis-card p-3 md:p-4">
           {view === 'month' ? (
-            <TasksCalendarMonth year={year} month={month} {...viewProps} />
+            monthStyle === 'program' ? (
+              <TasksCalendarProgram year={year} months={[month]} dense={false} {...viewProps} />
+            ) : (
+              <TasksCalendarMonth year={year} month={month} {...viewProps} />
+            )
           ) : view === 'week' ? (
             <TasksCalendarWeek anchorDay={anchorDay} {...viewProps} />
           ) : view === 'day' ? (
             <TasksCalendarDay anchorDay={anchorDay} {...viewProps} />
+          ) : yearStyle === 'program' ? (
+            <TasksCalendarProgram year={year} months={Array.from({ length: 12 }, (_, i) => i)} dense {...viewProps} />
           ) : yearStyle === 'full' ? (
             <TasksCalendarYearFull
               year={year}
