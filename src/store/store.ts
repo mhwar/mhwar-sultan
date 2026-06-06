@@ -111,7 +111,25 @@ export const useTaskStore = create<TaskStore>()(
       getProjectTasks: (projectId) =>
         get().tasks.filter((t) => t.projectId === projectId),
     }),
-    { name: 'mhwar-tasks', version: 1, skipHydration: true }
+    {
+      name: 'mhwar-tasks',
+      version: 2,
+      skipHydration: true,
+      // v1→v2: backfill demo assignees onto seed tasks that have none (non-destructive).
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as { tasks?: Task[] } | undefined
+        if (!state?.tasks) return state
+        if (version < 2) {
+          const seedAssignee: Record<string, string> = Object.fromEntries(
+            SEED_TASKS.filter((t) => t.assigneeId).map((t) => [t.id, t.assigneeId as string])
+          )
+          state.tasks = state.tasks.map((t) =>
+            !t.assigneeId && seedAssignee[t.id] ? { ...t, assigneeId: seedAssignee[t.id] } : t
+          )
+        }
+        return state
+      },
+    }
   )
 )
 
@@ -678,7 +696,20 @@ export const useTeamStore = create<TeamStore>()(
       deleteMember: (id) =>
         set((s) => ({ members: s.members.filter((m) => m.id !== id) })),
     }),
-    { name: 'mhwar-team', version: 1, skipHydration: true }
+    {
+      name: 'mhwar-team',
+      version: 2,
+      skipHydration: true,
+      // v1→v2: seed the demo team for users who never added members (non-destructive).
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as { members?: TeamMember[] } | undefined
+        if (!state) return state
+        if (version < 2 && (!state.members || state.members.length === 0)) {
+          state.members = SEED_TEAM
+        }
+        return state
+      },
+    }
   )
 )
 
