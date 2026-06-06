@@ -38,6 +38,7 @@ export interface Task {
   phaseId?: string
   milestoneId?: string
   sprintId?: string
+  assigneeId?: string
   title: string
   description?: string
   status: TaskStatus
@@ -229,6 +230,11 @@ export interface FinanceEntry {
 // ── KPIs (generic indicators dashboard) ──────────────────
 export type KpiTrend = 'up' | 'down' | 'flat'
 
+export interface KpiSnapshot {
+  date: string   // yyyy-mm-dd
+  value: number
+}
+
 export interface Kpi {
   id: string
   projectId: string
@@ -238,6 +244,7 @@ export interface Kpi {
   target?: number
   trend?: KpiTrend
   notes?: string
+  history?: KpiSnapshot[]
   order: number
   updatedAt: string
   createdAt: string

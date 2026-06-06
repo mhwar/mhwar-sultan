@@ -2,9 +2,9 @@
 import { useState } from 'react'
 import { Plus, Trash2, ChevronDown, Check, LayoutGrid, List, Table2, GanttChartSquare, CalendarDays } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
-import { useTaskStore, usePlanStore } from '@/store/store'
+import { useTaskStore, usePlanStore, useTeamStore } from '@/store/store'
 import { PlanIcon } from '@/lib/icons'
-import type { Project, Task, TaskStatus, TaskPriority } from '@/types'
+import type { Project, Task, TaskStatus, TaskPriority, TeamMember } from '@/types'
 import TaskDrawer from '@/components/projects/TaskDrawer'
 import GanttView from '@/components/projects/GanttView'
 import CalendarView from '@/components/projects/CalendarView'
@@ -31,14 +31,17 @@ const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
 ]
 
 /* ── Inline add-task form ── */
-function AddTaskForm({ projectId, status, sprintId, onClose }: { projectId: string; status: TaskStatus; sprintId?: string; onClose: () => void }) {
+function AddTaskForm({ projectId, status, sprintId, members, onClose }: {
+  projectId: string; status: TaskStatus; sprintId?: string; members: TeamMember[]; onClose: () => void
+}) {
   const { addTask } = useTaskStore()
   const [title, setTitle] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('medium')
+  const [assigneeId, setAssigneeId] = useState('')
 
   const handleAdd = () => {
     if (!title.trim()) return
-    addTask({ projectId, sprintId, title: title.trim(), status, priority })
+    addTask({ projectId, sprintId, title: title.trim(), status, priority, assigneeId: assigneeId || undefined })
     onClose()
   }
 
@@ -53,7 +56,7 @@ function AddTaskForm({ projectId, status, sprintId, onClose }: { projectId: stri
         className="w-full bg-transparent text-sm outline-none mb-2"
         style={{ color: 'var(--fg-1)' }}
       />
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <select
           value={priority}
           onChange={(e) => setPriority(e.target.value as TaskPriority)}
@@ -62,6 +65,17 @@ function AddTaskForm({ projectId, status, sprintId, onClose }: { projectId: stri
         >
           {PRIORITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
+        {members.length > 0 && (
+          <select
+            value={assigneeId}
+            onChange={(e) => setAssigneeId(e.target.value)}
+            className="text-xs px-2 py-1 outline-none"
+            style={{ background: 'var(--surface-1)', color: 'var(--fg-2)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)' }}
+          >
+            <option value="">بلا مسؤول</option>
+            {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
+        )}
         <Button variant="primary" size="xs" onClick={handleAdd}>إضافة</Button>
         <Button variant="ghost" size="xs" onClick={onClose}>إلغاء</Button>
       </div>
@@ -70,7 +84,7 @@ function AddTaskForm({ projectId, status, sprintId, onClose }: { projectId: stri
 }
 
 /* ── Board card ── */
-function BoardCard({ task, onMove, onDelete, onOpen, planIcon }: { task: Task; onMove: (s: TaskStatus) => void; onDelete: () => void; onOpen: () => void; planIcon?: string }) {
+function BoardCard({ task, onMove, onDelete, onOpen, planIcon, assignee }: { task: Task; onMove: (s: TaskStatus) => void; onDelete: () => void; onOpen: () => void; planIcon?: string; assignee?: TeamMember }) {
   const [showMove, setShowMove] = useState(false)
   return (
     <div
@@ -124,6 +138,15 @@ function BoardCard({ task, onMove, onDelete, onOpen, planIcon }: { task: Task; o
             <Trash2 size={12} />
           </button>
         </span>
+        {assignee && (
+          <span
+            className="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ms-auto"
+            title={assignee.name}
+            style={{ background: 'var(--iris-500)', color: 'white' }}
+          >
+            {assignee.name[0]}
+          </span>
+        )}
       </div>
     </div>
   )
@@ -145,6 +168,7 @@ export default function TaskViews({ project, tasks, addSprintId, emptyLabel = '�
   const { moveTask, deleteTask, updateTask } = useTaskStore()
   const plans = usePlanStore(useShallow((s) => s.plans.filter((p) => p.projectId === project.id)))
   const projectPhases = usePlanStore(useShallow((s) => s.phases.filter((p) => p.projectId === project.id)))
+  const members = useTeamStore(useShallow((s) => s.members.filter((m) => m.projectId === project.id && m.status === 'active')))
   const [view, setView] = useState<View>('board')
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | 'all'>('all')
   const [addingTo, setAddingTo] = useState<TaskStatus | null>(null)
@@ -208,9 +232,9 @@ export default function TaskViews({ project, tasks, addSprintId, emptyLabel = '�
                 </div>
                 <div className="board-col__body">
                   {colTasks.map((task) => (
-                    <BoardCard key={task.id} task={task} onMove={(s) => moveTask(task.id, s)} onDelete={() => deleteTask(task.id)} onOpen={() => setSelectedId(task.id)} planIcon={planIconForTask(task)} />
+                    <BoardCard key={task.id} task={task} onMove={(s) => moveTask(task.id, s)} onDelete={() => deleteTask(task.id)} onOpen={() => setSelectedId(task.id)} planIcon={planIconForTask(task)} assignee={task.assigneeId ? members.find((m) => m.id === task.assigneeId) : undefined} />
                   ))}
-                  {addingTo === col.status && <AddTaskForm projectId={project.id} status={col.status} sprintId={addSprintId} onClose={() => setAddingTo(null)} />}
+                  {addingTo === col.status && <AddTaskForm projectId={project.id} status={col.status} sprintId={addSprintId} members={members} onClose={() => setAddingTo(null)} />}
                   {colTasks.length === 0 && addingTo !== col.status && <div className="board-col__empty">{emptyLabel}</div>}
                 </div>
               </div>
@@ -322,7 +346,7 @@ export default function TaskViews({ project, tasks, addSprintId, emptyLabel = '�
       {/* Add (list/table) */}
       {(view === 'list' || view === 'table') && (
         addingTo ? (
-          <AddTaskForm projectId={project.id} status="todo" sprintId={addSprintId} onClose={() => setAddingTo(null)} />
+          <AddTaskForm projectId={project.id} status="todo" sprintId={addSprintId} members={members} onClose={() => setAddingTo(null)} />
         ) : (
           <Button variant="ghost" size="sm" onClick={() => setAddingTo('todo')}><Plus size={14} />إضافة مهمة</Button>
         )
