@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { X, Trash2, Calendar, Clock, Hash, Flag, CheckCircle2, CircleDashed, Loader, Map, Zap, User, Briefcase } from 'lucide-react'
+import { X, Trash2, Calendar, Clock, Hash, Flag, CheckCircle2, CircleDashed, Loader, Map, Zap, User, Briefcase, Download } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import { useTaskStore, usePlanStore, useSprintStore, useTeamStore, useProjectStore } from '@/store/store'
 import type { Task, Project, TaskStatus, TaskPriority } from '@/types'
@@ -23,6 +23,45 @@ const STATUS_ICON: Record<TaskStatus, React.ReactNode> = {
 const DAY = 24 * 3600 * 1000
 const toDateInput = (iso?: string) => (iso ? iso.slice(0, 10) : '')
 const fromDateInput = (v: string) => (v ? `${v}T00:00:00Z` : undefined)
+
+function printSingleTask(task: Task, projectName: string, assigneeName: string) {
+  const w = window.open('', '_blank', 'width=560,height=540,resizable=yes')
+  if (!w) return
+  const e = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const statusCls = task.status === 'done' ? 'done-badge' : task.status === 'in-progress' ? 'inprog-badge' : 'todo-badge'
+  const priorityCls = task.priority === 'high' ? 'high-badge' : task.priority === 'medium' ? 'med-badge' : 'low-badge'
+  w.document.write(`<!DOCTYPE html>
+<html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>${e(task.title)}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Cairo',sans-serif;background:#fff;color:#111;padding:24px;direction:rtl}
+.card{border:1px solid #e5e7eb;border-radius:12px;padding:20px}
+.proj{font-size:12px;color:#6366f1;font-weight:700;margin-bottom:8px}
+.title{font-size:20px;font-weight:700;margin-bottom:14px;line-height:1.3}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600}
+.done-badge{background:#d1fae5;color:#065f46}.inprog-badge{background:#fef3c7;color:#92400e}.todo-badge{background:#f3f4f6;color:#374151}
+.high-badge{background:#fee2e2;color:#991b1b}.med-badge{background:#fef3c7;color:#92400e}.low-badge{background:#f0fdf4;color:#166534}
+.row{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #f3f4f6;font-size:13px}
+.lbl{color:#888;min-width:72px;flex-shrink:0}.val{font-weight:600}
+.desc{margin-top:14px;padding:12px;background:#f9fafb;border-radius:8px;font-size:13px;line-height:1.7;color:#333;white-space:pre-wrap}
+.print-btn{display:block;width:100%;margin-top:20px;padding:10px 24px;background:#6366f1;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-family:'Cairo',sans-serif}
+@media print{.print-btn{display:none}}
+</style></head><body>
+<div class="card">
+<div class="proj">${e(projectName)}</div>
+<div class="title">${e(task.title)}</div>
+<div class="badges"><span class="badge ${statusCls}">${e(TASK_STATUS_LABELS[task.status])}</span><span class="badge ${priorityCls}">${e(PRIORITY_LABELS[task.priority])}</span></div>
+${assigneeName ? `<div class="row"><span class="lbl">المسؤول</span><span class="val">${e(assigneeName)}</span></div>` : ''}
+${task.startDate ? `<div class="row"><span class="lbl">البدء</span><span class="val" dir="ltr">${task.startDate.slice(0, 10)}</span></div>` : ''}
+${task.dueDate ? `<div class="row"><span class="lbl">الاستحقاق</span><span class="val" dir="ltr">${task.dueDate.slice(0, 10)}</span></div>` : ''}
+${task.description ? `<div class="desc">${e(task.description)}</div>` : ''}
+</div>
+<button class="print-btn" onclick="window.print()">طباعة / حفظ كـ PDF</button>
+</body></html>`)
+  w.document.close()
+}
 
 interface TaskDrawerProps {
   task: Task | null
@@ -252,7 +291,7 @@ export default function TaskDrawer({ task, project, onClose }: TaskDrawerProps) 
         </div>
 
         {/* Footer */}
-        <div style={{ borderTop: '1px solid var(--border-subtle)', padding: '14px 20px', display: 'flex', gap: 8, justifyContent: 'space-between' }}>
+        <div style={{ borderTop: '1px solid var(--border-subtle)', padding: '14px 20px', display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
           <Button
             variant={task.status === 'done' ? 'secondary' : 'primary'}
             size="sm"
@@ -261,10 +300,21 @@ export default function TaskDrawer({ task, project, onClose }: TaskDrawerProps) 
             {STATUS_ICON[task.status === 'done' ? 'todo' : 'done']}
             {task.status === 'done' ? 'إعادة فتح' : 'وضع كمنجزة'}
           </Button>
-          <Button variant="danger" size="sm" onClick={() => { deleteTask(task.id); close() }}>
-            <Trash2 size={13} />
-            حذف
-          </Button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => printSingleTask(task, project?.name ?? 'مهمة حرة', members.find((m) => m.id === task.assigneeId)?.name ?? '')}
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-white/5"
+              style={{ color: 'var(--color-text-muted)', border: '1px solid var(--color-surface-border)' }}
+              title="تنزيل بطاقة المهمة"
+              aria-label="تنزيل"
+            >
+              <Download size={13} />
+            </button>
+            <Button variant="danger" size="sm" onClick={() => { deleteTask(task.id); close() }}>
+              <Trash2 size={13} />
+              حذف
+            </Button>
+          </div>
         </div>
       </div>
     </div>

@@ -15,6 +15,8 @@ import IconButton from '@/components/ui/IconButton'
 
 interface ProjectFormProps {
   onClose: () => void
+  /** If provided, called with the new project id after creation (skips navigation). */
+  onSaved?: (id: string) => void
   initialData?: Project
 }
 
@@ -30,7 +32,7 @@ const COLOR_OPTIONS = [
   '#F59E0B', '#10B981', '#3B82F6', '#06B6D4',
 ]
 
-export default function ProjectForm({ onClose, initialData }: ProjectFormProps) {
+export default function ProjectForm({ onClose, onSaved, initialData }: ProjectFormProps) {
   const router = useRouter()
   const { addProject, updateProject } = useProjectStore()
   const isEditing = !!initialData
@@ -101,8 +103,12 @@ export default function ProjectForm({ onClose, initialData }: ProjectFormProps) 
       const tools = getProjectType(typeId).defaultToolIds.filter((t) => getTool(t))
       const newId = addProject({ ...data, type: typeId, tools })
       runSmartSetup(newId, typeId)
-      onClose()
-      router.push(`/project?id=${newId}`)
+      if (onSaved) {
+        onSaved(newId)
+      } else {
+        onClose()
+        router.push(`/project?id=${newId}`)
+      }
     }
   }
 

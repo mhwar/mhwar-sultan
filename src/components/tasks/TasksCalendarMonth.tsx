@@ -20,11 +20,25 @@ export default function TasksCalendarMonth({ year, month, ...p }: Props) {
 
   const byDay = new Map<string, Task[]>()
   const unscheduled: Task[] = []
+
   for (const t of tasks) {
-    const k = t.dueDate ? dayKey(t.dueDate) : null
-    if (!k) { unscheduled.push(t); continue }
-    if (!byDay.has(k)) byDay.set(k, [])
-    byDay.get(k)!.push(t)
+    const sk = t.startDate ? dayKey(t.startDate) : null
+    const ek = t.dueDate ? dayKey(t.dueDate) : null
+    if (sk && ek && sk !== ek) {
+      // Span task: add to every day in range
+      const cur = new Date(sk + 'T00:00:00Z')
+      const end = new Date(ek + 'T00:00:00Z')
+      while (cur <= end) {
+        const k = dateToKey(cur)
+        if (!byDay.has(k)) byDay.set(k, [])
+        byDay.get(k)!.push(t)
+        cur.setUTCDate(cur.getUTCDate() + 1)
+      }
+    } else {
+      if (!ek) { unscheduled.push(t); continue }
+      if (!byDay.has(ek)) byDay.set(ek, [])
+      byDay.get(ek)!.push(t)
+    }
   }
 
   const onDrop = (key: string | null) => (e: React.DragEvent) => {

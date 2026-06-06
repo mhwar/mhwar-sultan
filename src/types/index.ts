@@ -278,8 +278,10 @@ export interface Client {
 export interface Portfolio {
   id: string
   name: string
+  description?: string
   color: string
   icon?: string
+  logo?: string
   projectIds: string[]
   createdAt: string
   updatedAt: string
