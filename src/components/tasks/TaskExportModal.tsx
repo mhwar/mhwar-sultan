@@ -17,7 +17,7 @@ const COL_DEFS: { key: ColKey; label: string }[] = [
   { key: 'assignee', label: 'المسؤول' },
   { key: 'due', label: 'الاستحقاق' },
   { key: 'start', label: 'البدء' },
-  { key: 'sprint', label: 'المرحلة' },
+  { key: 'sprint', label: 'المبادرة' },
 ]
 
 interface Props {
@@ -135,7 +135,7 @@ export default function TaskExportModal({ tasks, projects, portfolios, sprints, 
       for (const t of exportTasks) {
         let key = ''; let label = ''
         if (groupBy === 'project') { key = t.projectId ?? '__free'; label = t.projectId ? (projectNameMap[t.projectId] ?? 'مشروع') : 'بلا مشروع' }
-        else if (groupBy === 'sprint') { key = t.sprintId ?? '__backlog'; label = t.sprintId ? (sprintNameMap[t.sprintId] ?? 'مرحلة') : 'الباكلوج' }
+        else if (groupBy === 'sprint') { key = t.sprintId ?? '__backlog'; label = t.sprintId ? (sprintNameMap[t.sprintId] ?? 'مبادرة') : 'الباكلوج' }
         else if (groupBy === 'status') { key = t.status; label = TASK_STATUS_LABELS[t.status] }
         else if (groupBy === 'priority') { key = t.priority; label = PRIORITY_LABELS[t.priority] }
         if (!groups.has(key)) groups.set(key, { label, items: [] })
@@ -264,7 +264,7 @@ td{padding:7px 12px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
             <div className="flex gap-1.5 flex-wrap">
               {(['none', 'project', 'sprint', 'status', 'priority'] as GroupBy[]).map((g) => (
                 <button key={g} onClick={() => setGroupBy(g)} className="px-3 h-7 rounded-full text-xs font-medium transition-colors" style={chipStyle(groupBy === g)}>
-                  {g === 'none' ? 'بدون تجميع' : g === 'project' ? 'مشروع' : g === 'sprint' ? 'مرحلة' : g === 'status' ? 'الحالة' : 'الأولوية'}
+                  {g === 'none' ? 'بدون تجميع' : g === 'project' ? 'مشروع' : g === 'sprint' ? 'مبادرة' : g === 'status' ? 'الحالة' : 'الأولوية'}
                 </button>
               ))}
             </div>

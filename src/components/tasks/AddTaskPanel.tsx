@@ -201,7 +201,7 @@ export default function AddTaskPanel({ projects, sprints, defaultDate, defaultPr
             <div className="flex flex-col gap-1 flex-1">
               <label className="text-xs font-semibold flex items-center gap-1.5" style={{ color: 'var(--color-text-muted)' }}>
                 <Zap size={12} />
-                المرحلة (اختياري)
+                المبادرة (اختيارية)
               </label>
               <select
                 value={sprintId}
@@ -209,7 +209,7 @@ export default function AddTaskPanel({ projects, sprints, defaultDate, defaultPr
                 className="h-8 rounded-md px-2 text-xs outline-none"
                 style={{ background: 'var(--color-surface-muted)', border: '1px solid var(--color-surface-border)', color: 'var(--color-text-secondary)' }}
               >
-                <option value="">الباكلوج (بدون مرحلة)</option>
+                <option value="">الباكلوج (بدون مبادرة)</option>
                 {projectSprints.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
@@ -219,7 +219,7 @@ export default function AddTaskPanel({ projects, sprints, defaultDate, defaultPr
               style={{ color: 'var(--iris-500)', border: '1px solid color-mix(in oklch, var(--iris-500) 40%, transparent)', whiteSpace: 'nowrap' }}
             >
               <Plus size={12} />
-              مرحلة جديدة
+              مبادرة جديدة
             </button>
           </div>
 

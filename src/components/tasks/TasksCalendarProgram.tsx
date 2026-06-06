@@ -1,6 +1,6 @@
 'use client'
 import { useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Printer } from 'lucide-react'
 import type { Task } from '@/types'
 import {
   WEEKDAYS, monthMatrix, dateToKey, dayKey, todayKey, keyInMonth, monthLabel,
@@ -174,6 +174,17 @@ export default function TasksCalendarProgram({ year, months, dense, ...p }: Prop
     )
   }
 
+  // ── Print the annual program (window.open + HTML, same as task export) ──
+  const printProgram = () => {
+    const html = buildAnnualProgramHTML({
+      year, months, byDay, projectColorMap, projectNameMap, assigneeNameMap,
+    })
+    const w = window.open('', '_blank', 'width=1100,height=800,resizable=yes')
+    if (!w) return
+    w.document.write(html)
+    w.document.close()
+  }
+
   // ════════════════════ DENSE (annual program) ════════════════════
   if (dense) {
     const maxWeeks = Math.max(...months.map((m) => monthMatrix(year, m).length))
@@ -181,6 +192,20 @@ export default function TasksCalendarProgram({ year, months, dense, ...p }: Prop
 
     return (
       <>
+        {/* Toolbar */}
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            البرنامج السنوي — مرّر فوق أي مهمة لعرض تفاصيلها، وانقر لفتحها
+          </p>
+          <button
+            onClick={printProgram}
+            className="flex items-center gap-1.5 px-3 h-8 rounded-lg text-xs font-semibold transition-colors"
+            style={{ background: 'var(--iris-500)', color: '#fff' }}
+          >
+            <Printer size={14} /> طباعة البرنامج السنوي
+          </button>
+        </div>
+
         <div className="overflow-x-auto -mx-1 px-1 pb-2">
           <div className="inline-flex flex-col gap-2" style={{ minWidth: '100%' }}>
 
@@ -320,4 +345,129 @@ function Row({ label, value, dot }: { label: string; value: string; dot?: string
       </span>
     </div>
   )
+}
+
+// ════════════════════ Annual program print (HTML → window.print) ════════════════════
+const PRINT_FREE = '#cbd5e1'
+function escHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+function buildAnnualProgramHTML({
+  year, months, byDay, projectColorMap, projectNameMap, assigneeNameMap,
+}: {
+  year: number
+  months: number[]
+  byDay: Map<string, Task[]>
+  projectColorMap: Record<string, string>
+  projectNameMap: Record<string, string>
+  assigneeNameMap: Record<string, string>
+}): string {
+  const PDAY = 42       // print day-cell width (px)
+  const maxWeeks = Math.max(...months.map((m) => monthMatrix(year, m).length))
+  const wgW = 7 * PDAY + 6 // 7 cells + inner gaps (1px)
+
+  const chipHtml = (t: Task): string => {
+    const isFree = !t.projectId
+    const color = isFree ? PRINT_FREE : (projectColorMap[t.projectId as string] ?? PRINT_FREE)
+    const assignee = t.assigneeId ? assigneeNameMap[t.assigneeId] : ''
+    const done = t.status === 'done'
+    const cls = `chip${isFree ? ' free' : ''}${done ? ' done' : ''}`
+    return `<div class="${cls}" style="background:${color}">`
+      + `<span class="t">${escHtml(t.title)}</span>`
+      + (assignee ? `<span class="a">${escHtml(assignee)}</span>` : '')
+      + `</div>`
+  }
+
+  const cellHtml = (date: Date, month: number): string => {
+    const key = dateToKey(date)
+    const inMonth = keyInMonth(key, year, month)
+    if (!inMonth) return `<div class="cell out"></div>`
+    const dayTasks = byDay.get(key) ?? []
+    const shown = dayTasks.slice(0, 4)
+    const extra = dayTasks.length - shown.length
+    return `<div class="cell">`
+      + `<div class="dn">${date.getUTCDate()}</div>`
+      + shown.map(chipHtml).join('')
+      + (extra > 0 ? `<div class="more">+${extra}</div>` : '')
+      + `</div>`
+  }
+
+  const headerRow = `<div class="hrow">`
+    + `<div class="mlbl-sp"></div>`
+    + Array.from({ length: maxWeeks }, (_, wi) =>
+        `<div class="wg" style="width:${wgW}px">`
+        + `<div class="wgt">الأسبوع ${wi + 1}</div>`
+        + `<div class="wdays">${WEEKDAYS.map((d) => `<span class="wd">${d}</span>`).join('')}</div>`
+        + `</div>`
+      ).join('')
+    + `</div>`
+
+  const monthRows = months.map((month) => {
+    const weeks = monthMatrix(year, month)
+    const name = monthLabel(year, month).split(' ')[0]
+    const weeksHtml = weeks.map((week) =>
+      `<div class="wgb" style="width:${wgW}px">${week.map((d) => cellHtml(d, month)).join('')}</div>`
+    ).join('')
+    return `<div class="mrow"><div class="mlbl">${escHtml(name)}</div>${weeksHtml}</div>`
+  }).join('')
+
+  // Legend — only projects that own at least one task in range
+  const usedProjectIds = new Set<string>()
+  byDay.forEach((list) => list.forEach((t) => { if (t.projectId) usedProjectIds.add(t.projectId) }))
+  const legend = [...usedProjectIds]
+    .map((id) => `<span class="lg"><span class="sw" style="background:${projectColorMap[id] ?? PRINT_FREE}"></span>${escHtml(projectNameMap[id] ?? id)}</span>`)
+    .join('')
+
+  return `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>البرنامج السنوي ${year}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Cairo',sans-serif;background:#fff;color:#0f172a;padding:16px 20px;direction:rtl}
+@page{size:A4 landscape;margin:8mm}
+h1{font-size:18px;font-weight:700}
+.sub{color:#64748b;font-size:11px;margin-bottom:12px}
+.print-btn{padding:9px 22px;background:#6366f1;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:'Cairo',sans-serif;margin-bottom:14px}
+@media print{.print-btn{display:none}}
+.prog{display:flex;flex-direction:column;gap:4px;width:max-content}
+.hrow,.mrow{display:flex;gap:6px;align-items:stretch}
+.mlbl,.mlbl-sp{flex:0 0 46px;width:46px}
+.mlbl{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:700;font-size:9px;padding:2px}
+.wg{flex:0 0 auto}
+.wgt{text-align:center;font-size:7.5px;font-weight:700;color:#64748b;margin-bottom:2px}
+.wdays{display:grid;grid-template-columns:repeat(7,${PDAY}px);gap:1px}
+.wd{text-align:center;font-size:7px;font-weight:600;color:#94a3b8}
+.wgb{flex:0 0 auto;display:grid;grid-template-columns:repeat(7,${PDAY}px);gap:1px}
+.cell{min-height:38px;border:1px solid #e5e7eb;border-radius:3px;padding:1px;display:flex;flex-direction:column;gap:1px;overflow:hidden}
+.cell.out{background:#fafafa;border-color:#f1f5f9}
+.dn{font-size:7px;color:#94a3b8;text-align:left;line-height:1;font-weight:600}
+.chip{border-radius:2px;padding:1px 2px;color:#fff;overflow:hidden}
+.chip .t{display:block;font-size:6px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip .a{display:block;font-size:5.5px;line-height:1.1;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip.free{background:#e2e8f0!important;color:#334155}
+.chip.done{opacity:.5}
+.chip.done .t{text-decoration:line-through}
+.more{font-size:6px;color:#94a3b8;text-align:center}
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px;padding-top:10px;border-top:1px solid #e5e7eb}
+.lg{display:flex;align-items:center;gap:5px;font-size:10px;color:#334155}
+.sw{width:11px;height:11px;border-radius:3px;display:inline-block}
+.footer{margin-top:12px;font-size:10px;color:#94a3b8}
+</style>
+</head>
+<body>
+<button class="print-btn" onclick="window.print()">طباعة / حفظ كـ PDF</button>
+<h1>البرنامج السنوي ${year}</h1>
+<div class="sub">عرض شامل لمهام السنة موزّعة على الأشهر والأسابيع — اللون يعبّر عن المشروع</div>
+<div class="prog">
+${headerRow}
+${monthRows}
+</div>
+${legend ? `<div class="legend">${legend}</div>` : ''}
+<div class="footer">تاريخ الطباعة: ${new Date().toLocaleDateString('ar-SA')}</div>
+</body>
+</html>`
 }

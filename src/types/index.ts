@@ -57,6 +57,24 @@ export interface Task {
   createdAt: string
 }
 
+export interface SprintChecklistItem {
+  id: string
+  title: string
+  done: boolean
+}
+
+export interface SprintUpdate {
+  id: string
+  text: string
+  createdAt: string
+}
+
+/**
+ * An "initiative" (مبادرة) — a major managed effort inside a project, such as
+ * organising a conference or delivering an integrated milestone. Beyond a plain
+ * phase it carries a lead, a checklist of milestones, and a follow-up log for
+ * tracking and communication.
+ */
 export interface Sprint {
   id: string
   projectId: string
@@ -66,6 +84,12 @@ export interface Sprint {
   dueDate?: string
   status: SprintStatus
   order: number
+  /** Team member id responsible for the initiative. */
+  lead?: string
+  /** Milestones / sub-steps that make up the initiative. */
+  checklist?: SprintChecklistItem[]
+  /** Time-stamped follow-up & communication notes. */
+  updates?: SprintUpdate[]
   createdAt: string
 }
 

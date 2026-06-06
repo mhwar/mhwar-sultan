@@ -412,7 +412,36 @@ export const useSprintStore = create<SprintStore>()(
           .sprints.filter((sp) => sp.projectId === projectId)
           .sort((a, b) => a.order - b.order),
     }),
-    { name: 'mhwar-sprints', version: 1, skipHydration: true }
+    {
+      name: 'mhwar-sprints',
+      version: 2,
+      skipHydration: true,
+      // v1→v2: "sprints" became richer "initiatives" (مبادرات). Rename default-named
+      // seed sprints, backfill the new lead/checklist/updates fields, and add any
+      // missing seed initiatives — all without clobbering user edits.
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as { sprints?: Sprint[] } | undefined
+        if (!state?.sprints) return state
+        if (version < 2) {
+          const seedById: Record<string, Sprint> = Object.fromEntries(SEED_SPRINTS.map((s) => [s.id, s]))
+          state.sprints = state.sprints.map((sp) => {
+            const seed = seedById[sp.id]
+            if (!seed) return sp
+            return {
+              ...sp,
+              name: sp.name.startsWith('سبرنت') ? seed.name : sp.name,
+              goal: sp.goal ?? seed.goal,
+              lead: sp.lead ?? seed.lead,
+              checklist: sp.checklist ?? seed.checklist,
+              updates: sp.updates ?? seed.updates,
+            }
+          })
+          const have = new Set(state.sprints.map((s) => s.id))
+          for (const seed of SEED_SPRINTS) if (!have.has(seed.id)) state.sprints.push(seed)
+        }
+        return state
+      },
+    }
   )
 )
 
