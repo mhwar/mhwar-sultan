@@ -318,6 +318,34 @@ export default function TasksCalendarProgram({ year, months, dense, onOpenDayVie
   const weeks = monthMatrix(year, month)
   return (
     <>
+      {/* Toolbar */}
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          البرنامج الشهري — انقر على أي يوم لإدارته وإضافة مهام
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setExpandRows((v) => !v)}
+            className="flex items-center gap-1.5 px-3 h-8 rounded-lg text-xs font-semibold transition-colors"
+            style={{
+              background: expandRows ? 'color-mix(in oklch, var(--iris-500) 12%, transparent)' : 'var(--color-surface-overlay)',
+              color: expandRows ? 'var(--iris-500)' : 'var(--color-text-secondary)',
+              border: `1px solid ${expandRows ? 'color-mix(in oklch, var(--iris-500) 40%, transparent)' : 'var(--color-surface-border)'}`,
+            }}
+          >
+            {expandRows ? <ChevronsDownUp size={14} /> : <ChevronsUpDown size={14} />}
+            {expandRows ? 'تصغير البطاقات' : 'توسيع البطاقات'}
+          </button>
+          <button
+            onClick={printProgram}
+            className="flex items-center gap-1.5 px-3 h-8 rounded-lg text-xs font-semibold transition-colors"
+            style={{ background: 'var(--iris-500)', color: '#fff' }}
+          >
+            <Printer size={14} /> طباعة البرنامج الشهري
+          </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-7 gap-1.5 mb-1.5">
         {WEEKDAYS.map((w) => (
           <div key={w} className="text-center text-xs font-semibold py-1" style={{ color: 'var(--color-text-muted)' }}>{w}</div>
@@ -552,6 +580,14 @@ function buildAnnualProgramHTML({
   projectNameMap: Record<string, string>
   assigneeNameMap: Record<string, string>
 }): string {
+  const isMonthly = months.length === 1
+  const programTitle = isMonthly
+    ? `البرنامج الشهري — ${monthLabel(year, months[0]).split(' ')[0]} ${year}`
+    : `البرنامج السنوي ${year}`
+  const programSub = isMonthly
+    ? 'عرض مهام الشهر موزّعة على الأسابيع — اللون يعبّر عن المشروع'
+    : 'عرض شامل لمهام السنة موزّعة على الأشهر والأسابيع — اللون يعبّر عن المشروع'
+
   const PDAY = 42       // print day-cell width (px)
   const maxWeeks = Math.max(...months.map((m) => monthMatrix(year, m).length))
   const wgW = 7 * PDAY + 6 // 7 cells + inner gaps (1px)
@@ -612,7 +648,7 @@ function buildAnnualProgramHTML({
 <html dir="rtl" lang="ar">
 <head>
 <meta charset="UTF-8">
-<title>البرنامج السنوي ${year}</title>
+<title>${escHtml(programTitle)}</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -649,8 +685,8 @@ h1{font-size:18px;font-weight:700}
 </head>
 <body>
 <button class="print-btn" onclick="window.print()">طباعة / حفظ كـ PDF</button>
-<h1>البرنامج السنوي ${year}</h1>
-<div class="sub">عرض شامل لمهام السنة موزّعة على الأشهر والأسابيع — اللون يعبّر عن المشروع</div>
+<h1>${escHtml(programTitle)}</h1>
+<div class="sub">${escHtml(programSub)}</div>
 <div class="prog">
 ${headerRow}
 ${monthRows}
