@@ -580,13 +580,16 @@ function buildAnnualProgramHTML({
   projectNameMap: Record<string, string>
   assigneeNameMap: Record<string, string>
 }): string {
-  const isMonthly = months.length === 1
-  const programTitle = isMonthly
-    ? `البرنامج الشهري — ${monthLabel(year, months[0]).split(' ')[0]} ${year}`
-    : `البرنامج السنوي ${year}`
-  const programSub = isMonthly
-    ? 'عرض مهام الشهر موزّعة على الأسابيع — اللون يعبّر عن المشروع'
-    : 'عرض شامل لمهام السنة موزّعة على الأشهر والأسابيع — اللون يعبّر عن المشروع'
+  // Single month → traditional vertical calendar grid (weeks stacked as rows),
+  // which prints cleanly on one page. Annual keeps the horizontal week layout.
+  if (months.length === 1) {
+    return buildMonthlyProgramHTML({
+      year, month: months[0], byDay, projectColorMap, projectNameMap, assigneeNameMap,
+    })
+  }
+
+  const programTitle = `البرنامج السنوي ${year}`
+  const programSub = 'عرض شامل لمهام السنة موزّعة على الأشهر والأسابيع — اللون يعبّر عن المشروع'
 
   const PDAY = 42       // print day-cell width (px)
   const maxWeeks = Math.max(...months.map((m) => monthMatrix(year, m).length))
@@ -691,6 +694,108 @@ h1{font-size:18px;font-weight:700}
 ${headerRow}
 ${monthRows}
 </div>
+${legend ? `<div class="legend">${legend}</div>` : ''}
+<div class="footer">تاريخ الطباعة: ${new Date().toLocaleDateString('ar-SA')}</div>
+</body>
+</html>`
+}
+
+// ════════════════════ Monthly program print (vertical calendar grid) ════════════════════
+function buildMonthlyProgramHTML({
+  year, month, byDay, projectColorMap, projectNameMap, assigneeNameMap,
+}: {
+  year: number
+  month: number
+  byDay: Map<string, Task[]>
+  projectColorMap: Record<string, string>
+  projectNameMap: Record<string, string>
+  assigneeNameMap: Record<string, string>
+}): string {
+  const monthName = monthLabel(year, month).split(' ')[0]
+  const weeks = monthMatrix(year, month)
+
+  const chipHtml = (t: Task): string => {
+    const isFree = !t.projectId
+    const color = isFree ? PRINT_FREE : (projectColorMap[t.projectId as string] ?? PRINT_FREE)
+    const assignee = t.assigneeId ? assigneeNameMap[t.assigneeId] : ''
+    const done = t.status === 'done'
+    const cls = `chip${isFree ? ' free' : ''}${done ? ' done' : ''}`
+    return `<div class="${cls}" style="background:${color}">`
+      + `<span class="t">${escHtml(t.title)}</span>`
+      + (assignee ? `<span class="a">${escHtml(assignee)}</span>` : '')
+      + `</div>`
+  }
+
+  const cellHtml = (date: Date): string => {
+    const key = dateToKey(date)
+    const inMonth = keyInMonth(key, year, month)
+    if (!inMonth) return `<td class="cell out"></td>`
+    const dayTasks = byDay.get(key) ?? []
+    const shown = dayTasks.slice(0, 6)
+    const extra = dayTasks.length - shown.length
+    return `<td class="cell">`
+      + `<div class="dn">${date.getUTCDate()}</div>`
+      + shown.map(chipHtml).join('')
+      + (extra > 0 ? `<div class="more">+${extra} مهمة</div>` : '')
+      + `</td>`
+  }
+
+  const headerRow = `<tr>${WEEKDAYS.map((d) => `<th class="wd">${d}</th>`).join('')}</tr>`
+  const weekRows = weeks.map((week) =>
+    `<tr>${week.map((d) => cellHtml(d)).join('')}</tr>`
+  ).join('')
+
+  // Legend — only projects that own at least one task this month
+  const usedProjectIds = new Set<string>()
+  weeks.flat().forEach((d) => {
+    const k = dateToKey(d)
+    if (!keyInMonth(k, year, month)) return
+    ;(byDay.get(k) ?? []).forEach((t) => { if (t.projectId) usedProjectIds.add(t.projectId) })
+  })
+  const legend = [...usedProjectIds]
+    .map((id) => `<span class="lg"><span class="sw" style="background:${projectColorMap[id] ?? PRINT_FREE}"></span>${escHtml(projectNameMap[id] ?? id)}</span>`)
+    .join('')
+
+  return `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>البرنامج الشهري — ${escHtml(monthName)} ${year}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Cairo',sans-serif;background:#fff;color:#0f172a;padding:16px 20px;direction:rtl}
+@page{size:A4 landscape;margin:10mm}
+h1{font-size:20px;font-weight:700}
+.sub{color:#64748b;font-size:12px;margin-bottom:14px}
+.print-btn{padding:9px 22px;background:#6366f1;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:'Cairo',sans-serif;margin-bottom:14px}
+@media print{.print-btn{display:none}}
+table.cal{width:100%;border-collapse:collapse;table-layout:fixed}
+.wd{padding:6px 4px;font-size:11px;font-weight:700;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;text-align:center}
+.cell{vertical-align:top;border:1px solid #e5e7eb;padding:3px;height:96px;width:14.28%;overflow:hidden}
+.cell.out{background:#fafafa;border-color:#f1f5f9}
+.dn{font-size:11px;color:#475569;font-weight:700;text-align:left;margin-bottom:2px}
+.chip{border-radius:3px;padding:2px 4px;color:#fff;overflow:hidden;margin-bottom:2px}
+.chip .t{display:block;font-size:8.5px;font-weight:700;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip .a{display:block;font-size:7.5px;line-height:1.15;opacity:.88;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip.free{background:#e2e8f0!important;color:#334155}
+.chip.done{opacity:.5}
+.chip.done .t{text-decoration:line-through}
+.more{font-size:8px;color:#94a3b8;font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:16px;padding-top:10px;border-top:1px solid #e5e7eb}
+.lg{display:flex;align-items:center;gap:5px;font-size:11px;color:#334155}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+.footer{margin-top:12px;font-size:10px;color:#94a3b8}
+</style>
+</head>
+<body>
+<button class="print-btn" onclick="window.print()">طباعة / حفظ كـ PDF</button>
+<h1>البرنامج الشهري — ${escHtml(monthName)} ${year}</h1>
+<div class="sub">عرض مهام الشهر موزّعة على أيام الأسبوع — اللون يعبّر عن المشروع</div>
+<table class="cal">
+<thead>${headerRow}</thead>
+<tbody>${weekRows}</tbody>
+</table>
 ${legend ? `<div class="legend">${legend}</div>` : ''}
 <div class="footer">تاريخ الطباعة: ${new Date().toLocaleDateString('ar-SA')}</div>
 </body>
