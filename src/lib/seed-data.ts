@@ -179,7 +179,7 @@ export const SEED_PROJECTS: Project[] = [
     logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgcng9IjQ0IiBmaWxsPSIjRjQ1ODFDIi8+PGcgZmlsbD0iI2ZmZiI+PHJlY3QgeD0iNTYiIHk9IjY4IiB3aWR0aD0iMTIiIGhlaWdodD0iNjQiIHJ4PSIzIi8+PHJlY3QgeD0iNzgiIHk9IjY4IiB3aWR0aD0iNyIgaGVpZ2h0PSI2NCIgcng9IjMiLz48cmVjdCB4PSI5NSIgeT0iNjgiIHdpZHRoPSIxNiIgaGVpZ2h0PSI2NCIgcng9IjMiLz48cmVjdCB4PSIxMjEiIHk9IjY4IiB3aWR0aD0iNyIgaGVpZ2h0PSI2NCIgcng9IjMiLz48cmVjdCB4PSIxMzgiIHk9IjY4IiB3aWR0aD0iMTIiIGhlaWdodD0iNjQiIHJ4PSIzIi8+PC9nPjxwYXRoIGQ9Ik00NCA2MFY0OHEwLTggOC04aDE0TTE1NiA2MFY0OHEwLTgtOC04aC0xNE00NCAxNDB2MTJxMCA4IDggOGgxNE0xNTYgMTQwdjEycTAgOC04IDhoLTE0IiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMTAiIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg==',
     category: 'منصة بيانات منتجات',
     type: 'technical',
-    tools: ['overview', 'product', 'execution', 'meetings', 'team', 'kpis', 'notes'],
+    tools: ['overview', 'product', 'execution', 'meetings', 'team', 'kpis', 'finance', 'notes'],
     createdAt: '2026-03-01T00:00:00Z',
     updatedAt: '2026-06-09T00:00:00Z',
     tags: ['بيانات المنتجات', 'GS1', 'هيئة الغذاء والدواء', 'باركود', 'ذكاء اصطناعي'],
@@ -462,7 +462,16 @@ export const SEED_TEAM: TeamMember[] = [
 
 // Remaining modular-tool stores start empty; seed projects are technical and don't use them.
 export const SEED_SCHEDULE: ScheduleEvent[] = []
-export const SEED_FINANCE: FinanceEntry[] = []
+
+// ملصق — حركات مالية: رواتب والتزامات البنية التحتية الشهرية + إيراد متوقع
+export const SEED_FINANCE: FinanceEntry[] = [
+  { id: 'fin-mlsq-1', projectId: 'mellasaq', title: 'رواتب فريق التطوير', kind: 'expense', amount: 12000, currency: 'SAR', category: 'رواتب', status: 'paid', date: '2026-06-01T00:00:00Z', recurring: true, order: 0, createdAt: '2026-06-01T00:00:00Z' },
+  { id: 'fin-mlsq-2', projectId: 'mellasaq', title: 'استضافة الخوادم والبنية السحابية', kind: 'expense', amount: 1100, currency: 'SAR', category: 'بنية تحتية', status: 'paid', date: '2026-06-01T00:00:00Z', recurring: true, order: 1, createdAt: '2026-06-01T00:00:00Z' },
+  { id: 'fin-mlsq-3', projectId: 'mellasaq', title: 'اشتراك أدوات الذكاء الاصطناعي ومعالجة البيانات', kind: 'expense', amount: 800, currency: 'SAR', category: 'بنية تحتية', status: 'paid', date: '2026-06-01T00:00:00Z', recurring: true, order: 2, createdAt: '2026-06-01T00:00:00Z' },
+  { id: 'fin-mlsq-4', projectId: 'mellasaq', title: 'نطاق checkersa.com وشهادات الأمان (سنوي)', kind: 'expense', amount: 350, currency: 'SAR', category: 'بنية تحتية', status: 'paid', date: '2026-05-15T00:00:00Z', order: 3, createdAt: '2026-05-15T00:00:00Z' },
+  { id: 'fin-mlsq-5', projectId: 'mellasaq', title: 'حملة تعريفية بمنصة الأعمال (مخططة)', kind: 'expense', amount: 2500, currency: 'SAR', category: 'تسويق', status: 'planned', date: '2026-08-01T00:00:00Z', order: 4, createdAt: '2026-06-09T00:00:00Z' },
+  { id: 'fin-mlsq-6', projectId: 'mellasaq', title: 'إيراد باقات الأعمال المتوقع بعد الإطلاق', kind: 'income', amount: 15000, currency: 'SAR', category: 'إيرادات', status: 'planned', date: '2026-09-15T00:00:00Z', order: 5, createdAt: '2026-06-09T00:00:00Z' },
+]
 
 // ملصق — مؤشرات مخرجات النجاح لمرحلة التمكين (يتابعها الشركاء من تبويب المؤشرات)
 export const SEED_KPIS: Kpi[] = [
@@ -486,6 +495,7 @@ export const SEED_MEETINGS: Meeting[] = [
     achievements: 'اعتماد خطة التمكين الاستراتيجي والجاهزية السوقية بمساراتها الخمسة.\nتحديد أولويات الشهر الأول: مطابقة حقول GS1 وحصر ملاحظات الهيئة.',
     challenges: 'الوصول لبيئة الاختبار في مركز الترميز يحتاج تنسيقاً — المعالجة: التواصل مع مدير الحساب خلال هذا الأسبوع.',
     decisions: 'جلسة متابعة أسبوعية كل اثنين 10:00 صباحاً.\nالبدء بالمسارين الأول والثاني بالتوازي قبل فتح مساري المنتج.',
+    recommendations: 'تجهيز عرض موجز للشركاء عن خطة الربط مع مركز الترميز.\nدعوة ممثل الهيئة لجلسة تنسيقية خلال الشهر الأول.',
     actionItems: [
       { id: 'ai-1-1', title: 'طلب وصول لبيئة الاختبار من مركز الترميز', assigneeId: 'tm7', done: false },
       { id: 'ai-1-2', title: 'مشاركة قائمة الملاحظات المعلقة لدى الهيئة', assigneeId: 'tm5', done: true },

@@ -1,6 +1,6 @@
 'use client'
-import { useState } from 'react'
-import { Plus, Trash2, Check, X, Wallet, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Plus, Trash2, Check, X, Wallet, ArrowUpRight, ArrowDownRight, Repeat, Users2, Server, Megaphone, Wrench, Tag, CircleDollarSign, type LucideIcon } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import type { Project, FinanceEntry, FinanceKind, FinanceStatus } from '@/types'
 import { useFinanceStore } from '@/store/store'
@@ -11,6 +11,17 @@ const STATUS_LABEL: Record<FinanceStatus, string> = { planned: 'مخطط', paid:
 const STATUS_VAR: Record<FinanceStatus, string> = {
   planned: 'var(--fg-3)', paid: 'var(--success-500)', overdue: 'var(--danger-500)',
 }
+
+/** Standard categories: salaries, infrastructure, marketing, operations, revenue. */
+const CATEGORY_PRESETS = ['رواتب', 'بنية تحتية', 'تسويق', 'عمليات', 'إيرادات'] as const
+const CATEGORY_ICON: Record<string, LucideIcon> = {
+  'رواتب': Users2,
+  'بنية تحتية': Server,
+  'تسويق': Megaphone,
+  'عمليات': Wrench,
+  'إيرادات': CircleDollarSign,
+}
+const OTHER_CATEGORY = 'غير مصنف'
 
 function fmt(n: number) { return n.toLocaleString('en-US') }
 
@@ -27,14 +38,32 @@ export default function FinanceTab({ project }: Props) {
   const income = entries.filter((e) => e.kind === 'income').reduce((s, e) => s + e.amount, 0)
   const expense = entries.filter((e) => e.kind === 'expense').reduce((s, e) => s + e.amount, 0)
   const balance = income - expense
+  // Monthly burn: recurring expense commitments (salaries, hosting, subscriptions…)
+  const monthly = entries.filter((e) => e.kind === 'expense' && e.recurring).reduce((s, e) => s + e.amount, 0)
+
+  // Group entries by category, largest total first
+  const groups = useMemo(() => {
+    const map = new Map<string, FinanceEntry[]>()
+    for (const e of entries) {
+      const cat = e.category || OTHER_CATEGORY
+      if (!map.has(cat)) map.set(cat, [])
+      map.get(cat)!.push(e)
+    }
+    return [...map.entries()].sort((a, b) => {
+      const ta = a[1].reduce((s, e) => s + e.amount, 0)
+      const tb = b[1].reduce((s, e) => s + e.amount, 0)
+      return tb - ta
+    })
+  }, [entries])
 
   return (
     <div className="space-y-5">
       {/* Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <SummaryCard label="الإيرادات" value={income} currency={currency} color="var(--success-500)" icon={<ArrowUpRight size={16} />} />
         <SummaryCard label="المصروفات" value={expense} currency={currency} color="var(--danger-500)" icon={<ArrowDownRight size={16} />} />
         <SummaryCard label="الرصيد" value={balance} currency={currency} color={balance >= 0 ? 'var(--iris-500)' : 'var(--danger-500)'} icon={<Wallet size={16} />} />
+        <SummaryCard label="التزامات شهرية" value={monthly} currency={currency} color="var(--danger-500)" icon={<Repeat size={16} />} hint="رواتب وبنية تحتية متكررة" />
       </div>
 
       {/* Charts */}
@@ -60,25 +89,48 @@ export default function FinanceTab({ project }: Props) {
           </button>
         </div>
 
-        <div className="space-y-2">
-          {entries.map((e) =>
-            editingId === e.id
-              ? <EntryForm key={e.id} initial={e} onSave={(d) => { updateEntry(e.id, d); setEditingId(null) }} onCancel={() => setEditingId(null)} />
-              : <EntryRow key={e.id} entry={e} onEdit={() => setEditingId(e.id)} onDelete={() => deleteEntry(e.id)} />
-          )}
-          {adding && (
+        {adding && (
+          <div className="mb-4">
             <EntryForm
               defaultCurrency={currency}
               onSave={(d) => { addEntry({ ...d, projectId: pid }); setAdding(false) }}
               onCancel={() => setAdding(false)}
             />
-          )}
+          </div>
+        )}
+
+        {/* Grouped by category */}
+        <div className="space-y-5">
+          {groups.map(([cat, list]) => {
+            const Icon = CATEGORY_ICON[cat] ?? Tag
+            const subtotal = list.reduce((s, e) => s + (e.kind === 'income' ? e.amount : -e.amount), 0)
+            return (
+              <div key={cat}>
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <p className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                    <Icon size={13} /> {cat}
+                    <span className="axis-num font-normal" style={{ color: 'var(--color-text-muted)' }}>({list.length})</span>
+                  </p>
+                  <span className="axis-num text-xs font-bold" style={{ color: subtotal >= 0 ? 'var(--success-500)' : 'var(--danger-500)' }}>
+                    {subtotal >= 0 ? '+' : '−'}{fmt(Math.abs(subtotal))} {currency}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {list.map((e) =>
+                    editingId === e.id
+                      ? <EntryForm key={e.id} initial={e} onSave={(d) => { updateEntry(e.id, d); setEditingId(null) }} onCancel={() => setEditingId(null)} />
+                      : <EntryRow key={e.id} entry={e} onEdit={() => setEditingId(e.id)} onDelete={() => deleteEntry(e.id)} />
+                  )}
+                </div>
+              </div>
+            )
+          })}
         </div>
 
         {entries.length === 0 && !adding && (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
             <Wallet size={28} style={{ color: 'var(--color-text-muted)' }} strokeWidth={1.5} />
-            <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>لا توجد حركات مالية بعد</p>
+            <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>لا توجد حركات مالية بعد — ابدأ بإضافة الرواتب والتزامات البنية التحتية</p>
           </div>
         )}
       </div>
@@ -86,7 +138,7 @@ export default function FinanceTab({ project }: Props) {
   )
 }
 
-function SummaryCard({ label, value, currency, color, icon }: { label: string; value: number; currency: string; color: string; icon: React.ReactNode }) {
+function SummaryCard({ label, value, currency, color, icon, hint }: { label: string; value: number; currency: string; color: string; icon: React.ReactNode; hint?: string }) {
   return (
     <div className="rounded-xl p-4" style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)' }}>
       <div className="flex items-center gap-2 mb-1" style={{ color }}>
@@ -96,6 +148,7 @@ function SummaryCard({ label, value, currency, color, icon }: { label: string; v
       <p className="axis-num text-xl font-bold" style={{ color }}>
         {fmt(value)} <span className="text-xs font-normal" style={{ color: 'var(--color-text-muted)' }}>{currency}</span>
       </p>
+      {hint && <p className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>{hint}</p>}
     </div>
   )
 }
@@ -112,9 +165,13 @@ function EntryRow({ entry: e, onEdit, onDelete }: { entry: FinanceEntry; onEdit:
     >
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{e.title}</p>
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          {e.category && <span>{e.category}</span>}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
           {e.date && <span className="num-tabular">{formatDateShort(e.date)}</span>}
+          {e.recurring && (
+            <span className="inline-flex items-center gap-1 px-1.5 rounded font-medium" style={{ background: 'var(--color-surface-muted)', color: 'var(--color-text-secondary)' }}>
+              <Repeat size={10} /> شهري
+            </span>
+          )}
         </div>
       </div>
       <span
@@ -173,7 +230,7 @@ function DonutChart({ income, expense }: { income: number; expense: number }) {
 function CategoryBars({ entries, currency }: { entries: FinanceEntry[]; currency: string }) {
   const grouped: Record<string, { income: number; expense: number }> = {}
   for (const e of entries) {
-    const cat = e.category || 'غير مصنف'
+    const cat = e.category || OTHER_CATEGORY
     if (!grouped[cat]) grouped[cat] = { income: 0, expense: 0 }
     grouped[cat][e.kind] += e.amount
   }
@@ -206,26 +263,32 @@ function CategoryBars({ entries, currency }: { entries: FinanceEntry[]; currency
 
 const inputCls = 'w-full h-8 rounded-md px-2 text-sm outline-none'
 const inputStyle = { background: 'var(--color-surface-muted)', border: '1px solid var(--color-surface-border)', color: 'var(--color-text-primary)' } as React.CSSProperties
+const CUSTOM = '__custom'
 
 function EntryForm({ initial, defaultCurrency, onSave, onCancel }: { initial?: FinanceEntry; defaultCurrency?: string; onSave: (d: Omit<FinanceEntry, 'id' | 'order' | 'createdAt' | 'projectId'>) => void; onCancel: () => void }) {
   const [title, setTitle] = useState(initial?.title ?? '')
   const [kind, setKind] = useState<FinanceKind>(initial?.kind ?? 'expense')
   const [amount, setAmount] = useState(initial ? String(initial.amount) : '')
   const [currency, setCurrency] = useState(initial?.currency ?? defaultCurrency ?? 'SAR')
-  const [category, setCategory] = useState(initial?.category ?? '')
+  const initialCat = initial?.category ?? ''
+  const isPreset = !initialCat || (CATEGORY_PRESETS as readonly string[]).includes(initialCat)
+  const [catChoice, setCatChoice] = useState(isPreset ? initialCat : CUSTOM)
+  const [catCustom, setCatCustom] = useState(isPreset ? '' : initialCat)
   const [status, setStatus] = useState<FinanceStatus>(initial?.status ?? 'planned')
   const [date, setDate] = useState(initial?.date ? initial.date.slice(0, 10) : '')
+  const [recurring, setRecurring] = useState(initial?.recurring ?? false)
 
   const save = () => {
     if (!title.trim()) return
-    onSave({ title, kind, amount: parseFloat(amount) || 0, currency, category: category || undefined, status, date: date ? new Date(date).toISOString() : undefined })
+    const category = catChoice === CUSTOM ? (catCustom.trim() || undefined) : (catChoice || undefined)
+    onSave({ title, kind, amount: parseFloat(amount) || 0, currency, category, status, date: date ? new Date(date).toISOString() : undefined, recurring: recurring || undefined })
   }
 
   return (
     <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--iris-500)' }}>
       <div>
         <label className="axis-label mb-1 block">البيان</label>
-        <input className={inputCls} style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="مثال: إيجار القاعة" autoFocus />
+        <input className={inputCls} style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="مثال: راتب مطوّر الواجهات" autoFocus />
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
@@ -255,10 +318,34 @@ function EntryForm({ initial, defaultCurrency, onSave, onCancel }: { initial?: F
           <input type="date" className={inputCls} style={inputStyle} value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
       </div>
-      <div>
-        <label className="axis-label mb-1 block">التصنيف</label>
-        <input className={inputCls} style={inputStyle} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="مثال: لوجستيات" />
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="axis-label mb-1 block">التصنيف</label>
+          <select className={inputCls} style={inputStyle} value={catChoice} onChange={(e) => setCatChoice(e.target.value)}>
+            <option value="">بلا تصنيف</option>
+            {CATEGORY_PRESETS.map((c) => <option key={c} value={c}>{c}</option>)}
+            <option value={CUSTOM}>تصنيف آخر…</option>
+          </select>
+        </div>
+        {catChoice === CUSTOM && (
+          <div>
+            <label className="axis-label mb-1 block">اسم التصنيف</label>
+            <input className={inputCls} style={inputStyle} value={catCustom} onChange={(e) => setCatCustom(e.target.value)} placeholder="مثال: لوجستيات" />
+          </div>
+        )}
       </div>
+      <label className="flex items-center gap-2 cursor-pointer select-none">
+        <button
+          type="button"
+          onClick={() => setRecurring((v) => !v)}
+          className="w-4 h-4 rounded flex items-center justify-center shrink-0 transition-colors"
+          style={{ background: recurring ? 'var(--iris-500)' : 'transparent', border: recurring ? 'none' : '1.5px solid var(--color-surface-border)' }}
+          aria-label="التزام شهري متكرر"
+        >
+          {recurring && <Check size={11} color="#fff" strokeWidth={3} />}
+        </button>
+        <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>التزام شهري متكرر (راتب، استضافة، اشتراك…)</span>
+      </label>
       <div className="flex gap-2 pt-1">
         <button onClick={save} className="flex items-center gap-1 px-3 h-7 rounded-md text-xs font-semibold" style={{ background: 'var(--iris-500)', color: 'white' }}>
           <Check size={12} /> حفظ
