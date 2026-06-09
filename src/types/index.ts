@@ -270,9 +270,10 @@ export interface Meeting {
   kind?: MeetingKind
   attendees: string[]   // TeamMember ids
   agenda: MeetingAgendaItem[]
-  achievements?: string // المنجزات
-  challenges?: string   // التحديات والمعالجات
-  decisions?: string    // القرارات
+  achievements?: string    // المنجزات
+  challenges?: string      // التحديات والمعالجات
+  decisions?: string       // القرارات
+  recommendations?: string // التوصيات والمخرجات
   actionItems: MeetingActionItem[]
   status: MeetingStatus
   createdAt: string
@@ -293,6 +294,8 @@ export interface FinanceEntry {
   status: FinanceStatus
   date?: string
   notes?: string
+  /** Monthly recurring commitment (salaries, hosting, subscriptions…). */
+  recurring?: boolean
   order: number
   createdAt: string
 }

@@ -46,13 +46,14 @@ export const useProjectStore = create<ProjectStore>()(
     }),
     {
       name: 'mhwar-projects',
-      version: 3,
+      version: 4,
       skipHydration: true,
       // v1 → v2: backfill the modular-tools fields on existing projects.
       // Older projects predate `type`/`tools`; treat them as technical with the
       // legacy 5-tool layout so nothing disappears after the upgrade.
       // v2 → v3: مشروع ملصق — refresh the placeholder seed record with the real
       // product identity (data platform, GS1/SFDA), keeping any user-added tools.
+      // v3 → v4: مشروع ملصق — enable the finance tab (salaries/infrastructure demo).
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { projects?: Project[] } | undefined
         if (!state) return state as never
@@ -86,6 +87,13 @@ export const useProjectStore = create<ProjectStore>()(
                 : p
             )
           }
+        }
+        if (version < 4) {
+          state.projects = (state.projects ?? []).map((p) =>
+            p.id === 'mellasaq' && !p.tools.includes('finance')
+              ? { ...p, tools: [...p.tools.filter((t) => t !== 'notes'), 'finance', ...(p.tools.includes('notes') ? ['notes'] : [])] }
+              : p
+          )
         }
         return state as never
       },
@@ -897,7 +905,25 @@ export const useMeetingStore = create<MeetingStore>()(
           .meetings.filter((m) => m.projectId === projectId)
           .sort((a, b) => b.date.localeCompare(a.date)),
     }),
-    { name: 'mhwar-meetings', version: 1, skipHydration: true }
+    {
+      name: 'mhwar-meetings',
+      version: 2,
+      skipHydration: true,
+      // v1→v2: backfill the new recommendations field on the seeded kickoff meeting.
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as { meetings?: Meeting[] } | undefined
+        if (!state?.meetings) return state
+        if (version < 2) {
+          const seedById: Record<string, Meeting> = Object.fromEntries(SEED_MEETINGS.map((m) => [m.id, m]))
+          state.meetings = state.meetings.map((m) =>
+            seedById[m.id] && m.recommendations === undefined
+              ? { ...m, recommendations: seedById[m.id].recommendations }
+              : m
+          )
+        }
+        return state
+      },
+    }
   )
 )
 
@@ -930,7 +956,25 @@ export const useFinanceStore = create<FinanceStore>()(
       deleteEntry: (id) =>
         set((s) => ({ entries: s.entries.filter((e) => e.id !== id) })),
     }),
-    { name: 'mhwar-finance', version: 1, skipHydration: true }
+    {
+      name: 'mhwar-finance',
+      version: 2,
+      skipHydration: true,
+      // v1→v2: merge ملصق salaries/infrastructure demo entries by id.
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as { entries?: FinanceEntry[] } | undefined
+        if (!state) return state
+        if (version < 2) {
+          const entries = state.entries ?? []
+          const have = new Set(entries.map((e) => e.id))
+          for (const seed of SEED_FINANCE) {
+            if (seed.id.startsWith('fin-mlsq-') && !have.has(seed.id)) entries.push(seed)
+          }
+          state.entries = entries
+        }
+        return state
+      },
+    }
   )
 )
 
