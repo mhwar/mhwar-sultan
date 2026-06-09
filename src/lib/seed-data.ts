@@ -1,4 +1,4 @@
-import type { Project, Task, Plan, PlanPhase, Note, Sprint, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, Kpi, Client, ContentItem, Portfolio } from '@/types'
+import type { Project, Task, Plan, PlanPhase, Note, Sprint, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, Kpi, Client, ContentItem, Portfolio, Meeting } from '@/types'
 import { FALLBACK_TOOL_IDS } from '@/lib/project-types'
 
 export const SEED_METRICS: GrowthMetric[] = [
@@ -72,6 +72,79 @@ export const SEED_SPRINTS: Sprint[] = [
     ],
     createdAt: '2026-06-01T00:00:00Z',
   },
+
+  // ── ملصق — مسارات العمل الخمسة لخطة التمكين الاستراتيجي (قيادة: سفيان) ──
+  {
+    id: 'sp-mlsq-1', projectId: 'mellasaq', name: 'تكامل نظام الترميز (GS1)',
+    goal: 'ربط فعلي وتكامل بيانات مع مركز الترميز السعودي لترسيخ الموثوقية وسحب تفاصيل المنتجات تلقائياً',
+    status: 'active', startDate: '2026-06-09T00:00:00Z', dueDate: '2026-08-31T00:00:00Z', order: 1,
+    lead: 'tm7',
+    checklist: [
+      { id: 'mc-1-1', title: 'تحليل ومطابقة حقول النموذج العالمي مع قاعدة بيانات ملصق', done: false },
+      { id: 'mc-1-2', title: 'رسم البنية المعمارية للربط المباشر', done: false },
+      { id: 'mc-1-3', title: 'نموذج أولي لسحب بيانات الباركود في البيئة التجريبية', done: false },
+      { id: 'mc-1-4', title: 'اعتماد مخطط المطابقة وخطة الربط الهندسية', done: false },
+    ],
+    updates: [
+      { id: 'mu-1-1', text: 'انطلاق المسار ضمن خطة التمكين — التركيز الأول على مطابقة حقول البيانات.', createdAt: '2026-06-09T09:00:00Z' },
+    ],
+    createdAt: '2026-06-09T00:00:00Z',
+  },
+  {
+    id: 'sp-mlsq-2', projectId: 'mellasaq', name: 'تطوير ملف الغذاء والدواء',
+    goal: 'إغلاق الملفات المعلقة مع الهيئة وبناء قناة تواصل تقني مستمرة لترسيخ المصداقية الرسمية',
+    status: 'active', startDate: '2026-06-09T00:00:00Z', dueDate: '2026-08-31T00:00:00Z', order: 2,
+    lead: 'tm7',
+    checklist: [
+      { id: 'mc-2-1', title: 'إغلاق الملفات والملاحظات المعلقة مع الهيئة', done: false },
+      { id: 'mc-2-2', title: 'بناء قناة تواصل تقني مستمرة', done: false },
+      { id: 'mc-2-3', title: 'مواءمة بيانات الحساسيات مع المعايير الرسمية المعتمدة', done: false },
+      { id: 'mc-2-4', title: 'دراسة فرص الربط المستقبلي لمؤشرات الصحة العامة', done: false },
+    ],
+    updates: [
+      { id: 'mu-2-1', text: 'انطلاق المسار — جارٍ حصر الملاحظات المعلقة لدى الهيئة.', createdAt: '2026-06-09T09:30:00Z' },
+    ],
+    createdAt: '2026-06-09T00:00:00Z',
+  },
+  {
+    id: 'sp-mlsq-3', projectId: 'mellasaq', name: 'تحسين تطبيق الأفراد',
+    goal: 'فهم ملاءمة المنتج لصحة المستخدم في أقل من ثانية واحدة من المسح',
+    status: 'active', startDate: '2026-06-15T00:00:00Z', dueDate: '2026-09-09T00:00:00Z', order: 3,
+    lead: 'tm7',
+    checklist: [
+      { id: 'mc-3-1', title: 'تبسيط واجهات الهاتف وجعل مسح الباركود بلمسة واحدة', done: false },
+      { id: 'mc-3-2', title: 'تطوير خوارزميات الذكاء الاصطناعي لتشخيص المكونات بدقة', done: false },
+      { id: 'mc-3-3', title: 'معايير آلية لتنظيف قاعدة البيانات واستكمال النواقص', done: false },
+      { id: 'mc-3-4', title: 'إطلاق ميزات جديدة تعزز تجربة المستهلك', done: false },
+    ],
+    createdAt: '2026-06-09T00:00:00Z',
+  },
+  {
+    id: 'sp-mlsq-4', projectId: 'mellasaq', name: 'تأطير منصة ملصق للأعمال',
+    goal: 'منصة تصل الشركات والمصانع والأسر المنتجة بالجهات التي يحتاجونها — لوحة تحكم ونماذج اشتراك ودخل',
+    status: 'planned', startDate: '2026-07-01T00:00:00Z', dueDate: '2026-09-09T00:00:00Z', order: 4,
+    lead: 'tm7',
+    checklist: [
+      { id: 'mc-4-1', title: 'تحديد الخدمات الموجهة للشركات الغذائية والمصانع والأسر المنتجة', done: false },
+      { id: 'mc-4-2', title: 'وضع المخطط الهيكلي للوحة التحكم لمراقبة وتعديل بيانات المنتجات', done: false },
+      { id: 'mc-4-3', title: 'هيكلة نماذج الاشتراك والدخل (باقات شهرية، API، حزم تقارير)', done: false },
+      { id: 'mc-4-4', title: 'لوحة تحكم مخصصة لباقات الشركات والأعمال', done: false },
+    ],
+    createdAt: '2026-06-09T00:00:00Z',
+  },
+  {
+    id: 'sp-mlsq-5', projectId: 'mellasaq', name: 'شراكات السوق والنمو',
+    goal: 'قائمة واضحة لفرص وشراكات السوق ذات الأولوية ومسودة أولية لخطة النمو',
+    status: 'planned', startDate: '2026-07-15T00:00:00Z', dueDate: '2026-09-09T00:00:00Z', order: 5,
+    lead: 'tm7',
+    checklist: [
+      { id: 'mc-5-1', title: 'حصر وتصنيف الحلفاء — جمعيات صحية وسلاسل تجزئة ومصانع أغذية', done: false },
+      { id: 'mc-5-2', title: 'صياغة عروض التعاون متبادلة القيمة', done: false },
+      { id: 'mc-5-3', title: 'هندسة خطة الوصول للسوق وتحديد القنوات الفعالة', done: false },
+      { id: 'mc-5-4', title: 'وضع معايير ومؤشرات الجاهزية للتوسع الخليجي لاحقاً', done: false },
+    ],
+    createdAt: '2026-06-09T00:00:00Z',
+  },
 ]
 
 export const SEED_PROJECTS: Project[] = [
@@ -97,19 +170,20 @@ export const SEED_PROJECTS: Project[] = [
   {
     id: 'mellasaq',
     name: 'ملصق',
-    nameEn: 'Mellasaq',
-    description: 'تطبيق إنشاء وتخصيص الملصقات والبطاقات الرقمية. تصاميم احترافية بسهولة وسرعة. يدعم التصدير بصيغ متعددة.',
-    status: 'planning',
-    progress: 10,
-    color: '#F59E0B',
-    icon: 'tag',
-    category: 'تطبيق ويب',
+    nameEn: 'Mulsaq',
+    description: 'منصة سعودية تساعد المستخدمين على فهم المنتجات واتخاذ قرارات أفضل عبر تحليل المكونات والبيانات الغذائية والحساسيات — حلقة الوصل بين الشركات والمصانع والأسر المنتجة وبين الجهات التي يحتاجونها مثل GS1 وهيئة الغذاء والدواء.',
+    status: 'active',
+    progress: 35,
+    color: '#F4581C',
+    icon: 'scan-barcode',
+    logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgcng9IjQ0IiBmaWxsPSIjRjQ1ODFDIi8+PGcgZmlsbD0iI2ZmZiI+PHJlY3QgeD0iNTYiIHk9IjY4IiB3aWR0aD0iMTIiIGhlaWdodD0iNjQiIHJ4PSIzIi8+PHJlY3QgeD0iNzgiIHk9IjY4IiB3aWR0aD0iNyIgaGVpZ2h0PSI2NCIgcng9IjMiLz48cmVjdCB4PSI5NSIgeT0iNjgiIHdpZHRoPSIxNiIgaGVpZ2h0PSI2NCIgcng9IjMiLz48cmVjdCB4PSIxMjEiIHk9IjY4IiB3aWR0aD0iNyIgaGVpZ2h0PSI2NCIgcng9IjMiLz48cmVjdCB4PSIxMzgiIHk9IjY4IiB3aWR0aD0iMTIiIGhlaWdodD0iNjQiIHJ4PSIzIi8+PC9nPjxwYXRoIGQ9Ik00NCA2MFY0OHEwLTggOC04aDE0TTE1NiA2MFY0OHEwLTgtOC04aC0xNE00NCAxNDB2MTJxMCA4IDggOGgxNE0xNTYgMTQwdjEycTAgOC04IDhoLTE0IiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMTAiIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg==',
+    category: 'منصة بيانات منتجات',
     type: 'technical',
-    tools: FALLBACK_TOOL_IDS,
+    tools: ['overview', 'product', 'execution', 'meetings', 'team', 'kpis', 'notes'],
     createdAt: '2026-03-01T00:00:00Z',
-    updatedAt: '2026-06-03T00:00:00Z',
-    tags: ['React', 'Canvas API', 'PWA'],
-    links: [],
+    updatedAt: '2026-06-09T00:00:00Z',
+    tags: ['بيانات المنتجات', 'GS1', 'هيئة الغذاء والدواء', 'باركود', 'ذكاء اصطناعي'],
+    links: [{ label: 'الموقع الرسمي', url: 'https://checkersa.com' }],
   },
   {
     id: 'bawsala',
@@ -198,11 +272,28 @@ export const SEED_TASKS: Task[] = [
   { id: 't5', projectId: 'mehwar', assigneeId: 'tm4', title: 'نظام الإشعارات', status: 'todo', priority: 'low', startDate: '2026-06-10T00:00:00Z', dueDate: '2026-07-15T00:00:00Z', tags: ['notifications'], createdAt: '2026-03-01T00:00:00Z' },
   { id: 't6', projectId: 'mehwar', assigneeId: 'tm3', title: 'تصدير البيانات', status: 'todo', priority: 'low', startDate: '2026-06-20T00:00:00Z', dueDate: '2026-07-30T00:00:00Z', createdAt: '2026-03-10T00:00:00Z' },
 
-  // ملصق
+  // ملصق — مرحلة التمكين الاستراتيجي (المهام موكلة لسفيان tm7 ليتابعها الشركاء)
   { id: 't7', projectId: 'mellasaq', assigneeId: 'tm5', title: 'تحديد متطلبات المشروع', status: 'done', priority: 'high', startDate: '2026-03-05T00:00:00Z', dueDate: '2026-03-15T00:00:00Z', createdAt: '2026-03-05T00:00:00Z' },
   { id: 't8', projectId: 'mellasaq', assigneeId: 'tm5', title: 'بحث المنافسين والسوق', status: 'done', priority: 'medium', startDate: '2026-03-10T00:00:00Z', dueDate: '2026-03-20T00:00:00Z', createdAt: '2026-03-10T00:00:00Z' },
-  { id: 't9', projectId: 'mellasaq', assigneeId: 'tm2', title: 'تصميم نماذج الملصقات', status: 'todo', priority: 'high', startDate: '2026-06-15T00:00:00Z', dueDate: '2026-07-10T00:00:00Z', createdAt: '2026-03-15T00:00:00Z' },
-  { id: 't10', projectId: 'mellasaq', assigneeId: 'tm3', title: 'محرر الملصقات التفاعلي', status: 'todo', priority: 'high', startDate: '2026-07-01T00:00:00Z', dueDate: '2026-08-15T00:00:00Z', createdAt: '2026-04-01T00:00:00Z' },
+  { id: 't9', projectId: 'mellasaq', assigneeId: 'tm7', sprintId: 'sp-mlsq-3', title: 'تبسيط واجهة المسح وجعل فحص الباركود بلمسة واحدة', status: 'todo', priority: 'high', startDate: '2026-06-15T00:00:00Z', dueDate: '2026-07-10T00:00:00Z', tags: ['تطبيق الأفراد', 'UX'], createdAt: '2026-03-15T00:00:00Z' },
+  { id: 't10', projectId: 'mellasaq', assigneeId: 'tm7', sprintId: 'sp-mlsq-1', title: 'بناء النموذج الأولي للربط بسحب بيانات الباركود في البيئة التجريبية', status: 'todo', priority: 'high', startDate: '2026-07-01T00:00:00Z', dueDate: '2026-08-15T00:00:00Z', tags: ['GS1', 'API'], createdAt: '2026-04-01T00:00:00Z' },
+  // المسار 1: تكامل نظام الترميز (GS1)
+  { id: 'tk-mlsq-1', projectId: 'mellasaq', assigneeId: 'tm7', sprintId: 'sp-mlsq-1', title: 'تحليل ومطابقة حقول النموذج العالمي مع قاعدة بيانات ملصق', status: 'in-progress', priority: 'high', startDate: '2026-06-09T00:00:00Z', dueDate: '2026-06-25T00:00:00Z', tags: ['GS1', 'بيانات'], createdAt: '2026-06-09T00:00:00Z' },
+  { id: 'tk-mlsq-2', projectId: 'mellasaq', assigneeId: 'tm7', sprintId: 'sp-mlsq-1', title: 'رسم البنية المعمارية للربط المباشر وسحب تفاصيل المنتجات تلقائياً', status: 'todo', priority: 'high', startDate: '2026-06-22T00:00:00Z', dueDate: '2026-07-10T00:00:00Z', tags: ['GS1', 'معمارية'], createdAt: '2026-06-09T00:00:00Z' },
+  // المسار 2: تطوير ملف الغذاء والدواء
+  { id: 'tk-mlsq-3', projectId: 'mellasaq', assigneeId: 'tm7', sprintId: 'sp-mlsq-2', title: 'حصر الملفات والملاحظات المعلقة مع هيئة الغذاء والدواء', status: 'in-progress', priority: 'high', startDate: '2026-06-09T00:00:00Z', dueDate: '2026-06-20T00:00:00Z', tags: ['الهيئة'], createdAt: '2026-06-09T00:00:00Z' },
+  { id: 'tk-mlsq-4', projectId: 'mellasaq', assigneeId: 'tm7', sprintId: 'sp-mlsq-2', title: 'مواءمة وتدقيق بيانات الحساسيات لتطابق المعايير الرسمية المعتمدة', status: 'todo', priority: 'medium', startDate: '2026-06-25T00:00:00Z', dueDate: '2026-07-30T00:00:00Z', tags: ['الهيئة', 'بيانات'], createdAt: '2026-06-09T00:00:00Z' },
+  { id: 'tk-mlsq-5', projectId: 'mellasaq', assigneeId: 'tm7', sprintId: 'sp-mlsq-2', title: 'تأسيس قناة تواصل تقني مستمرة مع الهيئة', status: 'todo', priority: 'medium', startDate: '2026-07-01T00:00:00Z', dueDate: '2026-07-15T00:00:00Z', tags: ['الهيئة'], createdAt: '2026-06-09T00:00:00Z' },
+  // المسار 3: تحسين تطبيق الأفراد
+  { id: 'tk-mlsq-6', projectId: 'mellasaq', assigneeId: 'tm7', sprintId: 'sp-mlsq-3', title: 'تطوير خوارزميات الذكاء الاصطناعي لتشخيص المكونات بدقة متناهية', status: 'todo', priority: 'high', startDate: '2026-07-05T00:00:00Z', dueDate: '2026-08-20T00:00:00Z', tags: ['ذكاء اصطناعي'], createdAt: '2026-06-09T00:00:00Z' },
+  { id: 'tk-mlsq-7', projectId: 'mellasaq', assigneeId: 'tm7', sprintId: 'sp-mlsq-3', title: 'تأسيس معايير آلية لتطهير قاعدة البيانات واستكمال النواقص', status: 'todo', priority: 'medium', startDate: '2026-07-15T00:00:00Z', dueDate: '2026-08-30T00:00:00Z', tags: ['بيانات'], createdAt: '2026-06-09T00:00:00Z' },
+  // المسار 4: تأطير منصة الأعمال
+  { id: 'tk-mlsq-8', projectId: 'mellasaq', assigneeId: 'tm7', sprintId: 'sp-mlsq-4', title: 'تحديد خدمات الشركات والمصانع والأسر المنتجة ورحلة الاشتراك', status: 'todo', priority: 'high', startDate: '2026-07-01T00:00:00Z', dueDate: '2026-07-25T00:00:00Z', tags: ['منصة الأعمال'], createdAt: '2026-06-09T00:00:00Z' },
+  { id: 'tk-mlsq-9', projectId: 'mellasaq', assigneeId: 'tm7', sprintId: 'sp-mlsq-4', title: 'وضع المخطط الهيكلي للوحة تحكم الأعمال لمراقبة وتعديل بيانات المنتجات', status: 'todo', priority: 'high', startDate: '2026-07-20T00:00:00Z', dueDate: '2026-08-20T00:00:00Z', tags: ['منصة الأعمال', 'Dashboard'], createdAt: '2026-06-09T00:00:00Z' },
+  { id: 'tk-mlsq-10', projectId: 'mellasaq', assigneeId: 'tm7', sprintId: 'sp-mlsq-4', title: 'هيكلة نماذج الاشتراك والدخل — باقات شهرية وواجهات ربط وحزم تقارير', status: 'todo', priority: 'medium', startDate: '2026-08-01T00:00:00Z', dueDate: '2026-08-25T00:00:00Z', tags: ['منصة الأعمال', 'إيرادات'], createdAt: '2026-06-09T00:00:00Z' },
+  // المسار 5: شراكات السوق والنمو
+  { id: 'tk-mlsq-11', projectId: 'mellasaq', assigneeId: 'tm7', sprintId: 'sp-mlsq-5', title: 'حصر وتصنيف الحلفاء — جمعيات صحية وسلاسل تجزئة ومصانع أغذية', status: 'todo', priority: 'medium', startDate: '2026-07-15T00:00:00Z', dueDate: '2026-08-10T00:00:00Z', tags: ['شراكات'], createdAt: '2026-06-09T00:00:00Z' },
+  { id: 'tk-mlsq-12', projectId: 'mellasaq', assigneeId: 'tm7', sprintId: 'sp-mlsq-5', title: 'صياغة عروض التعاون وهندسة خطة الوصول للسوق', status: 'todo', priority: 'medium', startDate: '2026-08-10T00:00:00Z', dueDate: '2026-09-05T00:00:00Z', tags: ['شراكات', 'نمو'], createdAt: '2026-06-09T00:00:00Z' },
 
   // بوصلة
   { id: 't11', projectId: 'bawsala', assigneeId: 'tm6', title: 'بحث مزودي الخرائط', status: 'done', priority: 'high', startDate: '2026-02-05T00:00:00Z', dueDate: '2026-02-15T00:00:00Z', createdAt: '2026-02-05T00:00:00Z' },
@@ -247,22 +338,36 @@ export const SEED_PHASES: PlanPhase[] = [
 
   // ملصق
   {
-    id: 'ph4', projectId: 'mellasaq', planId: 'pl-mellasaq', title: 'مرحلة الاستكشاف والتخطيط',
-    description: 'بحث السوق وتحديد المتطلبات وتصميم الحل',
-    status: 'in-progress', order: 1,
+    id: 'ph4', projectId: 'mellasaq', planId: 'pl-mellasaq', title: 'مرحلة بناء القدرات التقنية',
+    description: 'بناء قاعدة البيانات ومحرك التحليل وأدوات الذكاء الاصطناعي — 150 ألف+ منتج معالج ومنظومة تحليل للمكونات والحساسيات',
+    status: 'completed', order: 1,
     milestones: [
-      { id: 'm11', title: 'بحث المنافسين', done: true },
-      { id: 'm12', title: 'تحديد الميزات الأساسية', done: true },
-      { id: 'm13', title: 'wireframes أولية', done: false },
+      { id: 'm11', title: 'تنظيف ومعالجة 150,000+ منتج', done: true },
+      { id: 'm12', title: 'محرك تحليل المكونات والتصنيف الذكي للحساسيات', done: true },
+      { id: 'm13', title: 'أدوات الذكاء الاصطناعي — استخراج البيانات من صور الملصقات', done: true },
     ],
   },
   {
-    id: 'ph5', projectId: 'mellasaq', planId: 'pl-mellasaq', title: 'مرحلة التطوير',
-    description: 'بناء محرر الملصقات التفاعلي',
-    status: 'upcoming', order: 2,
+    id: 'ph5', projectId: 'mellasaq', planId: 'pl-mellasaq', title: 'مرحلة التمكين الاستراتيجي والجاهزية السوقية',
+    description: 'تحويل الأصول الحالية إلى قيمة تجارية وسوقية حقيقية — 3 أشهر من العمل المشترك مع مستشار تطوير المنتجات والنمو عبر خمسة مسارات متوازية',
+    status: 'in-progress', order: 2,
+    startDate: '2026-06-09T00:00:00Z', dueDate: '2026-09-09T00:00:00Z',
     milestones: [
-      { id: 'm14', title: 'محرر Canvas الأساسي', done: false },
-      { id: 'm15', title: 'مكتبة القوالب', done: false },
+      { id: 'm14', title: 'الربط الفني الفعلي وتكامل البيانات مع مركز الترميز', done: false },
+      { id: 'm15', title: 'تسوية الملاحظات الفنية مع هيئة الغذاء والدواء', done: false },
+      { id: 'm-mlsq-1', title: 'إطلاق ميزات جديدة في التطبيق تعزز تجربة المستهلك', done: false },
+      { id: 'm-mlsq-2', title: 'لوحة تحكم مخصصة لباقات الشركات والأعمال', done: false },
+    ],
+  },
+  {
+    id: 'ph-mlsq-3', projectId: 'mellasaq', planId: 'pl-mellasaq', title: 'مرحلة الانطلاق التجاري والتوسع',
+    description: 'نقل ملصق من فكرة ناضجة إلى منصة مرجعية ذات عوائد تجارية — شراكات واشتراكات وتوسع إقليمي',
+    status: 'upcoming', order: 3,
+    milestones: [
+      { id: 'm-mlsq-3', title: 'شراكات موقعة مع جمعيات صحية وسلاسل تجزئة', done: false },
+      { id: 'm-mlsq-4', title: 'تشغيل اشتراكات منصة الأعمال', done: false },
+      { id: 'm-mlsq-5', title: 'مؤشرات الجاهزية للتوسع الخليجي', done: false },
+      { id: 'm-mlsq-6', title: 'دراسة الربط مع الصادرات والجمارك', done: false },
     ],
   },
 
@@ -327,6 +432,22 @@ export const SEED_NOTES: Note[] = [
     updatedAt: '2026-03-20T00:00:00Z',
     pinned: false,
   },
+  {
+    id: 'n-mlsq-1', projectId: 'mellasaq',
+    title: 'الملف التعريفي — ملصق',
+    content: 'منصة سعودية تساعد المستخدمين على فهم المنتجات واتخاذ قرارات أفضل عبر تحليل المكونات والبيانات الغذائية والحساسيات.\n\n## ماذا نقدم؟\n- فحص الباركود: فحص المنتجات بسهولة وسرعة\n- تحليل دقيق: تحليل الحساسيات والمكونات\n- تنبيهات ذكية: تحذير المستخدمين بشكل استباقي\n- تجربة مبسطة: فهم مبسط للمنتجات الاستهلاكية\n\n## ما الذي بنيناه حتى الآن؟\n- قدرات البيانات: تنظيف ومعالجة 150,000+ منتج، والوصول إلى 1,000,000+ منتج للتحسين، وأنظمة موحدة للمكونات والحساسيات\n- البنية التقنية: محرك تحليل للمكونات، تصنيف ذكي للحساسيات، معالجة بيانات متعددة المصادر\n- أدوات الذكاء الاصطناعي: تحليل المكونات تلقائياً، استخراج البيانات من صور الملصقات، اكتشاف المكونات الخطرة\n\n## المنتجان\n1. تطبيق ملصق للأفراد — فهم ملاءمة المنتج لصحة المستخدم في أقل من ثانية واحدة من المسح\n2. منصة ملصق للأعمال — حلقة الوصل بين الشركات والمصانع والأسر المنتجة وبين الجهات: GS1، هيئة الغذاء والدواء، ومستقبلاً الصادرات والجمارك\n\n## مسارا التعاون مع GS1\n1. تسجيل وإدارة المنتجات: تسجيل احترافي، تحسين جودة البيانات وتوحيدها، تسهيل رفع وإدارة بيانات GTIN والباركود\n2. التحقق عبر الباركود (API): مسح الباركود، جلب فوري للبيانات، عرض موثوق\n\nالموقع الرسمي: https://checkersa.com',
+    createdAt: '2026-06-09T00:00:00Z',
+    updatedAt: '2026-06-09T00:00:00Z',
+    pinned: true,
+  },
+  {
+    id: 'n-mlsq-2', projectId: 'mellasaq',
+    title: 'آلية العمل مع سفيان — مرحلة التمكين',
+    content: 'الدور: مستشار تطوير المنتجات والنمو — قيادة المنتج والنمو لمدة 3 أشهر من العمل المشترك.\n\n## المسؤوليات الست\n1. رسم التوجه والأولويات — توجيه دفة التطوير نحو الميزات الأعلى قيمة تجارية\n2. قيادة ملف الترميز (GS1) — إدارة المواءمة الفنية والتنفيذية لضمان ربط الباركود بأعلى كفاءة\n3. تطوير ملف الغذاء والدواء — تعميق العلاقة مع الهيئة وبناء نقاط التقاء استراتيجية\n4. توجيه مسار المنتج — الإشراف المباشر على تحسين واجهات المستخدم وموثوقية البيانات\n5. بناء علاقات السوق — المساهمة الفعالة في صياغة الشراكات التجارية وتسريع الوصول للمستفيدين\n6. الدعم والتمثيل الفني — مساندة الإدارة في القرارات الفنية وتمثيل الجانب التقني في الاجتماعات الحساسة\n\n## آلية المرافقة الفنية والمنتجية اللصيقة\n- التنسيق والمواءمة الدورية عبر جلسات عمل أسبوعية منتظمة (تُدار من تبويب الاجتماعات)\n- المتابعة الفنية المباشرة مع المطورين وفريق تصميم الواجهات\n- الدعم الاستشاري المعماري وصناعة القرار الفني والمنتجي\n- التمثيل الفني في اجتماعات مركز الترميز وهيئة الغذاء والدواء\n\n## متابعة الشركاء\n- المبادرات الخمس في تبويب التنفيذ — كل مسار بقائمة تحقق وتحديثات دورية\n- المهام الموكلة لسفيان تظهر في مساحة المهام مع التواريخ\n- مؤشرات مخرجات النجاح في تبويب المؤشرات\n- محاضر الجلسات الأسبوعية (منجزات / تحديات / قرارات / بنود عمل) في تبويب الاجتماعات',
+    createdAt: '2026-06-09T00:00:00Z',
+    updatedAt: '2026-06-09T00:00:00Z',
+    pinned: true,
+  },
 ]
 
 export const SEED_TEAM: TeamMember[] = [
@@ -336,12 +457,55 @@ export const SEED_TEAM: TeamMember[] = [
   { id: 'tm4', projectId: 'mehwar', name: 'سارة العتيبي', role: 'مطوّرة خلفية', status: 'active', order: 4, createdAt: '2026-01-01T00:00:00Z' },
   { id: 'tm5', projectId: 'mellasaq', name: 'عبدالله العبود', role: 'مدير المنتج', status: 'active', order: 5, createdAt: '2026-01-01T00:00:00Z' },
   { id: 'tm6', projectId: 'bawsala', name: 'فهد الدوسري', role: 'محلل بيانات', status: 'active', order: 6, createdAt: '2026-01-01T00:00:00Z' },
+  { id: 'tm7', projectId: 'mellasaq', name: 'سفيان', role: 'مستشار تطوير المنتجات والنمو', status: 'active', notes: 'اتفاق مرحلة التمكين الاستراتيجي — 3 أشهر من العمل المشترك (يونيو – سبتمبر 2026)', order: 7, createdAt: '2026-06-09T00:00:00Z' },
 ]
 
 // Remaining modular-tool stores start empty; seed projects are technical and don't use them.
 export const SEED_SCHEDULE: ScheduleEvent[] = []
 export const SEED_FINANCE: FinanceEntry[] = []
-export const SEED_KPIS: Kpi[] = []
+
+// ملصق — مؤشرات مخرجات النجاح لمرحلة التمكين (يتابعها الشركاء من تبويب المؤشرات)
+export const SEED_KPIS: Kpi[] = [
+  { id: 'kpi-mlsq-1', projectId: 'mellasaq', name: 'جاهزية الربط مع مركز الترميز', value: 20, unit: '%', target: 100, trend: 'up', notes: 'الربط الفني الفعلي وتكامل البيانات مع GS1', order: 0, createdAt: '2026-06-09T00:00:00Z', updatedAt: '2026-06-09T00:00:00Z' },
+  { id: 'kpi-mlsq-2', projectId: 'mellasaq', name: 'تسوية ملاحظات هيئة الغذاء والدواء', value: 0, unit: '%', target: 100, trend: 'flat', notes: 'إغلاق الملفات والملاحظات الفنية المعلقة', order: 1, createdAt: '2026-06-09T00:00:00Z', updatedAt: '2026-06-09T00:00:00Z' },
+  { id: 'kpi-mlsq-3', projectId: 'mellasaq', name: 'ميزات جديدة مُطلقة في التطبيق', value: 0, unit: 'ميزة', target: 3, trend: 'flat', notes: 'ميزات تعزز تجربة المستهلك في تطبيق الأفراد', order: 2, createdAt: '2026-06-09T00:00:00Z', updatedAt: '2026-06-09T00:00:00Z' },
+  { id: 'kpi-mlsq-4', projectId: 'mellasaq', name: 'جاهزية لوحة تحكم الأعمال', value: 10, unit: '%', target: 100, trend: 'up', notes: 'لوحة تحكم مخصصة لباقات الشركات والأعمال', order: 3, createdAt: '2026-06-09T00:00:00Z', updatedAt: '2026-06-09T00:00:00Z' },
+]
+
+// ملصق — الاجتماعات الدورية لمرحلة التمكين
+export const SEED_MEETINGS: Meeting[] = [
+  {
+    id: 'meet-mlsq-1', projectId: 'mellasaq', title: 'اجتماع انطلاق مرحلة التمكين الاستراتيجي',
+    date: '2026-06-09', startTime: '10:00', endTime: '11:30', kind: 'review',
+    attendees: ['tm7', 'tm5'],
+    agenda: [
+      { id: 'ag-1-1', text: 'استعراض خطة التمكين ومسارات العمل الخمسة' },
+      { id: 'ag-1-2', text: 'اعتماد أولويات الشهر الأول' },
+      { id: 'ag-1-3', text: 'الاتفاق على آلية المتابعة والجلسة الأسبوعية' },
+    ],
+    achievements: 'اعتماد خطة التمكين الاستراتيجي والجاهزية السوقية بمساراتها الخمسة.\nتحديد أولويات الشهر الأول: مطابقة حقول GS1 وحصر ملاحظات الهيئة.',
+    challenges: 'الوصول لبيئة الاختبار في مركز الترميز يحتاج تنسيقاً — المعالجة: التواصل مع مدير الحساب خلال هذا الأسبوع.',
+    decisions: 'جلسة متابعة أسبوعية كل اثنين 10:00 صباحاً.\nالبدء بالمسارين الأول والثاني بالتوازي قبل فتح مساري المنتج.',
+    actionItems: [
+      { id: 'ai-1-1', title: 'طلب وصول لبيئة الاختبار من مركز الترميز', assigneeId: 'tm7', done: false },
+      { id: 'ai-1-2', title: 'مشاركة قائمة الملاحظات المعلقة لدى الهيئة', assigneeId: 'tm5', done: true },
+    ],
+    status: 'done', createdAt: '2026-06-09T08:00:00Z',
+  },
+  {
+    id: 'meet-mlsq-2', projectId: 'mellasaq', title: 'جلسة المتابعة الأسبوعية',
+    date: '2026-06-15', startTime: '10:00', endTime: '11:00', kind: 'weekly',
+    attendees: ['tm7', 'tm5'],
+    agenda: [
+      { id: 'ag-2-1', text: 'استعراض منجزات الأسبوع' },
+      { id: 'ag-2-2', text: 'التحديات ومعالجاتها' },
+      { id: 'ag-2-3', text: 'مستجدات مركز الترميز وهيئة الغذاء والدواء' },
+      { id: 'ag-2-4', text: 'أولويات الأسبوع القادم' },
+    ],
+    actionItems: [],
+    status: 'upcoming', createdAt: '2026-06-09T12:00:00Z',
+  },
+]
 
 // ── جسد ─────────────────────────────────────────────────────
 // Demo content-management project: جمعية جسد (cancer patients charity).

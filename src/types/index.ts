@@ -242,6 +242,42 @@ export interface ScheduleEvent {
   createdAt: string
 }
 
+// ── Meetings (recurring follow-up sessions with minutes) ──
+export type MeetingStatus = 'upcoming' | 'done' | 'cancelled'
+export type MeetingKind = 'weekly' | 'review' | 'external'
+
+export interface MeetingAgendaItem {
+  id: string
+  text: string
+}
+
+export interface MeetingActionItem {
+  id: string
+  title: string
+  assigneeId?: string
+  done: boolean
+  /** Set when the item is converted into a real task. */
+  taskId?: string
+}
+
+export interface Meeting {
+  id: string
+  projectId: string
+  title: string
+  date: string          // yyyy-mm-dd
+  startTime?: string    // HH:MM
+  endTime?: string
+  kind?: MeetingKind
+  attendees: string[]   // TeamMember ids
+  agenda: MeetingAgendaItem[]
+  achievements?: string // المنجزات
+  challenges?: string   // التحديات والمعالجات
+  decisions?: string    // القرارات
+  actionItems: MeetingActionItem[]
+  status: MeetingStatus
+  createdAt: string
+}
+
 // ── Finance (budget / expenses / revenue) ────────────────
 export type FinanceKind = 'income' | 'expense'
 export type FinanceStatus = 'planned' | 'paid' | 'overdue'

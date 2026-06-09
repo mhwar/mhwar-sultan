@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Package, TrendingUp, Zap, FileText,
-  Users2, CalendarDays, Wallet, Gauge, Building2, Layers, type LucideIcon,
+  Users2, CalendarDays, CalendarClock, Wallet, Gauge, Building2, Layers, type LucideIcon,
 } from 'lucide-react'
 import type { Project } from '@/types'
 import OverviewTab from '@/components/projects/tabs/OverviewTab'
@@ -14,6 +14,7 @@ import FinanceTab from '@/components/projects/tabs/FinanceTab'
 import KpisTab from '@/components/projects/tabs/KpisTab'
 import ClientsTab from '@/components/projects/tabs/ClientsTab'
 import ContentTab from '@/components/projects/tabs/ContentTab'
+import MeetingsTab from '@/components/projects/tabs/MeetingsTab'
 
 /**
  * A tool = a tab = a page within a project. The registry is the single source
@@ -68,6 +69,11 @@ export const TOOLS: ToolDef[] = [
     id: 'schedule', label: 'الأجندة', icon: CalendarDays, group: 'التشغيل',
     description: 'برنامج زمني وفقرات الفعالية',
     render: (p) => <ScheduleTab project={p} />,
+  },
+  {
+    id: 'meetings', label: 'الاجتماعات', icon: CalendarClock, group: 'التشغيل',
+    description: 'اجتماعات دورية: أجندة ومنجزات وتحديات وقرارات وبنود عمل',
+    render: (p) => <MeetingsTab project={p} />,
   },
   {
     id: 'team', label: 'الفريق', icon: Users2, group: 'التشغيل',
