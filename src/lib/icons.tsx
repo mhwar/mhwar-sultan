@@ -1,6 +1,6 @@
 import {
   Hexagon, Tag, Compass, Rocket, Lightbulb, Wrench, Smartphone, Globe,
-  Folder, Zap, Target, Sparkles, Layers, Box, Flag, Palette,
+  Folder, Zap, Target, Sparkles, Layers, Box, Flag, Palette, ScanBarcode, Heart,
   Route, Megaphone, TrendingUp, FileText, FlaskConical, Users, Code, ListChecks, BookOpen,
   type LucideIcon,
 } from 'lucide-react'
@@ -23,6 +23,8 @@ export const PROJECT_ICONS: Record<string, LucideIcon> = {
   box: Box,
   flag: Flag,
   palette: Palette,
+  'scan-barcode': ScanBarcode,
+  heart: Heart,
 }
 
 export const PROJECT_ICON_KEYS = Object.keys(PROJECT_ICONS)

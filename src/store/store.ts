@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, TaskPriority, Feature, Sprint, SprintStatus, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, Kpi, Client, ContentItem, Portfolio } from '@/types'
-import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES, SEED_SPRINTS, SEED_DOCS, SEED_METRICS, SEED_EXPERIMENTS, SEED_CHANNELS, SEED_TEAM, SEED_SCHEDULE, SEED_FINANCE, SEED_KPIS, SEED_CLIENTS, SEED_CONTENT, SEED_PORTFOLIOS } from '@/lib/seed-data'
+import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, TaskPriority, Feature, Sprint, SprintStatus, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, Kpi, Client, ContentItem, Portfolio, Meeting } from '@/types'
+import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES, SEED_SPRINTS, SEED_DOCS, SEED_METRICS, SEED_EXPERIMENTS, SEED_CHANNELS, SEED_TEAM, SEED_SCHEDULE, SEED_FINANCE, SEED_KPIS, SEED_CLIENTS, SEED_CONTENT, SEED_PORTFOLIOS, SEED_MEETINGS } from '@/lib/seed-data'
 import { domainForKind } from '@/lib/plan-kinds'
 import { FALLBACK_TOOL_IDS, DEFAULT_PROJECT_TYPE } from '@/lib/project-types'
 import { generateId, now } from '@/lib/utils'
@@ -46,11 +46,13 @@ export const useProjectStore = create<ProjectStore>()(
     }),
     {
       name: 'mhwar-projects',
-      version: 2,
+      version: 3,
       skipHydration: true,
       // v1 → v2: backfill the modular-tools fields on existing projects.
       // Older projects predate `type`/`tools`; treat them as technical with the
       // legacy 5-tool layout so nothing disappears after the upgrade.
+      // v2 → v3: مشروع ملصق — refresh the placeholder seed record with the real
+      // product identity (data platform, GS1/SFDA), keeping any user-added tools.
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { projects?: Project[] } | undefined
         if (!state) return state as never
@@ -60,6 +62,30 @@ export const useProjectStore = create<ProjectStore>()(
             type: p.type ?? DEFAULT_PROJECT_TYPE,
             tools: p.tools?.length ? p.tools : FALLBACK_TOOL_IDS,
           }))
+        }
+        if (version < 3) {
+          const seed = SEED_PROJECTS.find((p) => p.id === 'mellasaq')
+          if (seed) {
+            state.projects = (state.projects ?? []).map((p) =>
+              p.id === 'mellasaq'
+                ? {
+                    ...p,
+                    nameEn: seed.nameEn,
+                    description: seed.description,
+                    status: seed.status,
+                    progress: seed.progress,
+                    color: seed.color,
+                    icon: seed.icon,
+                    logo: p.logo ?? seed.logo,
+                    category: seed.category,
+                    tags: seed.tags,
+                    links: p.links?.length ? p.links : seed.links,
+                    tools: [...seed.tools, ...(p.tools ?? []).filter((t) => !seed.tools.includes(t))],
+                    updatedAt: seed.updatedAt,
+                  }
+                : p
+            )
+          }
         }
         return state as never
       },
@@ -113,9 +139,12 @@ export const useTaskStore = create<TaskStore>()(
     }),
     {
       name: 'mhwar-tasks',
-      version: 2,
+      version: 3,
       skipHydration: true,
       // v1→v2: backfill demo assignees onto seed tasks that have none (non-destructive).
+      // v2→v3: مشروع ملصق — replace the two placeholder tasks (t9/t10) with the real
+      // enablement-phase ones (only when the titles are still untouched) and merge
+      // the new seeded phase tasks by id.
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { tasks?: Task[] } | undefined
         if (!state?.tasks) return state
@@ -126,6 +155,20 @@ export const useTaskStore = create<TaskStore>()(
           state.tasks = state.tasks.map((t) =>
             !t.assigneeId && seedAssignee[t.id] ? { ...t, assigneeId: seedAssignee[t.id] } : t
           )
+        }
+        if (version < 3) {
+          const seedById: Record<string, Task> = Object.fromEntries(SEED_TASKS.map((t) => [t.id, t]))
+          const legacyTitles: Record<string, string> = {
+            t9: 'تصميم نماذج الملصقات',
+            t10: 'محرر الملصقات التفاعلي',
+          }
+          state.tasks = state.tasks.map((t) =>
+            legacyTitles[t.id] && t.title === legacyTitles[t.id] && seedById[t.id] ? seedById[t.id] : t
+          )
+          const have = new Set(state.tasks.map((t) => t.id))
+          for (const seed of SEED_TASKS) {
+            if (seed.id.startsWith('tk-mlsq-') && !have.has(seed.id)) state.tasks.push(seed)
+          }
         }
         return state
       },
@@ -305,11 +348,13 @@ export const usePlanStore = create<PlanStore>()(
     }),
     {
       name: 'mhwar-plans',
-      version: 3,
+      version: 4,
       skipHydration: true,
       // Cumulative migrations (each `version < N` branch runs in order):
       //   v1 → v2: introduce named plans; assign each legacy phase to a default plan
       //   v2 → v3: tag each plan with a workspace domain; re-home any orphan phase
+      //   v3 → v4: مشروع ملصق — replace the placeholder roadmap phases with the real
+      //            enablement-phase roadmap (only untouched phases) and merge new ones
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { plans?: Plan[]; phases?: PlanPhase[] } | undefined
         if (!state) return state as never
@@ -354,6 +399,22 @@ export const usePlanStore = create<PlanStore>()(
           }
           state.plans = plans
           state.phases = phases
+        }
+        if (version < 4) {
+          const phases = state.phases ?? []
+          const seedById: Record<string, PlanPhase> = Object.fromEntries(SEED_PHASES.map((p) => [p.id, p]))
+          // Replace the two placeholder ملصق phases only if their titles are unedited
+          const legacyTitles: Record<string, string> = {
+            ph4: 'مرحلة الاستكشاف والتخطيط',
+            ph5: 'مرحلة التطوير',
+          }
+          state.phases = phases.map((ph) =>
+            legacyTitles[ph.id] && ph.title === legacyTitles[ph.id] && seedById[ph.id] ? seedById[ph.id] : ph
+          )
+          const have = new Set(state.phases.map((p) => p.id))
+          for (const seed of SEED_PHASES) {
+            if (seed.id.startsWith('ph-mlsq-') && !have.has(seed.id)) state.phases.push(seed)
+          }
         }
         return state as never
       },
@@ -414,11 +475,12 @@ export const useSprintStore = create<SprintStore>()(
     }),
     {
       name: 'mhwar-sprints',
-      version: 2,
+      version: 3,
       skipHydration: true,
       // v1→v2: "sprints" became richer "initiatives" (مبادرات). Rename default-named
       // seed sprints, backfill the new lead/checklist/updates fields, and add any
       // missing seed initiatives — all without clobbering user edits.
+      // v2→v3: مشروع ملصق — merge the five enablement-track initiatives.
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { sprints?: Sprint[] } | undefined
         if (!state?.sprints) return state
@@ -438,6 +500,12 @@ export const useSprintStore = create<SprintStore>()(
           })
           const have = new Set(state.sprints.map((s) => s.id))
           for (const seed of SEED_SPRINTS) if (!have.has(seed.id)) state.sprints.push(seed)
+        }
+        if (version < 3) {
+          const have = new Set(state.sprints.map((s) => s.id))
+          for (const seed of SEED_SPRINTS) {
+            if (seed.id.startsWith('sp-mlsq-') && !have.has(seed.id)) state.sprints.push(seed)
+          }
         }
         return state
       },
@@ -584,7 +652,23 @@ export const useNoteStore = create<NoteStore>()(
             return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
           }),
     }),
-    { name: 'mhwar-notes', version: 1, skipHydration: true }
+    {
+      name: 'mhwar-notes',
+      version: 2,
+      skipHydration: true,
+      // v1→v2: merge the seeded ملصق profile/work-mechanism notes by id.
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as { notes?: Note[] } | undefined
+        if (!state?.notes) return state
+        if (version < 2) {
+          const have = new Set(state.notes.map((n) => n.id))
+          for (const seed of SEED_NOTES) {
+            if (seed.id.startsWith('n-mlsq-') && !have.has(seed.id)) state.notes.push(seed)
+          }
+        }
+        return state
+      },
+    }
   )
 )
 
@@ -727,14 +811,21 @@ export const useTeamStore = create<TeamStore>()(
     }),
     {
       name: 'mhwar-team',
-      version: 2,
+      version: 3,
       skipHydration: true,
       // v1→v2: seed the demo team for users who never added members (non-destructive).
+      // v2→v3: merge missing seed members by id (adds سفيان to مشروع ملصق).
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { members?: TeamMember[] } | undefined
         if (!state) return state
         if (version < 2 && (!state.members || state.members.length === 0)) {
           state.members = SEED_TEAM
+        }
+        if (version < 3) {
+          const members = state.members ?? []
+          const have = new Set(members.map((m) => m.id))
+          for (const seed of SEED_TEAM) if (!have.has(seed.id)) members.push(seed)
+          state.members = members
         }
         return state
       },
@@ -772,6 +863,41 @@ export const useScheduleStore = create<ScheduleStore>()(
         set((s) => ({ events: s.events.filter((e) => e.id !== id) })),
     }),
     { name: 'mhwar-schedule', version: 1, skipHydration: true }
+  )
+)
+
+// ── Meeting Store (recurring follow-up sessions with minutes) ──
+interface MeetingStore {
+  meetings: Meeting[]
+  addMeeting: (data: Omit<Meeting, 'id' | 'createdAt'>) => string
+  updateMeeting: (id: string, data: Partial<Meeting>) => void
+  deleteMeeting: (id: string) => void
+  getProjectMeetings: (projectId: string) => Meeting[]
+}
+
+export const useMeetingStore = create<MeetingStore>()(
+  persist(
+    (set, get) => ({
+      meetings: SEED_MEETINGS,
+
+      addMeeting: (data) => {
+        const id = generateId()
+        set((s) => ({ meetings: [...s.meetings, { ...data, id, createdAt: now() }] }))
+        return id
+      },
+
+      updateMeeting: (id, data) =>
+        set((s) => ({ meetings: s.meetings.map((m) => (m.id === id ? { ...m, ...data } : m)) })),
+
+      deleteMeeting: (id) =>
+        set((s) => ({ meetings: s.meetings.filter((m) => m.id !== id) })),
+
+      getProjectMeetings: (projectId) =>
+        get()
+          .meetings.filter((m) => m.projectId === projectId)
+          .sort((a, b) => b.date.localeCompare(a.date)),
+    }),
+    { name: 'mhwar-meetings', version: 1, skipHydration: true }
   )
 )
 
@@ -837,7 +963,23 @@ export const useKpiStore = create<KpiStore>()(
       deleteKpi: (id) =>
         set((s) => ({ kpis: s.kpis.filter((k) => k.id !== id) })),
     }),
-    { name: 'mhwar-kpis', version: 1, skipHydration: true }
+    {
+      name: 'mhwar-kpis',
+      version: 2,
+      skipHydration: true,
+      // v1→v2: merge ملصق success-outcome KPIs by id.
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as { kpis?: Kpi[] } | undefined
+        if (!state?.kpis) return state
+        if (version < 2) {
+          const have = new Set(state.kpis.map((k) => k.id))
+          for (const seed of SEED_KPIS) {
+            if (seed.id.startsWith('kpi-mlsq-') && !have.has(seed.id)) state.kpis.push(seed)
+          }
+        }
+        return state
+      },
+    }
   )
 )
 
