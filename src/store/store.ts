@@ -907,9 +907,11 @@ export const useMeetingStore = create<MeetingStore>()(
     }),
     {
       name: 'mhwar-meetings',
-      version: 2,
+      version: 3,
       skipHydration: true,
-      // v1→v2: backfill the new recommendations field on the seeded kickoff meeting.
+      // v1→v2: backfill the recommendations field on the seeded kickoff meeting.
+      // v2→v3: decisions/recommendations moved from plain strings to structured
+      //         lists (owner + deadline). Convert any legacy string into a list.
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { meetings?: Meeting[] } | undefined
         if (!state?.meetings) return state
@@ -920,6 +922,19 @@ export const useMeetingStore = create<MeetingStore>()(
               ? { ...m, recommendations: seedById[m.id].recommendations }
               : m
           )
+        }
+        if (version < 3) {
+          const toLines = (s: string) => s.split('\n').map((l) => l.trim()).filter(Boolean)
+          state.meetings = state.meetings.map((m) => {
+            const out = { ...m } as Meeting & { decisions?: unknown; recommendations?: unknown }
+            if (typeof out.decisions === 'string') {
+              out.decisions = toLines(out.decisions).map((text) => ({ id: generateId(), text }))
+            }
+            if (typeof out.recommendations === 'string') {
+              out.recommendations = toLines(out.recommendations).map((text) => ({ id: generateId(), text }))
+            }
+            return out as Meeting
+          })
         }
         return state
       },

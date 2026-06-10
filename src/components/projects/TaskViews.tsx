@@ -11,6 +11,7 @@ import CalendarView from '@/components/projects/CalendarView'
 import Pill from '@/components/ui/Pill'
 import Button from '@/components/ui/Button'
 import Segmented from '@/components/ui/Segmented'
+import { Avatar } from '@/lib/avatar'
 import {
   TASK_STATUS_LABELS, PRIORITY_LABELS, PRIORITY_PILL, PRIORITY_VAR, TASK_STATUS_VAR,
   formatDateAr,
@@ -139,12 +140,8 @@ function BoardCard({ task, onMove, onDelete, onOpen, planIcon, assignee }: { tas
           </button>
         </span>
         {assignee && (
-          <span
-            className="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ms-auto"
-            title={assignee.name}
-            style={{ background: 'var(--iris-500)', color: 'white' }}
-          >
-            {assignee.name[0]}
+          <span className="ms-auto" title={assignee.name}>
+            <Avatar name={assignee.name} src={assignee.avatar} size={20} />
           </span>
         )}
       </div>
