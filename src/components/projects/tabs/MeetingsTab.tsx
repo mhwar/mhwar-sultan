@@ -748,11 +748,11 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
     const html = buildMeetingHTML({
       mode, project, meeting: m, members, memberName,
       prevMeeting: prev,
-      snapshot: mode === 'minutes' ? {
-        progress: incProgress ? { progress: project.progress, doneTasks, activeTasks, totalTasks: tasks.length } : undefined,
+      snapshot: {
+        progress: mode === 'minutes' && incProgress ? { progress: project.progress, doneTasks, activeTasks, totalTasks: tasks.length } : undefined,
         initiatives: exportInitiatives,
-        finance: incFinance && finance.length > 0 ? { income, expense, currency } : undefined,
-      } : {},
+        finance: mode === 'minutes' && incFinance && finance.length > 0 ? { income, expense, currency } : undefined,
+      },
     })
     const w = window.open('', '_blank', 'width=900,height=800,resizable=yes')
     if (!w) return
@@ -1066,7 +1066,7 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
                             onClick={() => toggleInitiativeId(sp.id)}
                             className="w-4 h-4 rounded flex items-center justify-center shrink-0 transition-colors"
                             style={{ background: isSelected ? project.color : 'transparent', border: isSelected ? 'none' : '1.5px solid var(--color-surface-border)' }}
-                            title={isSelected ? 'إلغاء التضمين في المحضر' : 'تضمين في المحضر'}
+                            title={isSelected ? 'إلغاء التضمين في التصدير' : 'تضمين في التصدير'}
                           >
                             {isSelected && <Check size={10} color="#fff" strokeWidth={3} />}
                           </button>
@@ -1200,10 +1200,30 @@ function buildMeetingHTML({ mode, project, meeting: m, members, memberName, prev
     ? `<div class="sec"><h2>متابعة الاجتماع السابق</h2>${prevItemsHtml}${prevRecsHtml}</div>` : ''
 
   if (isAgenda) {
+    const agendaAttendees = m.attendees.filter((id) => memberName[id])
+    const signInTable = agendaAttendees.length
+      ? `<div class="sec"><h2>قائمة الحضور</h2>
+         <table><thead><tr><th>الاسم</th><th>المسمى الوظيفي</th><th class="sig-col">التوقيع</th></tr></thead><tbody>
+         ${agendaAttendees.map((id) => `<tr><td>${esc(memberName[id])}</td><td>${esc(memberRole[id] ?? '—')}</td><td class="sig-col">&nbsp;</td></tr>`).join('')}
+         </tbody></table></div>`
+      : ''
+    let agendaInitHtml = ''
+    if (snapshot.initiatives?.length) {
+      agendaInitHtml = `<div class="sec"><h2>المبادرات والمعالم</h2>
+        <table><thead><tr><th>المبادرة</th><th>الحالة</th><th>التقدم</th></tr></thead><tbody>`
+      for (const it of snapshot.initiatives) {
+        agendaInitHtml += `<tr><td>${esc(it.sp.name)}</td><td>${SPRINT_STATUS_LABEL[it.sp.status]}</td><td><div class="bar"><div class="fill" style="width:${it.pct}%"></div></div><span class="num pct">${it.pct}%</span></td></tr>`
+        if (it.checklistItems.length > 0) {
+          agendaInitHtml += `<tr><td colspan="3" style="padding:4px 10px 8px"><ul class="cl">${it.checklistItems.map((c) => `<li class="${c.done ? 'done' : ''}">${c.done ? '✓' : '○'} ${esc(c.text)}</li>`).join('')}</ul></td></tr>`
+        }
+      }
+      agendaInitHtml += `</tbody></table></div>`
+    }
     const body = `
-${attendeesHtml ? `<div class="sec"><h2>الحضور</h2>${attendeesHtml}</div>` : ''}
+${signInTable}
 ${agendaHtml || '<div class="sec"><p style="color:#64748b">لم تُضف بنود للأجندة بعد.</p></div>'}
 ${prevHtml}
+${agendaInitHtml}
 <div class="note">هذه أجندة للاطلاع والتحضير قبل انعقاد الاجتماع.</div>`
     return wrapDoc({ color, title: `${docKind} — ${m.title}`, project, m, dateLabel, meetKind, body })
   }
@@ -1280,6 +1300,9 @@ ${snapHtml}`
 function wrapDoc({ color, title, project, m, dateLabel, meetKind, body }: {
   color: string; title: string; project: Project; m: Meeting; dateLabel: string; meetKind?: string; body: string
 }): string {
+  const logoHtml = project.logo
+    ? `<div class="logo-wrap"><img src="${project.logo}" alt="${esc(project.name)}" class="logo-img" /></div>`
+    : `<div class="logo-wrap"><span class="logo-text" style="color:${color}">${esc(project.name)}</span></div>`
   return `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -1291,6 +1314,9 @@ function wrapDoc({ color, title, project, m, dateLabel, meetKind, body }: {
 body{font-family:'Cairo',sans-serif;background:#fff;color:#0f172a;padding:28px 36px;direction:rtl;font-size:13px;line-height:1.7}
 .print-btn{padding:9px 22px;background:${color};color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:'Cairo',sans-serif;margin-bottom:18px}
 @media print{.print-btn{display:none}}
+.logo-wrap{text-align:center;margin-bottom:16px;padding-bottom:14px;border-bottom:2px solid ${color}}
+.logo-img{max-height:56px;max-width:180px;object-fit:contain}
+.logo-text{font-size:18px;font-weight:700}
 .head{border-inline-start:4px solid ${color};padding-inline-start:14px;margin-bottom:20px}
 .head .proj{font-size:12px;color:#64748b;font-weight:600}
 h1{font-size:20px;font-weight:700;margin:2px 0}
@@ -1303,6 +1329,7 @@ li{margin-bottom:3px}
 table{width:100%;border-collapse:collapse;font-size:12px}
 th{background:#f1f5f9;text-align:right;padding:6px 10px;font-weight:700;border:1px solid #e2e8f0}
 td{padding:6px 10px;border:1px solid #e2e8f0;vertical-align:middle}
+.sig-col{width:30%;min-width:90px;border-bottom-color:#94a3b8}
 .inner{margin-top:4px;font-size:11px}
 .inner th{font-size:10px;padding:4px 8px}
 .inner td{padding:4px 8px}
@@ -1324,6 +1351,7 @@ td{padding:6px 10px;border:1px solid #e2e8f0;vertical-align:middle}
 </head>
 <body>
 <button class="print-btn" onclick="window.print()">طباعة / حفظ كـ PDF</button>
+${logoHtml}
 <div class="head">
   <p class="proj">${esc(project.name)} — ${esc(title.split('—')[0].trim())}</p>
   <h1>${esc(m.title)}</h1>
