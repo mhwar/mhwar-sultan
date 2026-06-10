@@ -907,11 +907,11 @@ export const useMeetingStore = create<MeetingStore>()(
     }),
     {
       name: 'mhwar-meetings',
-      version: 3,
+      version: 4,
       skipHydration: true,
-      // v1→v2: backfill the recommendations field on the seeded kickoff meeting.
-      // v2→v3: decisions/recommendations moved from plain strings to structured
-      //         lists (owner + deadline). Convert any legacy string into a list.
+      // v1→v2: backfill recommendations field on seeded kickoff meeting.
+      // v2→v3: decisions/recommendations from strings → structured lists.
+      // v3→v4: add done:false to existing recommendations that lack it.
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { meetings?: Meeting[] } | undefined
         if (!state?.meetings) return state
@@ -931,10 +931,19 @@ export const useMeetingStore = create<MeetingStore>()(
               out.decisions = toLines(out.decisions).map((text) => ({ id: generateId(), text }))
             }
             if (typeof out.recommendations === 'string') {
-              out.recommendations = toLines(out.recommendations).map((text) => ({ id: generateId(), text }))
+              out.recommendations = toLines(out.recommendations).map((text) => ({ id: generateId(), text, done: false }))
             }
             return out as Meeting
           })
+        }
+        if (version < 4) {
+          state.meetings = state.meetings.map((m) => ({
+            ...m,
+            recommendations: (m.recommendations ?? []).map((r) =>
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (r as any).done === undefined ? { ...r, done: false } : r
+            ),
+          }))
         }
         return state
       },

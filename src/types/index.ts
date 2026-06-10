@@ -262,11 +262,13 @@ export interface MeetingDecision {
   dueDate?: string   // موعد التنفيذ (yyyy-mm-dd)
 }
 
-/** A recommendation / output — with an optional owner. */
+/** A recommendation / output — with an optional owner, deadline, and follow-up status. */
 export interface MeetingRecommendation {
   id: string
   text: string
   assigneeId?: string  // المسؤول عن التوصية
+  dueDate?: string     // الموعد (yyyy-mm-dd)
+  done: boolean        // تم التنفيذ
 }
 
 export interface MeetingActionItem {
