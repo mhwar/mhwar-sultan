@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, TaskPriority, Feature, Sprint, SprintStatus, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, Kpi, Client, ContentItem, Portfolio, Meeting } from '@/types'
-import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES, SEED_SPRINTS, SEED_DOCS, SEED_METRICS, SEED_EXPERIMENTS, SEED_CHANNELS, SEED_TEAM, SEED_SCHEDULE, SEED_FINANCE, SEED_KPIS, SEED_CLIENTS, SEED_CONTENT, SEED_PORTFOLIOS, SEED_MEETINGS } from '@/lib/seed-data'
+import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, TaskPriority, Feature, Sprint, SprintStatus, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, FinancePackage, Kpi, Client, ContentItem, Portfolio, Meeting } from '@/types'
+import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES, SEED_SPRINTS, SEED_DOCS, SEED_METRICS, SEED_EXPERIMENTS, SEED_CHANNELS, SEED_TEAM, SEED_SCHEDULE, SEED_FINANCE, SEED_PACKAGES, SEED_KPIS, SEED_CLIENTS, SEED_CONTENT, SEED_PORTFOLIOS, SEED_MEETINGS } from '@/lib/seed-data'
 import { domainForKind } from '@/lib/plan-kinds'
 import { FALLBACK_TOOL_IDS, DEFAULT_PROJECT_TYPE } from '@/lib/project-types'
 import { generateId, now } from '@/lib/utils'
@@ -1205,6 +1205,39 @@ export const useKpiStore = create<KpiStore>()(
         return state
       },
     }
+  )
+)
+
+// ── Package Store (service packages / باقات) ───────────────
+interface PackageStore {
+  packages: FinancePackage[]
+  addPackage: (data: Omit<FinancePackage, 'id' | 'order' | 'createdAt'>) => string
+  updatePackage: (id: string, data: Partial<FinancePackage>) => void
+  deletePackage: (id: string) => void
+}
+
+export const usePackageStore = create<PackageStore>()(
+  persist(
+    (set) => ({
+      packages: SEED_PACKAGES,
+
+      addPackage: (data) => {
+        const id = generateId()
+        set((s) => {
+          const existing = s.packages.filter((p) => p.projectId === data.projectId)
+          const order = existing.length > 0 ? Math.max(...existing.map((p) => p.order)) + 1 : 0
+          return { packages: [...s.packages, { ...data, id, order, createdAt: now() }] }
+        })
+        return id
+      },
+
+      updatePackage: (id, data) =>
+        set((s) => ({ packages: s.packages.map((p) => (p.id === id ? { ...p, ...data } : p)) })),
+
+      deletePackage: (id) =>
+        set((s) => ({ packages: s.packages.filter((p) => p.id !== id) })),
+    }),
+    { name: 'mhwar-packages', version: 1, skipHydration: true }
   )
 )
 

@@ -332,6 +332,26 @@ export interface FinanceEntry {
   createdAt: string
 }
 
+// ── Service packages (باقات) ──────────────────────────────
+export interface FinancePackage {
+  id: string
+  projectId: string
+  name: string
+  description?: string
+  /** Monthly price. */
+  price: number
+  currency: string
+  /** Monthly deliverable count included. */
+  deliverables?: number
+  /** Bullet features/inclusions. */
+  features?: string[]
+  /** Clients subscribed to this package (optional linkage). */
+  clientIds?: string[]
+  color?: string
+  order: number
+  createdAt: string
+}
+
 // ── KPIs (generic indicators dashboard) ──────────────────
 export type KpiTrend = 'up' | 'down' | 'flat'
 

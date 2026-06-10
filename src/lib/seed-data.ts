@@ -1,4 +1,4 @@
-import type { Project, Task, Plan, PlanPhase, Note, Sprint, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, Kpi, Client, ContentItem, Portfolio, Meeting } from '@/types'
+import type { Project, Task, Plan, PlanPhase, Note, Sprint, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, FinancePackage, Kpi, Client, ContentItem, Portfolio, Meeting } from '@/types'
 import { FALLBACK_TOOL_IDS } from '@/lib/project-types'
 
 export const SEED_METRICS: GrowthMetric[] = [
@@ -495,6 +495,13 @@ export const SEED_FINANCE: FinanceEntry[] = [
   { id: 'fin-bsl-8', projectId: 'bawsala', title: 'اشتراك Adobe Creative Cloud', kind: 'expense', amount: 240, currency: 'SAR', category: 'أدوات واشتراكات', status: 'paid', date: '2026-06-01T00:00:00Z', recurring: true, order: 7, createdAt: '2026-06-01T00:00:00Z' },
   { id: 'fin-bsl-9', projectId: 'bawsala', title: 'أداة جدولة المنشورات', kind: 'expense', amount: 180, currency: 'SAR', category: 'أدوات واشتراكات', status: 'paid', date: '2026-06-01T00:00:00Z', recurring: true, order: 8, createdAt: '2026-06-01T00:00:00Z' },
   { id: 'fin-bsl-10', projectId: 'bawsala', title: 'بنك صور وخطوط عربية مرخصة', kind: 'expense', amount: 120, currency: 'SAR', category: 'أدوات واشتراكات', status: 'paid', date: '2026-06-01T00:00:00Z', recurring: true, order: 9, createdAt: '2026-06-01T00:00:00Z' },
+]
+
+// بوصلة الأعمال — باقات إدارة الحسابات الشهرية المرتبطة بالعملاء
+export const SEED_PACKAGES: FinancePackage[] = [
+  { id: 'pkg-bsl-1', projectId: 'bawsala', name: 'الباقة الفضية', description: 'إدارة محتوى أساسية لمنصة واحدة', price: 4000, currency: 'SAR', deliverables: 12, features: ['12 قطعة محتوى شهرياً', 'إدارة منصة واحدة', 'تقرير أداء شهري'], clientIds: ['cl-bsl-3'], order: 0, createdAt: '2026-06-01T00:00:00Z' },
+  { id: 'pkg-bsl-2', projectId: 'bawsala', name: 'الباقة الذهبية', description: 'إدارة محتوى لمنصتين مع تصاميم متقدمة', price: 5500, currency: 'SAR', deliverables: 16, features: ['16 قطعة محتوى شهرياً', 'إدارة منصتين', 'تصاميم وإنفوجرافيك', 'تقرير أداء نصف شهري'], clientIds: ['cl-bsl-2'], order: 1, createdAt: '2026-06-01T00:00:00Z' },
+  { id: 'pkg-bsl-3', projectId: 'bawsala', name: 'الباقة البلاتينية', description: 'إدارة حسابات متكاملة وتغطيات', price: 7000, currency: 'SAR', deliverables: 20, features: ['20 قطعة محتوى شهرياً', 'إدارة كل المنصات', 'تغطيات مصورة', 'حملات إعلانية', 'تقارير أسبوعية'], clientIds: ['cl-bsl-1'], order: 2, createdAt: '2026-06-01T00:00:00Z' },
 ]
 
 // ملصق — مؤشرات مخرجات النجاح لمرحلة التمكين (يتابعها الشركاء من تبويب المؤشرات)
