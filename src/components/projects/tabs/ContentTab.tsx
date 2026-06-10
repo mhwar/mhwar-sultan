@@ -375,7 +375,8 @@ export default function ContentTab({ project }: Props) {
       )}
 
       {/* Status filter chips */}
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-1.5 items-center">
+        <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>الحالة:</span>
         <Chip active={filterStatus === 'all'} onClick={() => setFilterStatus('all')} color="var(--iris-500)">
           كل الحالات
         </Chip>
@@ -384,7 +385,14 @@ export default function ContentTab({ project }: Props) {
             {STATUS_LABEL[s]}
           </Chip>
         ))}
-        <span className="w-px h-7 mx-1" style={{ background: 'var(--color-surface-border)' }} />
+      </div>
+
+      {/* Source filter chips */}
+      <div className="flex flex-wrap gap-1.5 items-center">
+        <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>المصدر:</span>
+        <Chip active={filterSource === 'all'} onClick={() => setFilterSource('all')} color="var(--iris-500)">
+          الكل
+        </Chip>
         <Chip active={filterSource === 'client-request'} onClick={() => setFilterSource(filterSource === 'client-request' ? 'all' : 'client-request')} color="var(--warning-500)">
           {SOURCE_LABEL['client-request']}
         </Chip>
@@ -395,7 +403,8 @@ export default function ContentTab({ project }: Props) {
 
       {/* Platform filter chips */}
       {availablePlatforms.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5 items-center">
+          <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>المنصة:</span>
           <Chip active={filterPlatform === 'all'} onClick={() => setFilterPlatform('all')} color="var(--iris-500)">
             كل المنصات
           </Chip>
@@ -413,6 +422,19 @@ export default function ContentTab({ project }: Props) {
               <PlatformIcon platform={p} size={12} />
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Reset filters */}
+      {(filterClient !== 'all' || filterStatus !== 'all' || filterSource !== 'all' || filterPlatform !== 'all') && (
+        <div className="flex">
+          <button
+            onClick={() => { setFilterClient('all'); setFilterStatus('all'); setFilterSource('all'); setFilterPlatform('all') }}
+            className="text-xs font-medium transition-colors hover:underline"
+            style={{ color: 'var(--iris-500)' }}
+          >
+            إعادة ضبط الفلاتر
+          </button>
         </div>
       )}
 

@@ -324,6 +324,10 @@ export interface FinanceEntry {
   notes?: string
   /** Monthly recurring commitment (salaries, hosting, subscriptions…). */
   recurring?: boolean
+  /** For income entries: links this to a specific client. */
+  clientId?: string
+  /** For income entries: subscription retainer or per-job payment. */
+  billingType?: 'subscription' | 'per-job'
   order: number
   createdAt: string
 }

@@ -1112,10 +1112,11 @@ export const useFinanceStore = create<FinanceStore>()(
     }),
     {
       name: 'mhwar-finance',
-      version: 3,
+      version: 4,
       skipHydration: true,
       // v1→v2: merge ملصق salaries/infrastructure demo entries by id.
       // v2→v3: بوصلة الأعمال — merge client subscriptions, salaries and tools by id.
+      // v3→v4: link subscription income entries to their clients by id.
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { entries?: FinanceEntry[] } | undefined
         if (!state) return state
@@ -1134,6 +1135,16 @@ export const useFinanceStore = create<FinanceStore>()(
             if (seed.id.startsWith('fin-bsl-') && !have.has(seed.id)) entries.push(seed)
           }
           state.entries = entries
+        }
+        if (version < 4) {
+          const clientLinks: Record<string, string> = {
+            'fin-bsl-1': 'cl-bsl-1',
+            'fin-bsl-2': 'cl-bsl-2',
+            'fin-bsl-3': 'cl-bsl-3',
+          }
+          state.entries = (state.entries ?? []).map((e) =>
+            clientLinks[e.id] ? { ...e, clientId: clientLinks[e.id], billingType: 'subscription' as const } : e
+          )
         }
         return state
       },
@@ -1228,9 +1239,10 @@ export const useClientStore = create<ClientStore>()(
     }),
     {
       name: 'mhwar-clients',
-      version: 2,
+      version: 3,
       skipHydration: true,
       // v1→v2: بوصلة الأعمال — merge the agency's monthly-contract clients by id.
+      // v2→v3: no structural change — version bump to align with finance store v4.
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { clients?: Client[] } | undefined
         if (!state) return state
@@ -1242,6 +1254,7 @@ export const useClientStore = create<ClientStore>()(
           }
           state.clients = clients
         }
+        // v2→v3: no-op migration
         return state
       },
     }

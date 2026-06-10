@@ -1,11 +1,11 @@
 'use client'
-import { useMemo, useState } from 'react'
-import { Plus, Trash2, Check, X, Building2, Mail, Phone, FileText, ChevronLeft, Image, Edit2 } from 'lucide-react'
+import { useRef, useMemo, useState } from 'react'
+import { Plus, Trash2, Check, X, Building2, Mail, Phone, FileText, ChevronLeft, Image, Edit2, Upload } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import type { Project, Client, ClientStatus } from '@/types'
 import { useClientStore } from '@/store/store'
 import { formatDateShort } from '@/lib/utils'
-import ClientDrawer from './clients/ClientDrawer'
+import ClientPage from './clients/ClientPage'
 import { buildClientColorMap } from './content/contentMeta'
 
 const STATUS_LABEL: Record<ClientStatus, string> = {
@@ -35,12 +35,25 @@ export default function ClientsTab({ project }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
   const active = clients.filter((c) => c.status === 'active')
   const totalValue = active.reduce((s, c) => s + c.contractValue, 0)
   const currency = active[0]?.contractCurrency ?? clients[0]?.contractCurrency ?? 'SAR'
   const clientColorMap = useMemo(() => buildClientColorMap(clients.map((c) => c.id)), [clients])
   const openClient = openId ? clients.find((c) => c.id === openId) : undefined
+
+  if (openClient) {
+    return (
+      <ClientPage
+        client={openClient}
+        project={project}
+        accent={clientColorMap[openClient.id] ?? 'var(--iris-500)'}
+        onClose={() => setOpenId(null)}
+        onEdit={() => { setOpenId(null); setEditingId(openClient.id) }}
+      />
+    )
+  }
 
   return (
     <div className="space-y-5">
@@ -69,7 +82,18 @@ export default function ClientsTab({ project }: Props) {
           {clients.map((c) =>
             editingId === c.id
               ? <ClientForm key={c.id} initial={c} onSave={(d) => { updateClient(c.id, d); setEditingId(null) }} onCancel={() => setEditingId(null)} />
-              : <ClientCard key={c.id} client={c} onOpen={() => setOpenId(c.id)} onEdit={() => setEditingId(c.id)} onDelete={() => deleteClient(c.id)} />
+              : (
+                <ClientCard
+                  key={c.id}
+                  client={c}
+                  deleteConfirm={deleteConfirmId === c.id}
+                  onOpen={() => setOpenId(c.id)}
+                  onEdit={() => setEditingId(c.id)}
+                  onDeleteRequest={() => setDeleteConfirmId(c.id)}
+                  onDeleteConfirm={() => { deleteClient(c.id); setDeleteConfirmId(null) }}
+                  onDeleteCancel={() => setDeleteConfirmId(null)}
+                />
+              )
           )}
           {adding && (
             <ClientForm
@@ -87,15 +111,6 @@ export default function ClientsTab({ project }: Props) {
           </div>
         )}
       </div>
-
-      {openClient && (
-        <ClientDrawer
-          client={openClient}
-          accent={clientColorMap[openClient.id] ?? 'var(--iris-500)'}
-          onEdit={() => { setOpenId(null); setEditingId(openClient.id) }}
-          onClose={() => setOpenId(null)}
-        />
-      )}
     </div>
   )
 }
@@ -140,13 +155,23 @@ export function ClientAvatar({ client, size = 40 }: { client: { name: string; lo
   )
 }
 
-function ClientCard({ client: c, onOpen, onEdit, onDelete }: { client: Client; onOpen: () => void; onEdit: () => void; onDelete: () => void }) {
+interface ClientCardProps {
+  client: Client
+  deleteConfirm: boolean
+  onOpen: () => void
+  onEdit: () => void
+  onDeleteRequest: () => void
+  onDeleteConfirm: () => void
+  onDeleteCancel: () => void
+}
+
+function ClientCard({ client: c, deleteConfirm, onOpen, onEdit, onDeleteRequest, onDeleteConfirm, onDeleteCancel }: ClientCardProps) {
   const statusColor = STATUS_VAR[c.status]
   return (
     <div
       className="group relative rounded-xl p-4 cursor-pointer transition-colors hover:bg-white/5"
       style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)' }}
-      onClick={onOpen}
+      onClick={!deleteConfirm ? onOpen : undefined}
     >
       <div className="flex items-start gap-3">
         <ClientAvatar client={c} size={44} />
@@ -190,22 +215,43 @@ function ClientCard({ client: c, onOpen, onEdit, onDelete }: { client: Client; o
           {c.notes && <p className="text-xs mt-2 leading-relaxed line-clamp-2" style={{ color: 'var(--color-text-muted)' }}>{c.notes}</p>}
         </div>
         <div className="flex flex-col gap-1 shrink-0">
-          <button
-            onClick={(e) => { e.stopPropagation(); onEdit() }}
-            className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded flex items-center justify-center transition-all"
-            style={{ color: 'var(--color-text-muted)' }}
-            title="تعديل"
-          >
-            <Edit2 size={12} />
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete() }}
-            className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded flex items-center justify-center transition-all"
-            style={{ color: 'var(--danger-500)' }}
-            title="حذف"
-          >
-            <Trash2 size={12} />
-          </button>
+          {deleteConfirm ? (
+            <div className="flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={onDeleteConfirm}
+                className="flex items-center gap-1 px-2 h-6 rounded text-xs font-semibold"
+                style={{ background: 'color-mix(in oklch, var(--danger-500) 15%, transparent)', color: 'var(--danger-500)', border: '1px solid color-mix(in oklch, var(--danger-500) 30%, transparent)' }}
+              >
+                <Trash2 size={10} /> نعم، احذف
+              </button>
+              <button
+                onClick={onDeleteCancel}
+                className="flex items-center gap-1 px-2 h-6 rounded text-xs"
+                style={{ background: 'var(--color-surface-muted)', color: 'var(--color-text-muted)', border: '1px solid var(--color-surface-border)' }}
+              >
+                <X size={10} /> إلغاء
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); onEdit() }}
+                className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded flex items-center justify-center transition-all"
+                style={{ color: 'var(--color-text-muted)' }}
+                title="تعديل"
+              >
+                <Edit2 size={12} />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onDeleteRequest() }}
+                className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded flex items-center justify-center transition-all"
+                style={{ color: 'var(--danger-500)' }}
+                title="حذف"
+              >
+                <Trash2 size={12} />
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -231,6 +277,21 @@ function ClientForm({ initial, onSave, onCancel }: { initial?: Client; onSave: (
   const [status, setStatus] = useState<ClientStatus>(initial?.status ?? 'active')
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [logoErr, setLogoErr] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const result = ev.target?.result
+      if (typeof result === 'string') {
+        setLogo(result)
+        setLogoErr(false)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
 
   const save = () => {
     if (!name.trim()) return
@@ -252,7 +313,7 @@ function ClientForm({ initial, onSave, onCancel }: { initial?: Client; onSave: (
 
   return (
     <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--iris-500)' }}>
-      {/* Logo preview + URL */}
+      {/* Logo preview + file upload */}
       <div className="flex items-center gap-3">
         <div
           className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
@@ -264,15 +325,37 @@ function ClientForm({ initial, onSave, onCancel }: { initial?: Client; onSave: (
             <Image size={20} style={{ color: 'var(--color-text-muted)' }} />
           )}
         </div>
-        <div className="flex-1">
-          <label className="axis-label mb-1 block">رابط الشعار (URL)</label>
-          <input
-            className={inputCls} style={inputStyle} dir="ltr"
-            value={logo}
-            onChange={(e) => { setLogo(e.target.value); setLogoErr(false) }}
-            placeholder="https://example.com/logo.png"
-          />
-          <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>PNG أو SVG أو JPG</p>
+        <div className="flex-1 flex flex-col gap-1.5">
+          <label className="axis-label block">الشعار</label>
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-medium transition-colors"
+              style={{ background: 'var(--color-surface-muted)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
+            >
+              <Upload size={12} /> رفع شعار
+            </button>
+            {logo && (
+              <button
+                type="button"
+                onClick={() => { setLogo(''); setLogoErr(false) }}
+                className="flex items-center gap-1 px-2 h-8 rounded-md text-xs transition-colors"
+                style={{ color: 'var(--danger-500)', border: '1px solid color-mix(in oklch, var(--danger-500) 30%, transparent)' }}
+                title="حذف الشعار"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>PNG أو SVG أو JPG</p>
         </div>
       </div>
 
