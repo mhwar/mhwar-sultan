@@ -1365,7 +1365,6 @@ td{padding:5px 10px;border:1px solid #e2e8f0;vertical-align:middle}
     ${logoBlock}
     <div class="lh-meta">
       <span class="lh-name">${esc(project.name)}</span>
-      <span class="lh-sub">منصة محور</span>
     </div>
   </div>
   <span class="lh-badge">${isAgenda ? 'أجندة اجتماع' : 'محضر اجتماع'}</span>
@@ -1376,7 +1375,7 @@ td{padding:5px 10px;border:1px solid #e2e8f0;vertical-align:middle}
   <p class="meta">${dateLabel}${m.startTime ? ` · <span class="num">${m.startTime}${m.endTime ? `–${m.endTime}` : ''}</span>` : ''}${meetKind ? ` · ${esc(meetKind)}` : ''} · ${STATUS_LABEL[m.status]}</p>
 </div>
 ${body}
-<div class="footer"><span>أُعدّ عبر منصة محور</span><span class="num">${new Date().toLocaleDateString('ar-SA')}</span></div>
+<div class="footer"><span>${esc(project.name)}</span><span class="num">${new Date().toLocaleDateString('ar-SA')}</span></div>
 </body>
 </html>`
 }

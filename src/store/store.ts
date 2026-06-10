@@ -709,7 +709,23 @@ export const useDocumentStore = create<DocumentStore>()(
       deleteDoc: (id) =>
         set((s) => ({ docs: s.docs.filter((d) => d.id !== id) })),
     }),
-    { name: 'mhwar-docs', version: 1, skipHydration: true }
+    {
+      name: 'mhwar-docs',
+      version: 2,
+      skipHydration: true,
+      // v1→v2: merge mellasaq product docs (doc-mlsq-1 through doc-mlsq-4).
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as { docs?: ProductDoc[] } | undefined
+        if (!state?.docs) return state
+        if (version < 2) {
+          const seedIds = new Set(state.docs.map((d) => d.id))
+          const mlsqDocs = SEED_DOCS.filter((d) => d.projectId === 'mellasaq')
+          const toAdd = mlsqDocs.filter((d) => !seedIds.has(d.id))
+          if (toAdd.length > 0) state.docs = [...state.docs, ...toAdd]
+        }
+        return state
+      },
+    }
   )
 )
 
