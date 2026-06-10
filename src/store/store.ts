@@ -907,11 +907,12 @@ export const useMeetingStore = create<MeetingStore>()(
     }),
     {
       name: 'mhwar-meetings',
-      version: 4,
+      version: 5,
       skipHydration: true,
       // v1→v2: backfill recommendations field on seeded kickoff meeting.
       // v2→v3: decisions/recommendations from strings → structured lists.
       // v3→v4: add done:false to existing recommendations that lack it.
+      // v4→v5: rename statuses: upcoming→preparation, done→minuted.
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { meetings?: Meeting[] } | undefined
         if (!state?.meetings) return state
@@ -943,6 +944,16 @@ export const useMeetingStore = create<MeetingStore>()(
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               (r as any).done === undefined ? { ...r, done: false } : r
             ),
+          }))
+        }
+        if (version < 5) {
+          state.meetings = state.meetings.map((m) => ({
+            ...m,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            status: (m.status as any) === 'upcoming' ? 'preparation'
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  : (m.status as any) === 'done' ? 'minuted'
+                  : m.status,
           }))
         }
         return state
@@ -1216,3 +1227,18 @@ export function computeStats(
       : 0,
   }
 }
+
+// ── Navigation Signal Store (no persistence — transient cross-tab signals) ──
+interface NavStore {
+  targetTab?: string
+  targetSprintId?: string
+  navigate: (tab: string, sprintId?: string) => void
+  clearTab: () => void
+  clearSprintId: () => void
+}
+
+export const useNavStore = create<NavStore>()((set) => ({
+  navigate: (tab, sprintId) => set({ targetTab: tab, targetSprintId: sprintId }),
+  clearTab: () => set({ targetTab: undefined }),
+  clearSprintId: () => set({ targetSprintId: undefined }),
+}))

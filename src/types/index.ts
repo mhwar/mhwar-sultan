@@ -245,7 +245,7 @@ export interface ScheduleEvent {
 }
 
 // ── Meetings (recurring follow-up sessions with minutes) ──
-export type MeetingStatus = 'upcoming' | 'done' | 'cancelled'
+export type MeetingStatus = 'preparation' | 'active' | 'minuted' | 'cancelled'
 /** Built-in meeting types; `other` carries a free-text label in `kindLabel`. */
 export type MeetingKind = 'weekly' | 'review' | 'external' | 'other'
 
@@ -298,6 +298,12 @@ export interface Meeting {
   recommendations?: MeetingRecommendation[] // التوصيات والمخرجات
   actionItems: MeetingActionItem[]
   status: MeetingStatus
+  /** Whether this is a recurring session. */
+  recurring?: boolean
+  /** Interval for auto-creating the next occurrence. */
+  recurringInterval?: 'weekly' | 'biweekly' | 'monthly'
+  /** Id of the next occurrence created when this meeting is minuted. */
+  nextMeetingId?: string
   createdAt: string
 }
 

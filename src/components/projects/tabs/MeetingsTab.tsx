@@ -3,25 +3,35 @@ import { useMemo, useRef, useState } from 'react'
 import {
   Plus, Trash2, Check, CalendarClock, ListTodo, ArrowUpRight, ClipboardList,
   Sparkles, ArrowRight, Printer, History, Gauge, Target, Wallet, CornerDownLeft,
-  FileText, Gavel, Lightbulb, Calendar, Save,
+  FileText, Gavel, Lightbulb, Calendar, Save, RefreshCw, ExternalLink, Archive,
 } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import type {
   Project, Meeting, MeetingStatus, MeetingKind, MeetingActionItem,
   MeetingAgendaItem, MeetingDecision, MeetingRecommendation, TeamMember, Sprint,
 } from '@/types'
-import { useMeetingStore, useTeamStore, useTaskStore, useSprintStore, useFinanceStore } from '@/store/store'
+import { useMeetingStore, useTeamStore, useTaskStore, useSprintStore, useFinanceStore, useNavStore } from '@/store/store'
 import { formatDateShort, formatDateAr, generateId } from '@/lib/utils'
 import { Avatar } from '@/lib/avatar'
 
-const STATUS_LABEL: Record<MeetingStatus, string> = { upcoming: 'قادم', done: 'منعقد', cancelled: 'ملغي' }
+const STATUS_LABEL: Record<MeetingStatus, string> = {
+  preparation: 'إعداد', active: 'منعقد', minuted: 'محضّر', cancelled: 'ملغي',
+}
 const STATUS_VAR: Record<MeetingStatus, string> = {
-  upcoming: 'var(--info-500)', done: 'var(--success-500)', cancelled: 'var(--danger-500)',
+  preparation: 'var(--warning-500)',
+  active:      'var(--info-500)',
+  minuted:     'var(--success-500)',
+  cancelled:   'var(--danger-500)',
 }
 const KIND_LABEL: Record<MeetingKind, string> = {
   weekly: 'متابعة أسبوعية', review: 'مراجعة', external: 'اجتماع خارجي', other: 'نوع آخر',
 }
-/** Human label for a meeting's kind, honouring a custom `kindLabel` for `other`. */
+const INTERVAL_LABEL: Record<NonNullable<Meeting['recurringInterval']>, string> = {
+  weekly: 'أسبوعي', biweekly: 'كل أسبوعين', monthly: 'شهري',
+}
+const INTERVAL_DAYS: Record<NonNullable<Meeting['recurringInterval']>, number> = {
+  weekly: 7, biweekly: 14, monthly: 30,
+}
 function kindText(m: Meeting): string | undefined {
   if (!m.kind) return undefined
   if (m.kind === 'other') return m.kindLabel?.trim() || 'اجتماع آخر'
@@ -38,12 +48,17 @@ const WEEKLY_AGENDA = [
   'أولويات الأسبوع القادم',
 ]
 
-/** yyyy-mm-dd of the next Monday strictly after today (Monday weekly session). */
 function nextMonday(): string {
   const d = new Date()
   const ahead = (1 - d.getDay() + 7) % 7 || 7
   d.setDate(d.getDate() + ahead)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T00:00:00Z')
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
 }
 
 const inputCls = 'w-full h-8 rounded-md px-2 text-sm outline-none'
@@ -58,17 +73,18 @@ export default function MeetingsTab({ project }: Props) {
   const { addMeeting, updateMeeting, deleteMeeting } = useMeetingStore()
   const members = useTeamStore(useShallow((s) => s.members.filter((m) => m.projectId === pid)))
   const [openId, setOpenId] = useState<string | null>(null)
+  const [view, setView] = useState<'list' | 'log'>('list')
 
   const memberById = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m])), [members])
   const memberName = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m.name])), [members])
 
-  const upcoming = meetings.filter((m) => m.status === 'upcoming').sort((a, b) => a.date.localeCompare(b.date))
-  const past = meetings.filter((m) => m.status !== 'upcoming').sort((a, b) => b.date.localeCompare(a.date))
+  const upcoming = meetings.filter((m) => m.status === 'preparation' || m.status === 'active').sort((a, b) => a.date.localeCompare(b.date))
+  const past = meetings.filter((m) => m.status === 'minuted' || m.status === 'cancelled').sort((a, b) => b.date.localeCompare(a.date))
 
   const createBlank = () => {
     const id = addMeeting({
       projectId: pid, title: 'اجتماع جديد', date: nextMonday(),
-      attendees: [], agenda: [], actionItems: [], status: 'upcoming',
+      attendees: [], agenda: [], actionItems: [], status: 'preparation',
     })
     setOpenId(id)
   }
@@ -82,7 +98,9 @@ export default function MeetingsTab({ project }: Props) {
       attendees: members.map((m) => m.id),
       agenda: WEEKLY_AGENDA.map((text) => ({ id: generateId(), text })),
       actionItems: [],
-      status: 'upcoming',
+      recurring: true,
+      recurringInterval: 'weekly',
+      status: 'preparation',
     })
     setOpenId(id)
   }
@@ -101,6 +119,7 @@ export default function MeetingsTab({ project }: Props) {
         onChange={(d) => updateMeeting(open.id, d)}
         onDelete={() => { deleteMeeting(open.id); setOpenId(null) }}
         onBack={() => setOpenId(null)}
+        onOpenMeeting={setOpenId}
       />
     )
   }
@@ -117,27 +136,45 @@ export default function MeetingsTab({ project }: Props) {
 
   return (
     <div className="axis-card p-4 md:p-6">
+      {/* Header */}
       <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
-        <h2 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>الاجتماعات الدورية</h2>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={createBlank}
-            className="flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-semibold transition-colors"
-            style={{ background: 'var(--color-surface-overlay)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
-          >
-            <Plus size={13} /> اجتماع جديد
-          </button>
-          <button
-            onClick={createWeekly}
-            className="flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-semibold transition-colors"
-            style={{ background: 'var(--iris-500)', color: '#fff' }}
-          >
-            <Sparkles size={13} /> جلسة متابعة أسبوعية
-          </button>
+        <div className="flex items-center gap-1 rounded-lg p-0.5" style={{ background: 'var(--color-surface-muted)' }}>
+          {(['list', 'log'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className="flex items-center gap-1.5 px-3 h-7 rounded-md text-xs font-semibold transition-colors"
+              style={view === v
+                ? { background: 'var(--color-surface-overlay)', color: 'var(--color-text-primary)', boxShadow: 'var(--shadow-xs)' }
+                : { color: 'var(--color-text-muted)' }}
+            >
+              {v === 'list' ? <><CalendarClock size={13} /> الاجتماعات</> : <><Archive size={13} /> السجل</>}
+            </button>
+          ))}
         </div>
+        {view === 'list' && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={createBlank}
+              className="flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-semibold transition-colors"
+              style={{ background: 'var(--color-surface-overlay)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
+            >
+              <Plus size={13} /> اجتماع جديد
+            </button>
+            <button
+              onClick={createWeekly}
+              className="flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-semibold transition-colors"
+              style={{ background: 'var(--iris-500)', color: '#fff' }}
+            >
+              <Sparkles size={13} /> جلسة متابعة أسبوعية
+            </button>
+          </div>
+        )}
       </div>
 
-      {meetings.length === 0 ? (
+      {view === 'log' ? (
+        <LogView meetings={meetings} memberName={memberName} onOpenMeeting={setOpenId} />
+      ) : meetings.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-10 text-center">
           <CalendarClock size={28} style={{ color: 'var(--color-text-muted)' }} strokeWidth={1.5} />
           <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>لا اجتماعات بعد — ابدأ بجلسة المتابعة الأسبوعية</p>
@@ -148,6 +185,131 @@ export default function MeetingsTab({ project }: Props) {
           {renderSection('السابقة', past)}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Archive / log view ──
+function LogView({ meetings, memberName, onOpenMeeting }: {
+  meetings: Meeting[]
+  memberName: Record<string, string>
+  onOpenMeeting: (id: string) => void
+}) {
+  const minuted = meetings.filter((m) => m.status === 'minuted').sort((a, b) => b.date.localeCompare(a.date))
+  const allDecisions = minuted.flatMap((m) => (m.decisions ?? []).map((d) => ({ ...d, meeting: m })))
+  const allRecs = minuted.flatMap((m) => (m.recommendations ?? []).map((r) => ({ ...r, meeting: m })))
+
+  const tdStyle = { padding: '6px 10px', borderBottom: '1px solid var(--color-surface-border)', color: 'var(--color-text-primary)', fontSize: 13 }
+  const thStyle = { ...tdStyle, fontWeight: 700, color: 'var(--color-text-muted)', fontSize: 11, letterSpacing: '0.05em' }
+
+  const pill = (done: boolean) => (
+    <span
+      className="inline-flex items-center px-2 h-5 rounded-full text-[10px] font-semibold"
+      style={{ background: done ? 'color-mix(in oklch, var(--success-500) 14%, transparent)' : 'color-mix(in oklch, var(--warning-500) 14%, transparent)', color: done ? 'var(--success-500)' : 'var(--warning-500)' }}
+    >
+      {done ? 'منجز' : 'معلق'}
+    </span>
+  )
+
+  return (
+    <div className="space-y-6">
+      {/* Decisions */}
+      <div>
+        <p className="axis-label mb-3 flex items-center gap-2"><Gavel size={13} /> القرارات</p>
+        {allDecisions.length === 0 ? (
+          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>لا قرارات مسجّلة في المحاضر</p>
+        ) : (
+          <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid var(--color-surface-border)' }}>
+            <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: 'var(--color-surface-muted)' }}>
+                  <th style={thStyle}>التاريخ</th>
+                  <th style={thStyle}>الاجتماع</th>
+                  <th style={thStyle}>القرار</th>
+                  <th style={thStyle}>المسؤول</th>
+                  <th style={thStyle}>الموعد</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allDecisions.map((d) => (
+                  <tr key={d.id} style={{ background: 'var(--color-surface-raised)' }}>
+                    <td style={tdStyle} className="axis-num text-xs whitespace-nowrap">{formatDateShort(d.meeting.date + 'T00:00:00Z')}</td>
+                    <td style={tdStyle} className="text-xs">{d.meeting.title}</td>
+                    <td style={tdStyle}>{d.text}</td>
+                    <td style={tdStyle} className="text-xs whitespace-nowrap">{d.ownerId ? memberName[d.ownerId] ?? '—' : '—'}</td>
+                    <td style={tdStyle} className="axis-num text-xs whitespace-nowrap">{d.dueDate ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Recommendations */}
+      <div>
+        <p className="axis-label mb-3 flex items-center gap-2"><Lightbulb size={13} /> التوصيات</p>
+        {allRecs.length === 0 ? (
+          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>لا توصيات مسجّلة في المحاضر</p>
+        ) : (
+          <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid var(--color-surface-border)' }}>
+            <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: 'var(--color-surface-muted)' }}>
+                  <th style={thStyle}>التاريخ</th>
+                  <th style={thStyle}>الاجتماع</th>
+                  <th style={thStyle}>التوصية</th>
+                  <th style={thStyle}>المسؤول</th>
+                  <th style={thStyle}>الموعد</th>
+                  <th style={thStyle}>الحالة</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allRecs.map((r) => (
+                  <tr key={r.id} style={{ background: 'var(--color-surface-raised)' }}>
+                    <td style={tdStyle} className="axis-num text-xs whitespace-nowrap">{formatDateShort(r.meeting.date + 'T00:00:00Z')}</td>
+                    <td style={tdStyle} className="text-xs">{r.meeting.title}</td>
+                    <td style={{ ...tdStyle, textDecoration: r.done ? 'line-through' : 'none', opacity: r.done ? 0.6 : 1 }}>{r.text}</td>
+                    <td style={tdStyle} className="text-xs whitespace-nowrap">{r.assigneeId ? memberName[r.assigneeId] ?? '—' : '—'}</td>
+                    <td style={tdStyle} className="axis-num text-xs whitespace-nowrap">{r.dueDate ?? '—'}</td>
+                    <td style={tdStyle}>{pill(r.done)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Minutes list */}
+      <div>
+        <p className="axis-label mb-3 flex items-center gap-2"><FileText size={13} /> المحاضر</p>
+        {minuted.length === 0 ? (
+          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>لا محاضر مسجّلة بعد</p>
+        ) : (
+          <div className="space-y-2">
+            {minuted.map((m) => (
+              <div
+                key={m.id}
+                className="flex items-center gap-3 rounded-xl px-4 py-3"
+                style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)' }}
+              >
+                <span className="axis-num text-xs shrink-0" style={{ color: 'var(--color-text-muted)', minWidth: 72 }}>{formatDateShort(m.date + 'T00:00:00Z')}</span>
+                <span className="flex-1 text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{m.title}</span>
+                {m.decisions?.length ? <span className="axis-num text-xs shrink-0" style={{ color: 'var(--color-text-muted)' }}>{m.decisions.length} قرار</span> : null}
+                {m.recommendations?.length ? <span className="axis-num text-xs shrink-0" style={{ color: 'var(--color-text-muted)' }}>{m.recommendations.length} توصية</span> : null}
+                <button
+                  onClick={() => onOpenMeeting(m.id)}
+                  className="shrink-0 flex items-center gap-1 px-2.5 h-7 rounded-md text-xs font-semibold transition-colors"
+                  style={{ background: 'var(--color-surface-muted)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
+                >
+                  <ExternalLink size={11} /> عرض المحضر
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -168,7 +330,10 @@ function MeetingRow({ m, memberById, onOpen }: { m: Meeting; memberById: Record<
         {m.startTime && <p className="axis-num text-xs" style={{ color: 'var(--color-text-muted)' }}>{m.startTime}{m.endTime ? `–${m.endTime}` : ''}</p>}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{m.title}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{m.title}</p>
+          {m.recurring && <RefreshCw size={11} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />}
+        </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
           {kind && <span>{kind}</span>}
           {attendees.length > 0 && (
@@ -198,8 +363,6 @@ function MeetingRow({ m, memberById, onOpen }: { m: Meeting; memberById: Record<
 }
 
 // ════════════════════ Reusable bits (module scope = stable identity) ════════════════════
-// NB: defining these at module scope (not inside MeetingPage) is what keeps inputs
-// from losing focus on every keystroke.
 
 function SectionCard({ icon, title, children, extra }: { icon: React.ReactNode; title: string; children: React.ReactNode; extra?: React.ReactNode }) {
   return (
@@ -265,7 +428,7 @@ function AgendaEditor({ items, onChange }: { items: MeetingAgendaItem[]; onChang
   )
 }
 
-// ── Decisions (text + owner + deadline) ──
+// ── Decisions ──
 function DecisionEditor({ items, onChange, members }: { items: MeetingDecision[]; onChange: (v: MeetingDecision[]) => void; members: TeamMember[] }) {
   const patch = (id: string, d: Partial<MeetingDecision>) => onChange(items.map((x) => (x.id === id ? { ...x, ...d } : x)))
   const remove = (id: string) => onChange(items.filter((x) => x.id !== id))
@@ -292,7 +455,7 @@ function DecisionEditor({ items, onChange, members }: { items: MeetingDecision[]
   )
 }
 
-// ── Recommendations (text + owner + deadline + done) ──
+// ── Recommendations ──
 function RecommendationEditor({ items, onChange, members }: { items: MeetingRecommendation[]; onChange: (v: MeetingRecommendation[]) => void; members: TeamMember[] }) {
   const patch = (id: string, d: Partial<MeetingRecommendation>) => onChange(items.map((x) => (x.id === id ? { ...x, ...d } : x)))
   const remove = (id: string) => onChange(items.filter((x) => x.id !== id))
@@ -336,7 +499,7 @@ function RecommendationEditor({ items, onChange, members }: { items: MeetingReco
   )
 }
 
-// ── Action items (title + owner + deadline + status + task link) ──
+// ── Action items ──
 function ActionItemEditor({ items, onChange, members, onToggle, onConvert }: {
   items: MeetingActionItem[]
   onChange: (v: MeetingActionItem[]) => void
@@ -440,7 +603,7 @@ function PrevRow({ text, assignee, done, dueDate }: { text: string; assignee?: s
 }
 
 // ════════════════════ Full meeting page ════════════════════
-function MeetingPage({ project, meeting: m, meetings, members, memberById, memberName, onChange, onDelete, onBack }: {
+function MeetingPage({ project, meeting: m, meetings, members, memberById, memberName, onChange, onDelete, onBack, onOpenMeeting }: {
   project: Project
   meeting: Meeting
   meetings: Meeting[]
@@ -450,12 +613,15 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
   onChange: (d: Partial<Meeting>) => void
   onDelete: () => void
   onBack: () => void
+  onOpenMeeting: (id: string) => void
 }) {
   const pid = project.id
   const { addTask, updateTask } = useTaskStore()
   const tasks = useTaskStore(useShallow((s) => s.tasks.filter((t) => t.projectId === pid)))
   const sprints = useSprintStore(useShallow((s) => s.sprints.filter((sp) => sp.projectId === pid).sort((a, b) => a.order - b.order)))
   const finance = useFinanceStore(useShallow((s) => s.entries.filter((e) => e.projectId === pid)))
+  const storeMeetingAdd = useMeetingStore((s) => s.addMeeting)
+  const { navigate } = useNavStore()
 
   // ── Auto-save indicator ──
   const [savedVisible, setSavedVisible] = useState(false)
@@ -469,9 +635,8 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
 
   // Which live blocks get embedded in the exported minutes
   const [incProgress, setIncProgress] = useState(true)
-  // Per-initiative inclusion: null = all, Set = selected ids
   const [incInitiativesOn, setIncInitiativesOn] = useState(true)
-  const [selectedInitiatives, setSelectedInitiatives] = useState<Set<string> | null>(null) // null = all
+  const [selectedInitiatives, setSelectedInitiatives] = useState<Set<string> | null>(null)
   const [incFinance, setIncFinance] = useState(false)
 
   const toggleInitiativeId = (id: string) => {
@@ -506,6 +671,37 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
     if (carried.length) trackSave({ actionItems: [...m.actionItems, ...carried] })
   }
 
+  // ── Recurring: create next meeting ──
+  const createNextMeeting = () => {
+    const interval = m.recurringInterval ?? 'weekly'
+    const days = INTERVAL_DAYS[interval]
+    const nextDate = addDays(m.date, days)
+    const newId = storeMeetingAdd({
+      projectId: m.projectId,
+      title: m.title,
+      date: nextDate,
+      startTime: m.startTime,
+      endTime: m.endTime,
+      kind: m.kind,
+      kindLabel: m.kindLabel,
+      attendees: m.attendees,
+      agenda: m.agenda.map((a) => ({ ...a, id: generateId() })),
+      actionItems: [],
+      recurring: m.recurring,
+      recurringInterval: m.recurringInterval,
+      status: 'preparation',
+    })
+    onChange({ nextMeetingId: newId })
+    return newId
+  }
+
+  const handleStatusChange = (newStatus: MeetingStatus) => {
+    trackSave({ status: newStatus })
+    if (newStatus === 'minuted' && m.recurring && !m.nextMeetingId) {
+      createNextMeeting()
+    }
+  }
+
   // ── Live project snapshot ──
   const doneTasks = tasks.filter((t) => t.status === 'done').length
   const activeTasks = tasks.filter((t) => t.status === 'in-progress').length
@@ -515,7 +711,13 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
     const spTasks = tasks.filter((t) => t.sprintId === sp.id)
     const spDone = spTasks.filter((t) => t.status === 'done').length
     const pct = cl.length > 0 ? Math.round((clDone / cl.length) * 100) : (spTasks.length > 0 ? Math.round((spDone / spTasks.length) * 100) : 0)
-    return { sp, pct, clDone, clTotal: cl.length, spDone, spTotal: spTasks.length }
+    const checklistItems = cl.map((c) => ({ text: c.title, done: c.done }))
+    const taskItems = spTasks.map((t) => ({
+      title: t.title,
+      assignee: t.assigneeId ? memberName[t.assigneeId] : undefined,
+      status: t.status === 'done' ? 'منجزة' : t.status === 'in-progress' ? 'جارية' : 'مخطط',
+    }))
+    return { sp, pct, clDone, clTotal: cl.length, spDone, spTotal: spTasks.length, checklistItems, taskItems }
   })
   const income = finance.filter((e) => e.kind === 'income').reduce((s, e) => s + e.amount, 0)
   const expense = finance.filter((e) => e.kind === 'expense').reduce((s, e) => s + e.amount, 0)
@@ -538,12 +740,10 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
   const toggleAttendee = (id: string) =>
     trackSave({ attendees: m.attendees.includes(id) ? m.attendees.filter((a) => a !== id) : [...m.attendees, id] })
 
-  // Initiatives selected for export
   const exportInitiatives = incInitiativesOn
     ? (selectedInitiatives === null ? initiatives : initiatives.filter((i) => selectedInitiatives.has(i.sp.id)))
     : undefined
 
-  // ── Export (agenda before / minutes after) ──
   const exportDoc = (mode: 'agenda' | 'minutes') => {
     const html = buildMeetingHTML({
       mode, project, meeting: m, members, memberName,
@@ -638,7 +838,7 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
           </div>
           <div>
             <label className="axis-label mb-1 block">الحالة</label>
-            <select className={inputCls} style={inputStyle} value={m.status} onChange={(e) => trackSave({ status: e.target.value as MeetingStatus })}>
+            <select className={inputCls} style={inputStyle} value={m.status} onChange={(e) => handleStatusChange(e.target.value as MeetingStatus)}>
               {(Object.keys(STATUS_LABEL) as MeetingStatus[]).map((k) => <option key={k} value={k}>{STATUS_LABEL[k]}</option>)}
             </select>
           </div>
@@ -655,6 +855,54 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
             />
           </div>
         )}
+
+        {/* Recurring settings */}
+        <div className="flex items-center gap-3 mt-3 flex-wrap">
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none" style={{ color: 'var(--color-text-secondary)' }}>
+            <button
+              role="checkbox"
+              aria-checked={m.recurring ?? false}
+              onClick={() => trackSave({ recurring: !m.recurring })}
+              className="w-4 h-4 rounded flex items-center justify-center shrink-0 transition-colors"
+              style={{ background: m.recurring ? 'var(--iris-500)' : 'transparent', border: m.recurring ? 'none' : '1.5px solid var(--color-surface-border)' }}
+            >
+              {m.recurring && <Check size={11} color="#fff" strokeWidth={3} />}
+            </button>
+            <RefreshCw size={13} /> دوري
+          </label>
+          {m.recurring && (
+            <select
+              className="h-8 rounded-md px-2 text-sm outline-none"
+              style={{ ...inputStyle, width: 'auto' }}
+              value={m.recurringInterval ?? 'weekly'}
+              onChange={(e) => trackSave({ recurringInterval: e.target.value as Meeting['recurringInterval'] })}
+            >
+              {(Object.keys(INTERVAL_LABEL) as NonNullable<Meeting['recurringInterval']>[]).map((k) => (
+                <option key={k} value={k}>{INTERVAL_LABEL[k]}</option>
+              ))}
+            </select>
+          )}
+          {/* Next meeting controls */}
+          {m.recurring && !m.nextMeetingId && (
+            <button
+              onClick={createNextMeeting}
+              className="flex items-center gap-1.5 px-2.5 h-8 rounded-md text-xs font-semibold transition-colors"
+              style={{ background: 'var(--color-surface-overlay)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
+              title="إنشاء الاجتماع التالي يدوياً"
+            >
+              <Plus size={13} /> إنشاء الاجتماع التالي
+            </button>
+          )}
+          {m.recurring && m.nextMeetingId && (
+            <button
+              onClick={() => onOpenMeeting(m.nextMeetingId!)}
+              className="flex items-center gap-1.5 px-2.5 h-8 rounded-md text-xs font-semibold transition-colors"
+              style={{ background: 'color-mix(in oklch, var(--iris-500) 14%, transparent)', color: 'var(--iris-500)', border: '1px solid color-mix(in oklch, var(--iris-500) 40%, transparent)' }}
+            >
+              <ExternalLink size={13} /> الانتقال للاجتماع التالي
+            </button>
+          )}
+        </div>
 
         {/* Attendees */}
         <div className="mt-4">
@@ -703,7 +951,6 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
                 </button>
               )}
             >
-              {/* Action items */}
               {prev.actionItems.length > 0 && (
                 <div className="mb-3">
                   <p className="axis-label mb-1.5">بنود العمل</p>
@@ -714,7 +961,6 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
                   </div>
                 </div>
               )}
-              {/* Recommendations */}
               {(prev.recommendations ?? []).length > 0 && (
                 <div>
                   <p className="axis-label mb-1.5">التوصيات</p>
@@ -728,12 +974,10 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
             </SectionCard>
           )}
 
-          {/* Agenda */}
           <SectionCard icon={<ClipboardList size={15} />} title="الأجندة">
             <AgendaEditor items={m.agenda} onChange={(agenda) => trackSave({ agenda })} />
           </SectionCard>
 
-          {/* Minutes — narrative */}
           <SectionCard icon={<ListTodo size={15} />} title="محضر الاجتماع">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
@@ -747,17 +991,14 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
             </div>
           </SectionCard>
 
-          {/* Decisions */}
           <SectionCard icon={<Gavel size={15} />} title="القرارات">
             <DecisionEditor items={decisions} onChange={(v) => trackSave({ decisions: v })} members={members} />
           </SectionCard>
 
-          {/* Recommendations */}
           <SectionCard icon={<Lightbulb size={15} />} title="التوصيات والمخرجات">
             <RecommendationEditor items={recommendations} onChange={(v) => trackSave({ recommendations: v })} members={members} />
           </SectionCard>
 
-          {/* Action items */}
           <SectionCard icon={<ListTodo size={15} />} title="بنود العمل">
             <ActionItemEditor
               items={m.actionItems}
@@ -768,7 +1009,6 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
             />
           </SectionCard>
 
-          {/* Danger zone */}
           <div className="flex justify-start">
             <button onClick={onDelete} className="flex items-center gap-1 px-3 h-7 rounded-md text-xs" style={{ color: 'var(--danger-500)' }}>
               <Trash2 size={12} /> حذف الاجتماع
@@ -831,7 +1071,15 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
                             {isSelected && <Check size={10} color="#fff" strokeWidth={3} />}
                           </button>
                         )}
-                        <span className="flex-1 truncate text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>{sp.name}</span>
+                        {/* Initiative name — click to navigate to ExecutionTab and open sprint drawer */}
+                        <button
+                          onClick={() => { navigate('execution', sp.id); onBack() }}
+                          className="flex-1 truncate text-xs font-medium text-start hover:underline"
+                          style={{ color: 'var(--color-text-primary)' }}
+                          title="فتح المبادرة في تبويب التنفيذ"
+                        >
+                          {sp.name}
+                        </button>
                         <span className="axis-num text-xs shrink-0" style={{ color: 'var(--color-text-muted)' }}>{pct}%</span>
                       </div>
                       <div className="h-1 rounded-full overflow-hidden ms-6" style={{ background: 'var(--color-surface-border)' }}>
@@ -855,6 +1103,7 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
                     : `${selectedInitiatives.size} من ${initiatives.length} مبادرة مضمّنة`}
                 </p>
               )}
+              <p className="text-[10px] mt-1" style={{ color: 'var(--color-text-muted)' }}>انقر على اسم المبادرة للانتقال لتبويب التنفيذ</p>
             </SectionCard>
           )}
 
@@ -895,9 +1144,20 @@ function fmtDate(d?: string): string {
   } catch { return d }
 }
 
+interface InitiativeSnap {
+  sp: Sprint
+  pct: number
+  clDone: number
+  clTotal: number
+  spDone: number
+  spTotal: number
+  checklistItems: { text: string; done: boolean }[]
+  taskItems: { title: string; assignee?: string; status: string }[]
+}
+
 interface MinutesSnapshot {
   progress?: { progress: number; doneTasks: number; activeTasks: number; totalTasks: number }
-  initiatives?: { sp: Sprint; pct: number; clDone: number; clTotal: number; spDone: number; spTotal: number }[]
+  initiatives?: InitiativeSnap[]
   finance?: { income: number; expense: number; currency: string }
 }
 
@@ -939,7 +1199,6 @@ function buildMeetingHTML({ mode, project, meeting: m, members, memberName, prev
   const prevHtml = (prevItemsHtml || prevRecsHtml)
     ? `<div class="sec"><h2>متابعة الاجتماع السابق</h2>${prevItemsHtml}${prevRecsHtml}</div>` : ''
 
-  // ── Agenda document: lightweight, pre-meeting ──
   if (isAgenda) {
     const body = `
 ${attendeesHtml ? `<div class="sec"><h2>الحضور</h2>${attendeesHtml}</div>` : ''}
@@ -949,7 +1208,6 @@ ${prevHtml}
     return wrapDoc({ color, title: `${docKind} — ${m.title}`, project, m, dateLabel, meetKind, body })
   }
 
-  // ── Minutes document: full ──
   const minuteSec = (title: string, bodyText?: string) =>
     bodyText ? `<div class="sec"><h2>${title}</h2><ul>${nl2li(bodyText)}</ul></div>` : ''
 
@@ -988,6 +1246,14 @@ ${prevHtml}
       snapHtml += `<table><thead><tr><th>المبادرة</th><th>الحالة</th><th>المعالم</th><th>المهام</th><th>التقدم</th></tr></thead><tbody>`
       for (const it of snapshot.initiatives) {
         snapHtml += `<tr><td>${esc(it.sp.name)}</td><td>${SPRINT_STATUS_LABEL[it.sp.status]}</td><td class="num">${it.clTotal ? `${it.clDone}/${it.clTotal}` : '—'}</td><td class="num">${it.spTotal ? `${it.spDone}/${it.spTotal}` : '—'}</td><td><div class="bar"><div class="fill" style="width:${it.pct}%"></div></div><span class="num pct">${it.pct}%</span></td></tr>`
+        // Checklist items
+        if (it.checklistItems.length > 0) {
+          snapHtml += `<tr><td colspan="5" style="padding:4px 10px 8px"><ul class="cl">${it.checklistItems.map((c) => `<li class="${c.done ? 'done' : ''}">${c.done ? '✓' : '○'} ${esc(c.text)}</li>`).join('')}</ul></td></tr>`
+        }
+        // Task items
+        if (it.taskItems.length > 0) {
+          snapHtml += `<tr><td colspan="5" style="padding:4px 10px 8px"><table class="inner"><thead><tr><th>المهمة</th><th>المسؤول</th><th>الحالة</th></tr></thead><tbody>${it.taskItems.map((t) => `<tr><td>${esc(t.title)}</td><td>${esc(t.assignee ?? '—')}</td><td>${esc(t.status)}</td></tr>`).join('')}</tbody></table></td></tr>`
+        }
       }
       snapHtml += `</tbody></table>`
     }
@@ -1037,6 +1303,12 @@ li{margin-bottom:3px}
 table{width:100%;border-collapse:collapse;font-size:12px}
 th{background:#f1f5f9;text-align:right;padding:6px 10px;font-weight:700;border:1px solid #e2e8f0}
 td{padding:6px 10px;border:1px solid #e2e8f0;vertical-align:middle}
+.inner{margin-top:4px;font-size:11px}
+.inner th{font-size:10px;padding:4px 8px}
+.inner td{padding:4px 8px}
+.cl{padding-inline-start:16px;font-size:12px;list-style:none}
+.cl li{margin-bottom:2px;color:#334155}
+.cl li.done{color:#6b7280;text-decoration:line-through}
 .pill{display:inline-block;border-radius:99px;padding:1px 10px;font-size:11px;font-weight:700}
 .pill.ok{background:#dcfce7;color:#15803d}
 .pill.wait{background:#fef3c7;color:#b45309}

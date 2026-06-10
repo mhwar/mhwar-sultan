@@ -506,7 +506,7 @@ export const SEED_MEETINGS: Meeting[] = [
       { id: 'ai-1-1', title: 'طلب وصول لبيئة الاختبار من مركز الترميز', assigneeId: 'tm7', dueDate: '2026-06-16', done: false },
       { id: 'ai-1-2', title: 'مشاركة قائمة الملاحظات المعلقة لدى الهيئة', assigneeId: 'tm5', done: true },
     ],
-    status: 'done', createdAt: '2026-06-09T08:00:00Z',
+    status: 'minuted', createdAt: '2026-06-09T08:00:00Z',
   },
   {
     id: 'meet-mlsq-2', projectId: 'mellasaq', title: 'جلسة المتابعة الأسبوعية',
@@ -519,7 +519,9 @@ export const SEED_MEETINGS: Meeting[] = [
       { id: 'ag-2-4', text: 'أولويات الأسبوع القادم' },
     ],
     actionItems: [],
-    status: 'upcoming', createdAt: '2026-06-09T12:00:00Z',
+    recurring: true,
+    recurringInterval: 'weekly',
+    status: 'preparation', createdAt: '2026-06-09T12:00:00Z',
   },
 ]
 
