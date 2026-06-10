@@ -1,9 +1,10 @@
 'use client'
-import { useState } from 'react'
-import { Plus, Trash2, Mail, Phone, Check, X, Users2 } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Plus, Trash2, Mail, Phone, Check, X, Users2, Upload, Sparkles, RotateCcw } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import type { Project, TeamMember, TeamStatus } from '@/types'
 import { useTeamStore } from '@/store/store'
+import { Avatar, generateAvatar, fileToAvatarDataUrl } from '@/lib/avatar'
 
 const STATUS_LABEL: Record<TeamStatus, string> = {
   active: 'نشط', invited: 'مدعو', inactive: 'غير نشط',
@@ -59,7 +60,6 @@ export default function TeamTab({ project }: Props) {
 }
 
 function MemberCard({ member: m, onEdit, onDelete }: { member: TeamMember; onEdit: () => void; onDelete: () => void }) {
-  const initials = m.name.trim().slice(0, 2)
   return (
     <div
       className="group relative rounded-xl p-4 cursor-pointer transition-colors hover:bg-white/5"
@@ -67,12 +67,7 @@ function MemberCard({ member: m, onEdit, onDelete }: { member: TeamMember; onEdi
       onClick={onEdit}
     >
       <div className="flex items-start gap-3">
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-sm font-bold"
-          style={{ background: 'color-mix(in oklch, var(--iris-500) 18%, transparent)', color: 'var(--iris-500)' }}
-        >
-          {initials}
-        </div>
+        <Avatar name={m.name} src={m.avatar} size={40} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>{m.name}</p>
@@ -113,11 +108,41 @@ function MemberForm({ initial, onSave, onCancel }: { initial?: TeamMember; onSav
   const [phone, setPhone] = useState(initial?.phone ?? '')
   const [status, setStatus] = useState<TeamStatus>(initial?.status ?? 'active')
   const [notes, setNotes] = useState(initial?.notes ?? '')
+  const [avatar, setAvatar] = useState<string | undefined>(initial?.avatar)
+  const [variant, setVariant] = useState(0)
+  const fileRef = useRef<HTMLInputElement>(null)
 
-  const save = () => { if (!name.trim()) return; onSave({ name, role, email: email || undefined, phone: phone || undefined, status, notes: notes || undefined }) }
+  const onPick = async (file?: File) => {
+    if (!file) return
+    try { setAvatar(await fileToAvatarDataUrl(file)) } catch { /* ignore bad image */ }
+  }
+  const generate = () => {
+    const next = variant + 1
+    setVariant(next)
+    setAvatar(generateAvatar(name.trim() || 'عضو', next))
+  }
+
+  const save = () => { if (!name.trim()) return; onSave({ name, role, email: email || undefined, phone: phone || undefined, status, notes: notes || undefined, avatar }) }
 
   return (
     <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--iris-500)' }}>
+      <div className="flex items-center gap-3">
+        <Avatar name={name || '؟'} src={avatar} size={56} />
+        <div className="flex flex-wrap gap-1.5">
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onPick(e.target.files?.[0])} />
+          <button onClick={() => fileRef.current?.click()} className="flex items-center gap-1 px-2.5 h-7 rounded-md text-xs font-medium" style={{ background: 'var(--color-surface-muted)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}>
+            <Upload size={12} /> رفع صورة
+          </button>
+          <button onClick={generate} className="flex items-center gap-1 px-2.5 h-7 rounded-md text-xs font-medium" style={{ background: 'var(--color-surface-muted)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}>
+            {variant > 0 ? <RotateCcw size={12} /> : <Sparkles size={12} />} {variant > 0 ? 'تغيير' : 'توليد صورة'}
+          </button>
+          {avatar && (
+            <button onClick={() => { setAvatar(undefined); setVariant(0) }} className="flex items-center gap-1 px-2.5 h-7 rounded-md text-xs font-medium" style={{ color: 'var(--danger-500)' }}>
+              <X size={12} /> إزالة
+            </button>
+          )}
+        </div>
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="axis-label mb-1 block">الاسم</label>

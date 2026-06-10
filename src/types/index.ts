@@ -220,6 +220,8 @@ export interface TeamMember {
   phone?: string
   status: TeamStatus
   notes?: string
+  /** Profile picture — an uploaded photo or a generated avatar (data URL). */
+  avatar?: string
   order: number
   createdAt: string
 }
@@ -244,17 +246,34 @@ export interface ScheduleEvent {
 
 // ── Meetings (recurring follow-up sessions with minutes) ──
 export type MeetingStatus = 'upcoming' | 'done' | 'cancelled'
-export type MeetingKind = 'weekly' | 'review' | 'external'
+/** Built-in meeting types; `other` carries a free-text label in `kindLabel`. */
+export type MeetingKind = 'weekly' | 'review' | 'external' | 'other'
 
 export interface MeetingAgendaItem {
   id: string
   text: string
 }
 
+/** A decision taken in the session — with an optional owner and deadline. */
+export interface MeetingDecision {
+  id: string
+  text: string
+  ownerId?: string   // المسؤول عن التنفيذ
+  dueDate?: string   // موعد التنفيذ (yyyy-mm-dd)
+}
+
+/** A recommendation / output — with an optional owner. */
+export interface MeetingRecommendation {
+  id: string
+  text: string
+  assigneeId?: string  // المسؤول عن التوصية
+}
+
 export interface MeetingActionItem {
   id: string
   title: string
   assigneeId?: string
+  dueDate?: string   // الموعد المستهدف (yyyy-mm-dd)
   done: boolean
   /** Set when the item is converted into a real task. */
   taskId?: string
@@ -268,12 +287,13 @@ export interface Meeting {
   startTime?: string    // HH:MM
   endTime?: string
   kind?: MeetingKind
+  kindLabel?: string    // free-text label when kind === 'other'
   attendees: string[]   // TeamMember ids
   agenda: MeetingAgendaItem[]
-  achievements?: string    // المنجزات
-  challenges?: string      // التحديات والمعالجات
-  decisions?: string       // القرارات
-  recommendations?: string // التوصيات والمخرجات
+  achievements?: string                  // المنجزات
+  challenges?: string                    // التحديات والمعالجات
+  decisions?: MeetingDecision[]          // القرارات
+  recommendations?: MeetingRecommendation[] // التوصيات والمخرجات
   actionItems: MeetingActionItem[]
   status: MeetingStatus
   createdAt: string

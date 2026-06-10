@@ -1,19 +1,32 @@
 'use client'
 import { useMemo, useState } from 'react'
 import {
-  Plus, Trash2, Check, CalendarClock, Users2, ListTodo, ArrowUpRight, ClipboardList,
+  Plus, Trash2, Check, CalendarClock, ListTodo, ArrowUpRight, ClipboardList,
   Sparkles, ArrowRight, Printer, History, Gauge, Target, Wallet, CornerDownLeft,
+  FileText, Gavel, Lightbulb, Calendar,
 } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
-import type { Project, Meeting, MeetingStatus, MeetingKind, MeetingActionItem, TeamMember, Sprint } from '@/types'
+import type {
+  Project, Meeting, MeetingStatus, MeetingKind, MeetingActionItem,
+  MeetingAgendaItem, MeetingDecision, MeetingRecommendation, TeamMember, Sprint,
+} from '@/types'
 import { useMeetingStore, useTeamStore, useTaskStore, useSprintStore, useFinanceStore } from '@/store/store'
 import { formatDateShort, formatDateAr, generateId } from '@/lib/utils'
+import { Avatar } from '@/lib/avatar'
 
 const STATUS_LABEL: Record<MeetingStatus, string> = { upcoming: 'قادم', done: 'منعقد', cancelled: 'ملغي' }
 const STATUS_VAR: Record<MeetingStatus, string> = {
   upcoming: 'var(--info-500)', done: 'var(--success-500)', cancelled: 'var(--danger-500)',
 }
-const KIND_LABEL: Record<MeetingKind, string> = { weekly: 'متابعة أسبوعية', review: 'مراجعة', external: 'اجتماع خارجي' }
+const KIND_LABEL: Record<MeetingKind, string> = {
+  weekly: 'متابعة أسبوعية', review: 'مراجعة', external: 'اجتماع خارجي', other: 'نوع آخر',
+}
+/** Human label for a meeting's kind, honouring a custom `kindLabel` for `other`. */
+function kindText(m: Meeting): string | undefined {
+  if (!m.kind) return undefined
+  if (m.kind === 'other') return m.kindLabel?.trim() || 'اجتماع آخر'
+  return KIND_LABEL[m.kind]
+}
 
 const SPRINT_STATUS_LABEL: Record<Sprint['status'], string> = { planned: 'مخطط', active: 'نشط', completed: 'مكتمل' }
 
@@ -46,6 +59,7 @@ export default function MeetingsTab({ project }: Props) {
   const members = useTeamStore(useShallow((s) => s.members.filter((m) => m.projectId === pid)))
   const [openId, setOpenId] = useState<string | null>(null)
 
+  const memberById = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m])), [members])
   const memberName = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m.name])), [members])
 
   const upcoming = meetings.filter((m) => m.status === 'upcoming').sort((a, b) => a.date.localeCompare(b.date))
@@ -82,6 +96,7 @@ export default function MeetingsTab({ project }: Props) {
         meeting={open}
         meetings={meetings}
         members={members}
+        memberById={memberById}
         memberName={memberName}
         onChange={(d) => updateMeeting(open.id, d)}
         onDelete={() => { deleteMeeting(open.id); setOpenId(null) }}
@@ -90,12 +105,12 @@ export default function MeetingsTab({ project }: Props) {
     )
   }
 
-  const Section = ({ title, list }: { title: string; list: Meeting[] }) =>
+  const renderSection = (title: string, list: Meeting[]) =>
     list.length === 0 ? null : (
       <div className="space-y-2">
         <p className="axis-label">{title}</p>
         {list.map((m) => (
-          <MeetingRow key={m.id} m={m} memberName={memberName} onOpen={() => setOpenId(m.id)} />
+          <MeetingRow key={m.id} m={m} memberById={memberById} onOpen={() => setOpenId(m.id)} />
         ))}
       </div>
     )
@@ -129,8 +144,8 @@ export default function MeetingsTab({ project }: Props) {
         </div>
       ) : (
         <div className="space-y-5">
-          <Section title="القادمة" list={upcoming} />
-          <Section title="السابقة" list={past} />
+          {renderSection('القادمة', upcoming)}
+          {renderSection('السابقة', past)}
         </div>
       )}
     </div>
@@ -138,9 +153,10 @@ export default function MeetingsTab({ project }: Props) {
 }
 
 // ── Collapsed meeting row ──
-function MeetingRow({ m, memberName, onOpen }: { m: Meeting; memberName: Record<string, string>; onOpen: () => void }) {
+function MeetingRow({ m, memberById, onOpen }: { m: Meeting; memberById: Record<string, TeamMember>; onOpen: () => void }) {
   const doneItems = m.actionItems.filter((a) => a.done).length
-  const names = m.attendees.map((id) => memberName[id]).filter(Boolean)
+  const attendees = m.attendees.map((id) => memberById[id]).filter(Boolean) as TeamMember[]
+  const kind = kindText(m)
   return (
     <div
       onClick={onOpen}
@@ -153,10 +169,17 @@ function MeetingRow({ m, memberName, onOpen }: { m: Meeting; memberName: Record<
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{m.title}</p>
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-          {m.kind && <span>{KIND_LABEL[m.kind]}</span>}
-          {names.length > 0 && (
-            <span className="inline-flex items-center gap-1"><Users2 size={11} />{names.join('، ')}</span>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          {kind && <span>{kind}</span>}
+          {attendees.length > 0 && (
+            <span className="inline-flex items-center gap-1">
+              <span className="flex -space-x-1.5 -space-x-reverse">
+                {attendees.slice(0, 4).map((a) => (
+                  <Avatar key={a.id} name={a.name} src={a.avatar} size={18} className="ring-1 ring-[var(--color-surface-overlay)]" />
+                ))}
+              </span>
+              {attendees.length > 4 && <span className="axis-num">+{attendees.length - 4}</span>}
+            </span>
           )}
           {m.actionItems.length > 0 && (
             <span className="inline-flex items-center gap-1 axis-num"><ListTodo size={11} />{doneItems}/{m.actionItems.length} بند عمل</span>
@@ -174,12 +197,209 @@ function MeetingRow({ m, memberName, onOpen }: { m: Meeting; memberName: Record<
   )
 }
 
+// ════════════════════ Reusable bits (module scope = stable identity) ════════════════════
+// NB: defining these at module scope (not inside MeetingPage) is what keeps inputs
+// from losing focus on every keystroke.
+
+function SectionCard({ icon, title, children, extra }: { icon: React.ReactNode; title: string; children: React.ReactNode; extra?: React.ReactNode }) {
+  return (
+    <div className="axis-card p-4 md:p-5">
+      <div className="flex items-center justify-between mb-3 gap-2">
+        <h3 className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+          <span style={{ color: 'var(--iris-500)' }}>{icon}</span> {title}
+        </h3>
+        {extra}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function AddRowButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1.5 px-2.5 h-7 mt-2 rounded-md text-xs font-medium transition-colors"
+      style={{ background: 'var(--color-surface-muted)', color: 'var(--color-text-secondary)', border: '1px dashed var(--color-surface-border)' }}
+    >
+      <Plus size={13} /> {label}
+    </button>
+  )
+}
+
+function MemberSelect({ value, onChange, members, placeholder, width = 'w-32' }: {
+  value: string; onChange: (v: string) => void; members: TeamMember[]; placeholder: string; width?: string
+}) {
+  return (
+    <select className={`${inputCls} ${width} shrink-0`} style={inputStyle} value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">{placeholder}</option>
+      {members.map((mem) => <option key={mem.id} value={mem.id}>{mem.name}</option>)}
+    </select>
+  )
+}
+
+function RowDelete({ onClick }: { onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0" style={{ color: 'var(--danger-500)' }} aria-label="حذف">
+      <Trash2 size={13} />
+    </button>
+  )
+}
+
+// ── Agenda ──
+function AgendaEditor({ items, onChange }: { items: MeetingAgendaItem[]; onChange: (v: MeetingAgendaItem[]) => void }) {
+  const patch = (id: string, text: string) => onChange(items.map((a) => (a.id === id ? { ...a, text } : a)))
+  const remove = (id: string) => onChange(items.filter((a) => a.id !== id))
+  const add = () => onChange([...items, { id: generateId(), text: '' }])
+  return (
+    <div className="space-y-1.5">
+      {items.map((a, i) => (
+        <div key={a.id} className="group flex items-center gap-2">
+          <span className="axis-num text-xs shrink-0 w-5 text-center" style={{ color: 'var(--color-text-muted)' }}>{i + 1}.</span>
+          <input className={inputCls} style={inputStyle} value={a.text} onChange={(e) => patch(a.id, e.target.value)} placeholder="بند للأجندة…" />
+          <RowDelete onClick={() => remove(a.id)} />
+        </div>
+      ))}
+      <AddRowButton label="إضافة بند" onClick={add} />
+    </div>
+  )
+}
+
+// ── Decisions (text + owner + deadline) ──
+function DecisionEditor({ items, onChange, members }: { items: MeetingDecision[]; onChange: (v: MeetingDecision[]) => void; members: TeamMember[] }) {
+  const patch = (id: string, d: Partial<MeetingDecision>) => onChange(items.map((x) => (x.id === id ? { ...x, ...d } : x)))
+  const remove = (id: string) => onChange(items.filter((x) => x.id !== id))
+  const add = () => onChange([...items, { id: generateId(), text: '' }])
+  return (
+    <div className="space-y-2">
+      {items.map((d) => (
+        <div key={d.id} className="group rounded-lg p-2 space-y-1.5" style={{ background: 'var(--color-surface-muted)' }}>
+          <div className="flex items-center gap-2">
+            <input className={`${inputCls} bg-transparent`} style={{ ...inputStyle, background: 'var(--color-surface-overlay)' }} value={d.text} onChange={(e) => patch(d.id, { text: e.target.value })} placeholder="نص القرار…" />
+            <RowDelete onClick={() => remove(d.id)} />
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <MemberSelect value={d.ownerId ?? ''} onChange={(v) => patch(d.id, { ownerId: v || undefined })} members={members} placeholder="المسؤول" />
+            <label className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              <Calendar size={12} /> الموعد
+              <input type="date" className="h-8 rounded-md px-2 text-sm outline-none" style={inputStyle} value={d.dueDate ?? ''} onChange={(e) => patch(d.id, { dueDate: e.target.value || undefined })} />
+            </label>
+          </div>
+        </div>
+      ))}
+      <AddRowButton label="إضافة قرار" onClick={add} />
+    </div>
+  )
+}
+
+// ── Recommendations (text + owner) ──
+function RecommendationEditor({ items, onChange, members }: { items: MeetingRecommendation[]; onChange: (v: MeetingRecommendation[]) => void; members: TeamMember[] }) {
+  const patch = (id: string, d: Partial<MeetingRecommendation>) => onChange(items.map((x) => (x.id === id ? { ...x, ...d } : x)))
+  const remove = (id: string) => onChange(items.filter((x) => x.id !== id))
+  const add = () => onChange([...items, { id: generateId(), text: '' }])
+  return (
+    <div className="space-y-1.5">
+      {items.map((r) => (
+        <div key={r.id} className="group flex items-center gap-2">
+          <input className={inputCls} style={inputStyle} value={r.text} onChange={(e) => patch(r.id, { text: e.target.value })} placeholder="نص التوصية…" />
+          <MemberSelect value={r.assigneeId ?? ''} onChange={(v) => patch(r.id, { assigneeId: v || undefined })} members={members} placeholder="المسؤول" />
+          <RowDelete onClick={() => remove(r.id)} />
+        </div>
+      ))}
+      <AddRowButton label="إضافة توصية" onClick={add} />
+    </div>
+  )
+}
+
+// ── Action items (title + owner + deadline + status + task link) ──
+function ActionItemEditor({ items, onChange, members, onToggle, onConvert }: {
+  items: MeetingActionItem[]
+  onChange: (v: MeetingActionItem[]) => void
+  members: TeamMember[]
+  onToggle: (a: MeetingActionItem) => void
+  onConvert: (a: MeetingActionItem) => void
+}) {
+  const patch = (id: string, d: Partial<MeetingActionItem>) => onChange(items.map((x) => (x.id === id ? { ...x, ...d } : x)))
+  const remove = (id: string) => onChange(items.filter((x) => x.id !== id))
+  const add = () => onChange([...items, { id: generateId(), title: '', done: false }])
+  return (
+    <div className="space-y-2">
+      {items.map((a) => (
+        <div key={a.id} className="group rounded-lg p-2" style={{ background: 'var(--color-surface-muted)' }}>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onToggle(a)}
+              className="w-4 h-4 rounded flex items-center justify-center shrink-0 transition-colors"
+              style={{ background: a.done ? 'var(--success-500)' : 'transparent', border: a.done ? 'none' : '1.5px solid var(--color-surface-border)' }}
+              aria-label={a.done ? 'إلغاء الإنجاز' : 'إنجاز'}
+            >
+              {a.done && <Check size={11} color="#fff" strokeWidth={3} />}
+            </button>
+            <input
+              className="flex-1 min-w-0 h-8 rounded-md px-2 text-sm outline-none"
+              style={{ ...inputStyle, background: 'var(--color-surface-overlay)', textDecoration: a.done ? 'line-through' : 'none', opacity: a.done ? 0.6 : 1 }}
+              value={a.title}
+              onChange={(e) => patch(a.id, { title: e.target.value })}
+              placeholder="بند عمل…"
+            />
+            <RowDelete onClick={() => remove(a.id)} />
+          </div>
+          <div className="flex items-center gap-2 flex-wrap mt-1.5 ps-6">
+            <MemberSelect value={a.assigneeId ?? ''} onChange={(v) => patch(a.id, { assigneeId: v || undefined })} members={members} placeholder="بلا مسؤول" />
+            <label className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              <Calendar size={12} /> الموعد
+              <input type="date" className="h-8 rounded-md px-2 text-sm outline-none" style={inputStyle} value={a.dueDate ?? ''} onChange={(e) => patch(a.id, { dueDate: e.target.value || undefined })} />
+            </label>
+            {a.taskId ? (
+              <span className="shrink-0 flex items-center gap-1 px-2 h-6 rounded text-[10px] font-semibold" style={{ background: 'color-mix(in oklch, var(--iris-500) 14%, transparent)', color: 'var(--iris-500)' }}>
+                <Check size={9} /> مهمة في التنفيذ
+              </span>
+            ) : (
+              <button
+                onClick={() => onConvert(a)}
+                disabled={!a.title.trim()}
+                className="shrink-0 flex items-center gap-1 px-2 h-6 rounded text-[10px] font-semibold transition-colors disabled:opacity-40"
+                style={{ background: 'var(--color-surface-overlay)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
+                title="إنشاء مهمة في تبويب التنفيذ"
+              >
+                <ArrowUpRight size={9} /> تحويل لمهمة
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+      <p className="text-[11px] mt-1.5" style={{ color: 'var(--color-text-muted)' }}>
+        بنود العمل تُتابَع في الاجتماع التالي تلقائياً، ويمكن تحويل أي بند إلى مهمة في تبويب التنفيذ
+      </p>
+      <AddRowButton label="إضافة بند عمل" onClick={add} />
+    </div>
+  )
+}
+
+function IncludeToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      className="flex items-center gap-1 px-2 h-6 rounded-md text-[10px] font-semibold transition-colors"
+      style={{
+        background: on ? 'color-mix(in oklch, var(--iris-500) 14%, transparent)' : 'var(--color-surface-muted)',
+        color: on ? 'var(--iris-500)' : 'var(--color-text-muted)',
+        border: `1px solid ${on ? 'color-mix(in oklch, var(--iris-500) 40%, transparent)' : 'var(--color-surface-border)'}`,
+      }}
+      title="تضمين هذه البطاقة في المحضر المُصدَّر"
+    >
+      {on && <Check size={10} />} تضمين
+    </button>
+  )
+}
+
 // ════════════════════ Full meeting page ════════════════════
-function MeetingPage({ project, meeting: m, meetings, members, memberName, onChange, onDelete, onBack }: {
+function MeetingPage({ project, meeting: m, meetings, members, memberById, memberName, onChange, onDelete, onBack }: {
   project: Project
   meeting: Meeting
   meetings: Meeting[]
   members: TeamMember[]
+  memberById: Record<string, TeamMember>
   memberName: Record<string, string>
   onChange: (d: Partial<Meeting>) => void
   onDelete: () => void
@@ -191,13 +411,13 @@ function MeetingPage({ project, meeting: m, meetings, members, memberName, onCha
   const sprints = useSprintStore(useShallow((s) => s.sprints.filter((sp) => sp.projectId === pid).sort((a, b) => a.order - b.order)))
   const finance = useFinanceStore(useShallow((s) => s.entries.filter((e) => e.projectId === pid)))
 
-  const [agendaText, setAgendaText] = useState('')
-  const [itemTitle, setItemTitle] = useState('')
-  const [itemAssignee, setItemAssignee] = useState('')
   // Which live blocks get embedded in the exported minutes
   const [incProgress, setIncProgress] = useState(true)
   const [incInitiatives, setIncInitiatives] = useState(true)
   const [incFinance, setIncFinance] = useState(false)
+
+  const decisions = m.decisions ?? []
+  const recommendations = m.recommendations ?? []
 
   // ── Previous meeting (for follow-up) ──
   const prev = useMemo(() => {
@@ -213,7 +433,7 @@ function MeetingPage({ project, meeting: m, meetings, members, memberName, onCha
     const existing = new Set(m.actionItems.map((a) => a.title))
     const carried = prevPending
       .filter((a) => !existing.has(a.title))
-      .map((a) => ({ id: generateId(), title: a.title, assigneeId: a.assigneeId, done: false, taskId: a.taskId }))
+      .map((a) => ({ id: generateId(), title: a.title, assigneeId: a.assigneeId, dueDate: a.dueDate, done: false, taskId: a.taskId }))
     if (carried.length) onChange({ actionItems: [...m.actionItems, ...carried] })
   }
 
@@ -233,51 +453,32 @@ function MeetingPage({ project, meeting: m, meetings, members, memberName, onCha
   const currency = finance[0]?.currency ?? 'SAR'
 
   // ── Action items ──
-  const addItem = () => {
-    const t = itemTitle.trim()
-    if (!t) return
-    onChange({ actionItems: [...m.actionItems, { id: generateId(), title: t, assigneeId: itemAssignee || undefined, done: false }] })
-    setItemTitle('')
-    setItemAssignee('')
-  }
-
-  const patchItem = (id: string, d: Partial<MeetingActionItem>) =>
-    onChange({ actionItems: m.actionItems.map((a) => (a.id === id ? { ...a, ...d } : a)) })
-
   const toggleItem = (a: MeetingActionItem) => {
-    patchItem(a.id, { done: !a.done })
+    onChange({ actionItems: m.actionItems.map((x) => (x.id === a.id ? { ...x, done: !x.done } : x)) })
     if (a.taskId) updateTask(a.taskId, { status: !a.done ? 'done' : 'todo' })
   }
-
   const convertToTask = (a: MeetingActionItem) => {
-    if (a.taskId) return
+    if (a.taskId || !a.title.trim()) return
     const taskId = addTask({
-      projectId: pid, title: a.title, assigneeId: a.assigneeId,
+      projectId: pid, title: a.title, assigneeId: a.assigneeId, dueDate: a.dueDate,
       status: a.done ? 'done' : 'todo', priority: 'medium',
     })
-    patchItem(a.id, { taskId })
-  }
-
-  const addAgenda = () => {
-    const t = agendaText.trim()
-    if (!t) return
-    onChange({ agenda: [...m.agenda, { id: generateId(), text: t }] })
-    setAgendaText('')
+    onChange({ actionItems: m.actionItems.map((x) => (x.id === a.id ? { ...x, taskId } : x)) })
   }
 
   const toggleAttendee = (id: string) =>
     onChange({ attendees: m.attendees.includes(id) ? m.attendees.filter((a) => a !== id) : [...m.attendees, id] })
 
-  // ── Export minutes ──
-  const exportMinutes = () => {
-    const html = buildMinutesHTML({
-      project, meeting: m, members, memberName,
+  // ── Export (agenda before / minutes after) ──
+  const exportDoc = (mode: 'agenda' | 'minutes') => {
+    const html = buildMeetingHTML({
+      mode, project, meeting: m, members, memberName,
       prevMeeting: prev,
-      snapshot: {
+      snapshot: mode === 'minutes' ? {
         progress: incProgress ? { progress: project.progress, doneTasks, activeTasks, totalTasks: tasks.length } : undefined,
         initiatives: incInitiatives ? initiatives : undefined,
         finance: incFinance && finance.length > 0 ? { income, expense, currency } : undefined,
-      },
+      } : {},
     })
     const w = window.open('', '_blank', 'width=900,height=800,resizable=yes')
     if (!w) return
@@ -285,17 +486,7 @@ function MeetingPage({ project, meeting: m, meetings, members, memberName, onCha
     w.document.close()
   }
 
-  const SectionCard = ({ icon, title, children, extra }: { icon: React.ReactNode; title: string; children: React.ReactNode; extra?: React.ReactNode }) => (
-    <div className="axis-card p-4 md:p-5">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          <span style={{ color: 'var(--iris-500)' }}>{icon}</span> {title}
-        </h3>
-        {extra}
-      </div>
-      {children}
-    </div>
-  )
+  const kindLabel = kindText(m)
 
   return (
     <div className="space-y-4">
@@ -311,23 +502,34 @@ function MeetingPage({ project, meeting: m, meetings, members, memberName, onCha
             <ArrowRight size={15} />
           </button>
           <div className="flex-1 min-w-[220px]">
+            <label className="axis-label mb-1 block">عنوان الاجتماع</label>
             <input
-              className="w-full bg-transparent outline-none text-lg font-bold"
-              style={{ color: 'var(--color-text-primary)' }}
+              className="w-full h-9 rounded-md px-2.5 outline-none text-lg font-bold"
+              style={inputStyle}
               value={m.title}
               onChange={(e) => onChange({ title: e.target.value })}
+              placeholder="اكتب عنواناً للاجتماع…"
             />
-            <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+            <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
               {formatDateAr(m.date + 'T00:00:00Z')}
               {m.startTime && <> · <span className="axis-num">{m.startTime}{m.endTime ? `–${m.endTime}` : ''}</span></>}
-              {m.kind && <> · {KIND_LABEL[m.kind]}</>}
+              {kindLabel && <> · {kindLabel}</>}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={exportMinutes}
+              onClick={() => exportDoc('agenda')}
+              className="flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-semibold"
+              style={{ background: 'var(--color-surface-overlay)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
+              title="تصدير الأجندة لإرسالها للفريق قبل الاجتماع"
+            >
+              <FileText size={13} /> تصدير الأجندة
+            </button>
+            <button
+              onClick={() => exportDoc('minutes')}
               className="flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-semibold"
               style={{ background: 'var(--iris-500)', color: '#fff' }}
+              title="تصدير المحضر النهائي بعد الاجتماع"
             >
               <Printer size={13} /> تصدير المحضر
             </button>
@@ -363,9 +565,21 @@ function MeetingPage({ project, meeting: m, meetings, members, memberName, onCha
           </div>
         </div>
 
+        {/* Custom kind label */}
+        {m.kind === 'other' && (
+          <div className="mt-2">
+            <label className="axis-label mb-1 block">مسمى النوع</label>
+            <input
+              className={inputCls} style={inputStyle} value={m.kindLabel ?? ''}
+              onChange={(e) => onChange({ kindLabel: e.target.value || undefined })}
+              placeholder="مثال: ورشة عمل، جلسة تنسيق مع GS1، عرض للشركاء…"
+            />
+          </div>
+        )}
+
         {/* Attendees */}
         <div className="mt-4">
-          <label className="axis-label mb-1.5 block">الحضور — يظهرون في المحضر المُصدَّر</label>
+          <label className="axis-label mb-1.5 block">الحضور — يظهرون في الأجندة والمحضر المُصدَّر</label>
           <div className="flex flex-wrap gap-1.5">
             {members.map((mem) => {
               const on = m.attendees.includes(mem.id)
@@ -373,14 +587,16 @@ function MeetingPage({ project, meeting: m, meetings, members, memberName, onCha
                 <button
                   key={mem.id}
                   onClick={() => toggleAttendee(mem.id)}
-                  className="flex items-center gap-1 px-2.5 h-7 rounded-full text-xs font-medium transition-colors"
+                  className="flex items-center gap-1.5 ps-1 pe-2.5 h-8 rounded-full text-xs font-medium transition-colors"
                   style={{
                     background: on ? 'color-mix(in oklch, var(--iris-500) 14%, transparent)' : 'var(--color-surface-muted)',
                     color: on ? 'var(--iris-500)' : 'var(--color-text-muted)',
                     border: `1px solid ${on ? 'color-mix(in oklch, var(--iris-500) 40%, transparent)' : 'var(--color-surface-border)'}`,
                   }}
                 >
-                  {on && <Check size={11} />} {mem.name}
+                  <Avatar name={mem.name} src={mem.avatar} size={22} />
+                  {mem.name}
+                  {on && <Check size={12} />}
                 </button>
               )
             })}
@@ -434,36 +650,10 @@ function MeetingPage({ project, meeting: m, meetings, members, memberName, onCha
 
           {/* Agenda */}
           <SectionCard icon={<ClipboardList size={15} />} title="الأجندة">
-            <div className="space-y-1">
-              {m.agenda.map((a, i) => (
-                <div key={a.id} className="group flex items-center gap-2 rounded-md px-2 py-1.5" style={{ background: 'var(--color-surface-muted)' }}>
-                  <span className="axis-num text-xs shrink-0" style={{ color: 'var(--color-text-muted)' }}>{i + 1}.</span>
-                  <span className="flex-1 text-sm" style={{ color: 'var(--color-text-primary)' }}>{a.text}</span>
-                  <button
-                    onClick={() => onChange({ agenda: m.agenda.filter((x) => x.id !== a.id) })}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                    style={{ color: 'var(--danger-500)' }}
-                    aria-label="حذف البند"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center gap-2 mt-2">
-              <input
-                className={inputCls} style={inputStyle} value={agendaText}
-                onChange={(e) => setAgendaText(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') addAgenda() }}
-                placeholder="أضف بنداً للأجندة…"
-              />
-              <button onClick={addAgenda} disabled={!agendaText.trim()} className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 disabled:opacity-40" style={{ background: 'var(--color-surface-muted)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }} aria-label="إضافة">
-                <Plus size={14} />
-              </button>
-            </div>
+            <AgendaEditor items={m.agenda} onChange={(agenda) => onChange({ agenda })} />
           </SectionCard>
 
-          {/* Minutes */}
+          {/* Minutes — narrative */}
           <SectionCard icon={<ListTodo size={15} />} title="محضر الاجتماع">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
@@ -474,76 +664,28 @@ function MeetingPage({ project, meeting: m, meetings, members, memberName, onCha
                 <label className="axis-label mb-1 block">التحديات والمعالجات</label>
                 <textarea rows={4} className={areaCls} style={inputStyle} value={m.challenges ?? ''} onChange={(e) => onChange({ challenges: e.target.value || undefined })} placeholder="التحديات القائمة وكيف ستُعالج" />
               </div>
-              <div>
-                <label className="axis-label mb-1 block">القرارات</label>
-                <textarea rows={4} className={areaCls} style={inputStyle} value={m.decisions ?? ''} onChange={(e) => onChange({ decisions: e.target.value || undefined })} placeholder="القرارات المتخذة في الجلسة" />
-              </div>
-              <div>
-                <label className="axis-label mb-1 block">التوصيات والمخرجات</label>
-                <textarea rows={4} className={areaCls} style={inputStyle} value={m.recommendations ?? ''} onChange={(e) => onChange({ recommendations: e.target.value || undefined })} placeholder="توصيات الجلسة ومخرجاتها النهائية" />
-              </div>
             </div>
+          </SectionCard>
+
+          {/* Decisions */}
+          <SectionCard icon={<Gavel size={15} />} title="القرارات">
+            <DecisionEditor items={decisions} onChange={(v) => onChange({ decisions: v })} members={members} />
+          </SectionCard>
+
+          {/* Recommendations */}
+          <SectionCard icon={<Lightbulb size={15} />} title="التوصيات والمخرجات">
+            <RecommendationEditor items={recommendations} onChange={(v) => onChange({ recommendations: v })} members={members} />
           </SectionCard>
 
           {/* Action items */}
           <SectionCard icon={<ListTodo size={15} />} title="بنود العمل">
-            <div className="space-y-1">
-              {m.actionItems.map((a) => (
-                <div key={a.id} className="group flex items-center gap-2 rounded-md px-2 py-1.5" style={{ background: 'var(--color-surface-muted)' }}>
-                  <button
-                    onClick={() => toggleItem(a)}
-                    className="w-4 h-4 rounded flex items-center justify-center shrink-0 transition-colors"
-                    style={{ background: a.done ? 'var(--success-500)' : 'transparent', border: a.done ? 'none' : '1.5px solid var(--color-surface-border)' }}
-                    aria-label={a.done ? 'إلغاء الإنجاز' : 'إنجاز'}
-                  >
-                    {a.done && <Check size={11} color="#fff" strokeWidth={3} />}
-                  </button>
-                  <span className="flex-1 text-sm min-w-0 truncate" style={{ color: 'var(--color-text-primary)', textDecoration: a.done ? 'line-through' : 'none', opacity: a.done ? 0.6 : 1 }}>
-                    {a.title}
-                  </span>
-                  {a.assigneeId && memberName[a.assigneeId] && (
-                    <span className="text-xs shrink-0" style={{ color: 'var(--color-text-muted)' }}>{memberName[a.assigneeId]}</span>
-                  )}
-                  {a.taskId ? (
-                    <span className="shrink-0 flex items-center gap-1 px-1.5 h-5 rounded text-[10px] font-semibold" style={{ background: 'color-mix(in oklch, var(--iris-500) 14%, transparent)', color: 'var(--iris-500)' }}>
-                      <Check size={9} /> مهمة
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => convertToTask(a)}
-                      className="opacity-0 group-hover:opacity-100 shrink-0 flex items-center gap-1 px-1.5 h-5 rounded text-[10px] font-semibold transition-opacity"
-                      style={{ background: 'var(--color-surface-overlay)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
-                      title="إنشاء مهمة في تبويب التنفيذ"
-                    >
-                      <ArrowUpRight size={9} /> تحويل لمهمة
-                    </button>
-                  )}
-                  <button
-                    onClick={() => onChange({ actionItems: m.actionItems.filter((x) => x.id !== a.id) })}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                    style={{ color: 'var(--danger-500)' }}
-                    aria-label="حذف البند"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center gap-2 mt-2">
-              <input
-                className={inputCls} style={inputStyle} value={itemTitle}
-                onChange={(e) => setItemTitle(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') addItem() }}
-                placeholder="أضف بند عمل…"
-              />
-              <select className={`${inputCls} w-36 shrink-0`} style={inputStyle} value={itemAssignee} onChange={(e) => setItemAssignee(e.target.value)}>
-                <option value="">بلا مسؤول</option>
-                {members.map((mem) => <option key={mem.id} value={mem.id}>{mem.name}</option>)}
-              </select>
-              <button onClick={addItem} disabled={!itemTitle.trim()} className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 disabled:opacity-40" style={{ background: 'var(--color-surface-muted)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }} aria-label="إضافة">
-                <Plus size={14} />
-              </button>
-            </div>
+            <ActionItemEditor
+              items={m.actionItems}
+              onChange={(v) => onChange({ actionItems: v })}
+              members={members}
+              onToggle={toggleItem}
+              onConvert={convertToTask}
+            />
           </SectionCard>
 
           {/* Danger zone */}
@@ -626,7 +768,7 @@ function MeetingPage({ project, meeting: m, meetings, members, memberName, onCha
           )}
 
           <p className="text-[11px] leading-relaxed px-1" style={{ color: 'var(--color-text-muted)' }}>
-            فعّل «تضمين» على أي بطاقة لإدراجها في المحضر المُصدَّر وإرساله للفريق
+            فعّل «تضمين» على أي بطاقة لإدراجها في المحضر المُصدَّر · «تصدير الأجندة» يرسل بنود الجلسة للفريق قبل الاجتماع
           </p>
         </div>
       </div>
@@ -634,29 +776,18 @@ function MeetingPage({ project, meeting: m, meetings, members, memberName, onCha
   )
 }
 
-function IncludeToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
-  return (
-    <button
-      onClick={onToggle}
-      className="flex items-center gap-1 px-2 h-6 rounded-md text-[10px] font-semibold transition-colors"
-      style={{
-        background: on ? 'color-mix(in oklch, var(--iris-500) 14%, transparent)' : 'var(--color-surface-muted)',
-        color: on ? 'var(--iris-500)' : 'var(--color-text-muted)',
-        border: `1px solid ${on ? 'color-mix(in oklch, var(--iris-500) 40%, transparent)' : 'var(--color-surface-border)'}`,
-      }}
-      title="تضمين هذه البطاقة في المحضر المُصدَّر"
-    >
-      {on && <Check size={10} />} تضمين
-    </button>
-  )
-}
-
-// ════════════════════ Minutes export (HTML → window.print) ════════════════════
+// ════════════════════ Meeting document export (HTML → window.print) ════════════════════
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 function nl2li(s: string): string {
   return s.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => `<li>${esc(l)}</li>`).join('')
+}
+function fmtDate(d?: string): string {
+  if (!d) return '—'
+  try {
+    return new Intl.DateTimeFormat('ar-u-ca-gregory-nu-latn', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(d + 'T00:00:00Z'))
+  } catch { return d }
 }
 
 interface MinutesSnapshot {
@@ -665,7 +796,8 @@ interface MinutesSnapshot {
   finance?: { income: number; expense: number; currency: string }
 }
 
-function buildMinutesHTML({ project, meeting: m, members, memberName, prevMeeting, snapshot }: {
+function buildMeetingHTML({ mode, project, meeting: m, members, memberName, prevMeeting, snapshot }: {
+  mode: 'agenda' | 'minutes'
   project: Project
   meeting: Meeting
   members: TeamMember[]
@@ -676,30 +808,61 @@ function buildMinutesHTML({ project, meeting: m, members, memberName, prevMeetin
   const color = project.color
   const dateLabel = new Intl.DateTimeFormat('ar-u-ca-gregory-nu-latn', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(m.date + 'T00:00:00Z'))
   const memberRole: Record<string, string> = Object.fromEntries(members.map((x) => [x.id, x.role]))
+  const isAgenda = mode === 'agenda'
+  const docKind = isAgenda ? 'أجندة اجتماع' : 'محضر اجتماع'
+  const meetKind = kindText(m)
 
   const attendeesHtml = m.attendees
     .filter((id) => memberName[id])
     .map((id) => `<span class="att"><b>${esc(memberName[id])}</b>${memberRole[id] ? ` — ${esc(memberRole[id])}` : ''}</span>`)
     .join('')
 
-  const agendaHtml = m.agenda.length
-    ? `<div class="sec"><h2>الأجندة</h2><ol>${m.agenda.map((a) => `<li>${esc(a.text)}</li>`).join('')}</ol></div>`
+  const agendaHtml = m.agenda.filter((a) => a.text.trim()).length
+    ? `<div class="sec"><h2>الأجندة</h2><ol>${m.agenda.filter((a) => a.text.trim()).map((a) => `<li>${esc(a.text)}</li>`).join('')}</ol></div>`
     : ''
 
   const prevHtml = prevMeeting && prevMeeting.actionItems.length
     ? `<div class="sec"><h2>متابعة بنود الاجتماع السابق</h2>
-       <table><thead><tr><th>البند</th><th>المسؤول</th><th>الحالة</th></tr></thead><tbody>
-       ${prevMeeting.actionItems.map((a) => `<tr><td>${esc(a.title)}</td><td>${a.assigneeId && memberName[a.assigneeId] ? esc(memberName[a.assigneeId]) : '—'}</td><td><span class="pill ${a.done ? 'ok' : 'wait'}">${a.done ? 'منجز' : 'معلق'}</span></td></tr>`).join('')}
+       <table><thead><tr><th>البند</th><th>المسؤول</th><th>الموعد</th><th>الحالة</th></tr></thead><tbody>
+       ${prevMeeting.actionItems.map((a) => `<tr><td>${esc(a.title)}</td><td>${a.assigneeId && memberName[a.assigneeId] ? esc(memberName[a.assigneeId]) : '—'}</td><td class="num">${fmtDate(a.dueDate)}</td><td><span class="pill ${a.done ? 'ok' : 'wait'}">${a.done ? 'منجز' : 'معلق'}</span></td></tr>`).join('')}
        </tbody></table></div>`
     : ''
 
-  const minuteSec = (title: string, body?: string) =>
-    body ? `<div class="sec"><h2>${title}</h2><ul>${nl2li(body)}</ul></div>` : ''
+  // ── Agenda document: lightweight, pre-meeting ──
+  if (isAgenda) {
+    const body = `
+${attendeesHtml ? `<div class="sec"><h2>الحضور</h2>${attendeesHtml}</div>` : ''}
+${agendaHtml || '<div class="sec"><p style="color:#64748b">لم تُضف بنود للأجندة بعد.</p></div>'}
+${prevHtml}
+<div class="note">هذه أجندة للاطلاع والتحضير قبل انعقاد الاجتماع.</div>`
+    return wrapDoc({ color, title: `${docKind} — ${m.title}`, project, m, dateLabel, meetKind, body })
+  }
 
-  const itemsHtml = m.actionItems.length
+  // ── Minutes document: full ──
+  const minuteSec = (title: string, bodyText?: string) =>
+    bodyText ? `<div class="sec"><h2>${title}</h2><ul>${nl2li(bodyText)}</ul></div>` : ''
+
+  const decisions = (m.decisions ?? []).filter((d) => d.text.trim())
+  const decisionsHtml = decisions.length
+    ? `<div class="sec"><h2>القرارات</h2>
+       <table><thead><tr><th>القرار</th><th>المسؤول</th><th>الموعد</th></tr></thead><tbody>
+       ${decisions.map((d) => `<tr><td>${esc(d.text)}</td><td>${d.ownerId && memberName[d.ownerId] ? esc(memberName[d.ownerId]) : '—'}</td><td class="num">${fmtDate(d.dueDate)}</td></tr>`).join('')}
+       </tbody></table></div>`
+    : ''
+
+  const recs = (m.recommendations ?? []).filter((r) => r.text.trim())
+  const recsHtml = recs.length
+    ? `<div class="sec"><h2>التوصيات والمخرجات</h2>
+       <table><thead><tr><th>التوصية</th><th>المسؤول</th></tr></thead><tbody>
+       ${recs.map((r) => `<tr><td>${esc(r.text)}</td><td>${r.assigneeId && memberName[r.assigneeId] ? esc(memberName[r.assigneeId]) : '—'}</td></tr>`).join('')}
+       </tbody></table></div>`
+    : ''
+
+  const items = m.actionItems.filter((a) => a.title.trim())
+  const itemsHtml = items.length
     ? `<div class="sec"><h2>بنود العمل</h2>
-       <table><thead><tr><th>البند</th><th>المسؤول</th><th>الحالة</th></tr></thead><tbody>
-       ${m.actionItems.map((a) => `<tr><td>${esc(a.title)}</td><td>${a.assigneeId && memberName[a.assigneeId] ? esc(memberName[a.assigneeId]) : '—'}</td><td><span class="pill ${a.done ? 'ok' : 'wait'}">${a.done ? 'منجز' : 'قيد المتابعة'}</span></td></tr>`).join('')}
+       <table><thead><tr><th>البند</th><th>المسؤول</th><th>الموعد</th><th>الحالة</th></tr></thead><tbody>
+       ${items.map((a) => `<tr><td>${esc(a.title)}</td><td>${a.assigneeId && memberName[a.assigneeId] ? esc(memberName[a.assigneeId]) : '—'}</td><td class="num">${fmtDate(a.dueDate)}</td><td><span class="pill ${a.done ? 'ok' : 'wait'}">${a.done ? 'منجز' : 'قيد المتابعة'}</span></td></tr>`).join('')}
        </tbody></table></div>`
     : ''
 
@@ -724,11 +887,27 @@ function buildMinutesHTML({ project, meeting: m, members, memberName, prevMeetin
     snapHtml += `</div>`
   }
 
+  const body = `
+${attendeesHtml ? `<div class="sec"><h2>الحضور</h2>${attendeesHtml}</div>` : ''}
+${agendaHtml}
+${prevHtml}
+${minuteSec('المنجزات', m.achievements)}
+${minuteSec('التحديات والمعالجات', m.challenges)}
+${decisionsHtml}
+${recsHtml}
+${itemsHtml}
+${snapHtml}`
+  return wrapDoc({ color, title: `${docKind} — ${m.title}`, project, m, dateLabel, meetKind, body })
+}
+
+function wrapDoc({ color, title, project, m, dateLabel, meetKind, body }: {
+  color: string; title: string; project: Project; m: Meeting; dateLabel: string; meetKind?: string; body: string
+}): string {
   return `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
 <meta charset="UTF-8">
-<title>محضر اجتماع — ${esc(m.title)}</title>
+<title>${esc(title)}</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -756,26 +935,19 @@ td{padding:6px 10px;border:1px solid #e2e8f0;vertical-align:middle}
 .bar{display:inline-block;width:70px;height:6px;background:#e2e8f0;border-radius:99px;overflow:hidden;vertical-align:middle;margin-inline-end:6px}
 .fill{height:100%;background:${color};border-radius:99px}
 .pct{font-size:11px}
+.note{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;padding:8px 12px;font-size:12px;color:#64748b}
 .footer{margin-top:24px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;display:flex;justify-content:space-between}
 </style>
 </head>
 <body>
 <button class="print-btn" onclick="window.print()">طباعة / حفظ كـ PDF</button>
 <div class="head">
-  <p class="proj">${esc(project.name)} — محضر اجتماع</p>
+  <p class="proj">${esc(project.name)} — ${esc(title.split('—')[0].trim())}</p>
   <h1>${esc(m.title)}</h1>
-  <p class="meta">${dateLabel}${m.startTime ? ` · <span class="num">${m.startTime}${m.endTime ? `–${m.endTime}` : ''}</span>` : ''}${m.kind ? ` · ${KIND_LABEL[m.kind]}` : ''} · الحالة: ${STATUS_LABEL[m.status]}</p>
+  <p class="meta">${dateLabel}${m.startTime ? ` · <span class="num">${m.startTime}${m.endTime ? `–${m.endTime}` : ''}</span>` : ''}${meetKind ? ` · ${esc(meetKind)}` : ''} · الحالة: ${STATUS_LABEL[m.status]}</p>
 </div>
-${attendeesHtml ? `<div class="sec"><h2>الحضور</h2>${attendeesHtml}</div>` : ''}
-${agendaHtml}
-${prevHtml}
-${minuteSec('المنجزات', m.achievements)}
-${minuteSec('التحديات والمعالجات', m.challenges)}
-${minuteSec('القرارات', m.decisions)}
-${minuteSec('التوصيات والمخرجات', m.recommendations)}
-${itemsHtml}
-${snapHtml}
-<div class="footer"><span>أُعدّ هذا المحضر عبر منصة محور</span><span class="num">تاريخ التصدير: ${new Date().toLocaleDateString('ar-SA')}</span></div>
+${body}
+<div class="footer"><span>أُعدّ عبر منصة محور</span><span class="num">تاريخ التصدير: ${new Date().toLocaleDateString('ar-SA')}</span></div>
 </body>
 </html>`
 }
