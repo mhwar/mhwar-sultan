@@ -499,8 +499,8 @@ export const SEED_MEETINGS: Meeting[] = [
       { id: 'dec-1-2', text: 'البدء بالمسارين الأول والثاني بالتوازي قبل فتح مساري المنتج', ownerId: 'tm7', dueDate: '2026-06-15' },
     ],
     recommendations: [
-      { id: 'rec-1-1', text: 'تجهيز عرض موجز للشركاء عن خطة الربط مع مركز الترميز', assigneeId: 'tm7' },
-      { id: 'rec-1-2', text: 'دعوة ممثل الهيئة لجلسة تنسيقية خلال الشهر الأول', assigneeId: 'tm5' },
+      { id: 'rec-1-1', text: 'تجهيز عرض موجز للشركاء عن خطة الربط مع مركز الترميز', assigneeId: 'tm7', dueDate: '2026-06-22', done: false },
+      { id: 'rec-1-2', text: 'دعوة ممثل الهيئة لجلسة تنسيقية خلال الشهر الأول', assigneeId: 'tm5', dueDate: '2026-07-01', done: false },
     ],
     actionItems: [
       { id: 'ai-1-1', title: 'طلب وصول لبيئة الاختبار من مركز الترميز', assigneeId: 'tm7', dueDate: '2026-06-16', done: false },

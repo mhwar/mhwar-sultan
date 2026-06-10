@@ -292,20 +292,45 @@ function DecisionEditor({ items, onChange, members }: { items: MeetingDecision[]
   )
 }
 
-// ── Recommendations (text + owner) ──
+// ── Recommendations (text + owner + deadline + done) ──
 function RecommendationEditor({ items, onChange, members }: { items: MeetingRecommendation[]; onChange: (v: MeetingRecommendation[]) => void; members: TeamMember[] }) {
   const patch = (id: string, d: Partial<MeetingRecommendation>) => onChange(items.map((x) => (x.id === id ? { ...x, ...d } : x)))
   const remove = (id: string) => onChange(items.filter((x) => x.id !== id))
-  const add = () => onChange([...items, { id: generateId(), text: '' }])
+  const add = () => onChange([...items, { id: generateId(), text: '', done: false }])
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       {items.map((r) => (
-        <div key={r.id} className="group flex items-center gap-2">
-          <input className={inputCls} style={inputStyle} value={r.text} onChange={(e) => patch(r.id, { text: e.target.value })} placeholder="نص التوصية…" />
-          <MemberSelect value={r.assigneeId ?? ''} onChange={(v) => patch(r.id, { assigneeId: v || undefined })} members={members} placeholder="المسؤول" />
-          <RowDelete onClick={() => remove(r.id)} />
+        <div key={r.id} className="group rounded-lg p-2 space-y-1.5" style={{ background: 'var(--color-surface-muted)' }}>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => patch(r.id, { done: !r.done })}
+              className="w-4 h-4 rounded flex items-center justify-center shrink-0 transition-colors"
+              style={{ background: r.done ? 'var(--success-500)' : 'transparent', border: r.done ? 'none' : '1.5px solid var(--color-surface-border)' }}
+              aria-label={r.done ? 'إلغاء التنفيذ' : 'تم التنفيذ'}
+            >
+              {r.done && <Check size={11} color="#fff" strokeWidth={3} />}
+            </button>
+            <input
+              className="flex-1 h-8 rounded-md px-2 text-sm outline-none"
+              style={{ ...inputStyle, background: 'var(--color-surface-overlay)', textDecoration: r.done ? 'line-through' : 'none', opacity: r.done ? 0.6 : 1 }}
+              value={r.text}
+              onChange={(e) => patch(r.id, { text: e.target.value })}
+              placeholder="نص التوصية…"
+            />
+            <RowDelete onClick={() => remove(r.id)} />
+          </div>
+          <div className="flex items-center gap-2 flex-wrap ps-6">
+            <MemberSelect value={r.assigneeId ?? ''} onChange={(v) => patch(r.id, { assigneeId: v || undefined })} members={members} placeholder="المسؤول" />
+            <label className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              <Calendar size={12} /> الموعد
+              <input type="date" className="h-8 rounded-md px-2 text-sm outline-none" style={inputStyle} value={r.dueDate ?? ''} onChange={(e) => patch(r.id, { dueDate: e.target.value || undefined })} />
+            </label>
+          </div>
         </div>
       ))}
+      <p className="text-[11px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
+        التوصيات غير المنجزة تظهر تلقائياً في قسم المتابعة بالاجتماع التالي
+      </p>
       <AddRowButton label="إضافة توصية" onClick={add} />
     </div>
   )
@@ -393,6 +418,27 @@ function IncludeToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) 
   )
 }
 
+function PrevRow({ text, assignee, done, dueDate }: { text: string; assignee?: string; done: boolean; dueDate?: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-md px-2 py-1.5" style={{ background: 'var(--color-surface-muted)' }}>
+      <span
+        className="w-4 h-4 rounded flex items-center justify-center shrink-0"
+        style={{ background: done ? 'var(--success-500)' : 'transparent', border: done ? 'none' : '1.5px solid var(--color-surface-border)' }}
+      >
+        {done && <Check size={11} color="#fff" strokeWidth={3} />}
+      </span>
+      <span className="flex-1 text-sm min-w-0 truncate" style={{ color: 'var(--color-text-primary)', opacity: done ? 0.55 : 1, textDecoration: done ? 'line-through' : 'none' }}>
+        {text}
+      </span>
+      {assignee && <span className="text-xs shrink-0" style={{ color: 'var(--color-text-muted)' }}>{assignee}</span>}
+      {dueDate && !done && <span className="axis-num text-[10px] shrink-0" style={{ color: 'var(--color-text-muted)' }}>{dueDate}</span>}
+      <span className="shrink-0 px-1.5 h-5 rounded text-[10px] font-semibold flex items-center" style={{ background: `color-mix(in oklch, ${done ? 'var(--success-500)' : 'var(--warning-500)'} 14%, transparent)`, color: done ? 'var(--success-500)' : 'var(--warning-500)' }}>
+        {done ? 'منجز' : 'معلق'}
+      </span>
+    </div>
+  )
+}
+
 // ════════════════════ Full meeting page ════════════════════
 function MeetingPage({ project, meeting: m, meetings, members, memberById, memberName, onChange, onDelete, onBack }: {
   project: Project
@@ -427,11 +473,14 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
     return before[before.length - 1]
   }, [meetings, m.id, m.date, m.createdAt])
 
-  const prevPending = prev?.actionItems.filter((a) => !a.done) ?? []
+  const prevPendingItems = prev?.actionItems.filter((a) => !a.done) ?? []
+  const prevPendingRecs = prev?.recommendations?.filter((r) => !r.done) ?? []
+  const hasPrevPending = prevPendingItems.length > 0 || prevPendingRecs.length > 0
+
   const carryOver = () => {
-    if (!prev || prevPending.length === 0) return
+    if (!prev || !hasPrevPending) return
     const existing = new Set(m.actionItems.map((a) => a.title))
-    const carried = prevPending
+    const carried = prevPendingItems
       .filter((a) => !existing.has(a.title))
       .map((a) => ({ id: generateId(), title: a.title, assigneeId: a.assigneeId, dueDate: a.dueDate, done: false, taskId: a.taskId }))
     if (carried.length) onChange({ actionItems: [...m.actionItems, ...carried] })
@@ -609,42 +658,43 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
         {/* ── Main column ── */}
         <div className="lg:col-span-2 space-y-4">
           {/* Follow-up from previous meeting */}
-          {prev && prev.actionItems.length > 0 && (
+          {prev && (prev.actionItems.length > 0 || (prev.recommendations ?? []).length > 0) && (
             <SectionCard
               icon={<History size={15} />}
-              title={`متابعة بنود الاجتماع السابق — ${formatDateShort(prev.date + 'T00:00:00Z')}`}
-              extra={prevPending.length > 0 && (
+              title={`متابعة الاجتماع السابق — ${formatDateShort(prev.date + 'T00:00:00Z')}`}
+              extra={hasPrevPending && (
                 <button
                   onClick={carryOver}
                   className="flex items-center gap-1 px-2.5 h-7 rounded-md text-xs font-semibold transition-colors"
                   style={{ background: 'var(--color-surface-overlay)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
-                  title="نسخ البنود غير المنجزة إلى بنود هذا الاجتماع"
+                  title="نسخ بنود العمل غير المنجزة إلى هذا الاجتماع"
                 >
-                  <CornerDownLeft size={11} /> ترحيل غير المنجز ({prevPending.length})
+                  <CornerDownLeft size={11} /> ترحيل بنود العمل ({prevPendingItems.length})
                 </button>
               )}
             >
-              <div className="space-y-1">
-                {prev.actionItems.map((a) => (
-                  <div key={a.id} className="flex items-center gap-2 rounded-md px-2 py-1.5" style={{ background: 'var(--color-surface-muted)' }}>
-                    <span
-                      className="w-4 h-4 rounded flex items-center justify-center shrink-0"
-                      style={{ background: a.done ? 'var(--success-500)' : 'transparent', border: a.done ? 'none' : '1.5px solid var(--color-surface-border)' }}
-                    >
-                      {a.done && <Check size={11} color="#fff" strokeWidth={3} />}
-                    </span>
-                    <span className="flex-1 text-sm min-w-0 truncate" style={{ color: 'var(--color-text-primary)', opacity: a.done ? 0.55 : 1, textDecoration: a.done ? 'line-through' : 'none' }}>
-                      {a.title}
-                    </span>
-                    {a.assigneeId && memberName[a.assigneeId] && (
-                      <span className="text-xs shrink-0" style={{ color: 'var(--color-text-muted)' }}>{memberName[a.assigneeId]}</span>
-                    )}
-                    <span className="shrink-0 px-1.5 h-5 rounded text-[10px] font-semibold flex items-center" style={{ background: `color-mix(in oklch, ${a.done ? 'var(--success-500)' : 'var(--warning-500)'} 14%, transparent)`, color: a.done ? 'var(--success-500)' : 'var(--warning-500)' }}>
-                      {a.done ? 'منجز' : 'معلق'}
-                    </span>
+              {/* Action items */}
+              {prev.actionItems.length > 0 && (
+                <div className="mb-3">
+                  <p className="axis-label mb-1.5">بنود العمل</p>
+                  <div className="space-y-1">
+                    {prev.actionItems.map((a) => (
+                      <PrevRow key={a.id} text={a.title} assignee={memberName[a.assigneeId ?? '']} done={a.done} />
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
+              {/* Recommendations */}
+              {(prev.recommendations ?? []).length > 0 && (
+                <div>
+                  <p className="axis-label mb-1.5">التوصيات</p>
+                  <div className="space-y-1">
+                    {(prev.recommendations ?? []).map((r) => (
+                      <PrevRow key={r.id} text={r.text} assignee={memberName[r.assigneeId ?? '']} done={r.done} dueDate={r.dueDate} />
+                    ))}
+                  </div>
+                </div>
+              )}
             </SectionCard>
           )}
 
@@ -821,12 +871,18 @@ function buildMeetingHTML({ mode, project, meeting: m, members, memberName, prev
     ? `<div class="sec"><h2>الأجندة</h2><ol>${m.agenda.filter((a) => a.text.trim()).map((a) => `<li>${esc(a.text)}</li>`).join('')}</ol></div>`
     : ''
 
-  const prevHtml = prevMeeting && prevMeeting.actionItems.length
-    ? `<div class="sec"><h2>متابعة بنود الاجتماع السابق</h2>
+  const prevItemsHtml = prevMeeting && prevMeeting.actionItems.length
+    ? `<h3 style="font-size:13px;font-weight:700;margin:8px 0 4px;color:#334155">بنود العمل</h3>
        <table><thead><tr><th>البند</th><th>المسؤول</th><th>الموعد</th><th>الحالة</th></tr></thead><tbody>
        ${prevMeeting.actionItems.map((a) => `<tr><td>${esc(a.title)}</td><td>${a.assigneeId && memberName[a.assigneeId] ? esc(memberName[a.assigneeId]) : '—'}</td><td class="num">${fmtDate(a.dueDate)}</td><td><span class="pill ${a.done ? 'ok' : 'wait'}">${a.done ? 'منجز' : 'معلق'}</span></td></tr>`).join('')}
-       </tbody></table></div>`
-    : ''
+       </tbody></table>` : ''
+  const prevRecsHtml = prevMeeting && (prevMeeting.recommendations ?? []).length
+    ? `<h3 style="font-size:13px;font-weight:700;margin:10px 0 4px;color:#334155">التوصيات</h3>
+       <table><thead><tr><th>التوصية</th><th>المسؤول</th><th>الموعد</th><th>الحالة</th></tr></thead><tbody>
+       ${(prevMeeting.recommendations ?? []).map((r) => `<tr><td>${esc(r.text)}</td><td>${r.assigneeId && memberName[r.assigneeId] ? esc(memberName[r.assigneeId]) : '—'}</td><td class="num">${fmtDate(r.dueDate)}</td><td><span class="pill ${r.done ? 'ok' : 'wait'}">${r.done ? 'منجز' : 'معلق'}</span></td></tr>`).join('')}
+       </tbody></table>` : ''
+  const prevHtml = (prevItemsHtml || prevRecsHtml)
+    ? `<div class="sec"><h2>متابعة الاجتماع السابق</h2>${prevItemsHtml}${prevRecsHtml}</div>` : ''
 
   // ── Agenda document: lightweight, pre-meeting ──
   if (isAgenda) {
@@ -853,8 +909,8 @@ ${prevHtml}
   const recs = (m.recommendations ?? []).filter((r) => r.text.trim())
   const recsHtml = recs.length
     ? `<div class="sec"><h2>التوصيات والمخرجات</h2>
-       <table><thead><tr><th>التوصية</th><th>المسؤول</th></tr></thead><tbody>
-       ${recs.map((r) => `<tr><td>${esc(r.text)}</td><td>${r.assigneeId && memberName[r.assigneeId] ? esc(memberName[r.assigneeId]) : '—'}</td></tr>`).join('')}
+       <table><thead><tr><th>التوصية</th><th>المسؤول</th><th>الموعد</th><th>الحالة</th></tr></thead><tbody>
+       ${recs.map((r) => `<tr><td>${esc(r.text)}</td><td>${r.assigneeId && memberName[r.assigneeId] ? esc(memberName[r.assigneeId]) : '—'}</td><td class="num">${fmtDate(r.dueDate)}</td><td><span class="pill ${r.done ? 'ok' : 'wait'}">${r.done ? 'منجز' : 'قيد المتابعة'}</span></td></tr>`).join('')}
        </tbody></table></div>`
     : ''
 
