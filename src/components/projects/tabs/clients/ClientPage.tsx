@@ -11,7 +11,8 @@ import { ClientAvatar } from '../ClientsTab'
 import ContentDrawer from '../content/ContentDrawer'
 import { PlatformIcon } from '../content/PlatformIcon'
 import {
-  STATUS_ORDER, STATUS_LABEL, STATUS_VAR, SOURCE_LABEL, DONE_STATUSES,
+  STATUS_LABEL, STATUS_VAR, SOURCE_LABEL, DONE_STATUSES,
+  STAGE_ORDER, STAGE_LABEL, STAGE_VAR, STAGE_STATUSES, stageOf, type ContentStage,
   scheduledKey, keyInMonth, monthLabel, fmtDayMonth, TYPE_LABEL,
   buildClientColorMap,
 } from '../content/contentMeta'
@@ -269,14 +270,14 @@ function OverviewTab({ client, accent }: { client: Client; accent: string }) {
           <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>لا توجد أعمال مجدولة لهذا الشهر بعد</p>
         ) : (
           <div className="space-y-3">
-            {STATUS_ORDER.map((status) => {
-              const group = monthItems.filter((i) => i.status === status)
+            {STAGE_ORDER.map((stage) => {
+              const group = monthItems.filter((i) => STAGE_STATUSES[stage].includes(i.status))
               if (group.length === 0) return null
               return (
-                <div key={status}>
+                <div key={stage}>
                   <div className="flex items-center gap-1.5 mb-1">
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: STATUS_VAR[status] }} />
-                    <span className="text-xs font-bold" style={{ color: 'var(--color-text-secondary)' }}>{STATUS_LABEL[status]}</span>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: STAGE_VAR[stage] }} />
+                    <span className="text-xs font-bold" style={{ color: 'var(--color-text-secondary)' }}>{STAGE_LABEL[stage]}</span>
                     <span className="axis-num text-xs" style={{ color: 'var(--color-text-muted)' }}>{group.length}</span>
                   </div>
                   <div className="space-y-1">
@@ -308,7 +309,7 @@ function WorkRow({ item, showDate }: { item: ContentItem; showDate?: boolean }) 
       className="flex items-center gap-2 rounded-lg px-2.5 py-2"
       style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)' }}
     >
-      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STATUS_VAR[item.status] }} />
+      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STAGE_VAR[stageOf(item.status)] }} />
       <span className="text-xs font-medium flex-1 truncate" style={{ color: 'var(--color-text-primary)' }}>{item.title}</span>
       {item.source === 'client-request' && (
         <span
@@ -328,7 +329,7 @@ function WorkRow({ item, showDate }: { item: ContentItem; showDate?: boolean }) 
 /* ── Content Tab ──────────────────────────────────────────── */
 
 function ContentTab({ client, project, accent }: { client: Client; project: Project; accent: string }) {
-  const [filterStatus, setFilterStatus] = useState<ContentStatus | 'all'>('all')
+  const [filterStage, setFilterStage] = useState<ContentStage | 'all'>('all')
   const [filterSource, setFilterSource] = useState<ContentSource | 'all'>('all')
   const [openId, setOpenId] = useState<string | null>(null)
   const { addItem, updateItem, deleteItem } = useContentStore()
@@ -339,10 +340,10 @@ function ContentTab({ client, project, accent }: { client: Client; project: Proj
   const clientColorMap = useMemo(() => buildClientColorMap(allClients.map((c) => c.id)), [allClients])
 
   const filtered = useMemo(() => items.filter((i) => {
-    if (filterStatus !== 'all' && i.status !== filterStatus) return false
+    if (filterStage !== 'all' && stageOf(i.status) !== filterStage) return false
     if (filterSource !== 'all' && (i.source ?? 'internal') !== filterSource) return false
     return true
-  }), [items, filterStatus, filterSource])
+  }), [items, filterStage, filterSource])
 
   const openItem = openId ? items.find((i) => i.id === openId) : undefined
 
@@ -367,11 +368,11 @@ function ContentTab({ client, project, accent }: { client: Client; project: Proj
     <div className="space-y-4">
       {/* Filter bar */}
       <div className="flex flex-wrap gap-2 items-center">
-        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>الحالة:</span>
-        <FilterChip active={filterStatus === 'all'} onClick={() => setFilterStatus('all')} color="var(--iris-500)">الكل</FilterChip>
-        {STATUS_ORDER.map((s) => (
-          <FilterChip key={s} active={filterStatus === s} onClick={() => setFilterStatus(filterStatus === s ? 'all' : s)} color={STATUS_VAR[s]}>
-            {STATUS_LABEL[s]}
+        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>المرحلة:</span>
+        <FilterChip active={filterStage === 'all'} onClick={() => setFilterStage('all')} color="var(--iris-500)">الكل</FilterChip>
+        {STAGE_ORDER.map((s) => (
+          <FilterChip key={s} active={filterStage === s} onClick={() => setFilterStage(filterStage === s ? 'all' : s)} color={STAGE_VAR[s]}>
+            {STAGE_LABEL[s]}
           </FilterChip>
         ))}
         <span className="w-px h-5 mx-1" style={{ background: 'var(--color-surface-border)' }} />
@@ -409,7 +410,7 @@ function ContentTab({ client, project, accent }: { client: Client; project: Proj
               className="w-full text-start flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-white/5"
               style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)' }}
             >
-              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STATUS_VAR[it.status] }} />
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STAGE_VAR[stageOf(it.status)] }} />
               <span className="flex-1 min-w-0 text-xs font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{it.title || '(بلا عنوان)'}</span>
               <span className="text-[10px] shrink-0" style={{ color: 'var(--color-text-muted)' }}>{TYPE_LABEL[it.type]}</span>
               {it.platform && <PlatformIcon platform={it.platform} size={12} style={{ color: 'var(--color-text-muted)' }} />}

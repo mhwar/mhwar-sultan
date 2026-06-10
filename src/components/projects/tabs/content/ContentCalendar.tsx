@@ -4,7 +4,7 @@ import { Plus, Inbox } from 'lucide-react'
 import type { ContentItem } from '@/types'
 import {
   WEEKDAYS, monthMatrix, dateToKey, scheduledKey, todayKey, keyInMonth,
-  STATUS_VAR, STATUS_LABEL,
+  STATUS_LABEL, STAGE_VAR, stageOf,
 } from './contentMeta'
 import { PlatformIcon } from './PlatformIcon'
 
@@ -194,7 +194,7 @@ function DayChip({
         maxWidth: inline ? 200 : '100%',
       }}
     >
-      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STATUS_VAR[item.status] }} />
+      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STAGE_VAR[stageOf(item.status)] }} />
       <span className="text-xs truncate flex-1" style={{ color: 'var(--color-text-primary)' }}>{item.title}</span>
       {item.platform && <PlatformIcon platform={item.platform} size={11} style={{ color: 'var(--color-text-muted)', opacity: 0.7 }} />}
     </button>

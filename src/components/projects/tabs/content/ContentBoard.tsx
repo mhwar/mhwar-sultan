@@ -98,7 +98,7 @@ function BoardCard({
       style={{ cursor: 'grab', borderInlineStart: `2px solid ${color}` }}
     >
       <div className="board-card__head">
-        <span className="priority-dot" style={{ background: STATUS_VAR[item.status] }} />
+        <span className="priority-dot" style={{ background: STAGE_VAR[stageOf(item.status)] }} />
         <span className="text-xs font-medium" style={{ color: 'var(--fg-3)' }}>{STATUS_LABEL[item.status]}</span>
         {item.source === 'client-request' && (
           <span
