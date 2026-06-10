@@ -187,19 +187,20 @@ export const SEED_PROJECTS: Project[] = [
   },
   {
     id: 'bawsala',
-    name: 'بوصلة',
-    nameEn: 'Bawsala',
-    description: 'تطبيق تنقل وملاحة ذكي بواجهة عربية جميلة. اكتشف الأماكن والمسارات واحفظ مفضلاتك.',
+    name: 'بوصلة الأعمال',
+    nameEn: 'Bawsala Business',
+    description: 'مؤسسة حلول أعمال متكاملة — إدارة حسابات التواصل الاجتماعي وصناعة المحتوى للعملاء: من استلام الطلبات وكتابة المحتوى وتصميمه، إلى الجدولة والنشر والتقارير الشهرية. نحدد الاتجاه.. ونصنع الأثر.',
     status: 'active',
-    progress: 20,
-    color: '#10B981',
+    progress: 45,
+    color: '#2743C6',
     icon: 'compass',
-    category: 'تطبيق جوال',
-    type: 'technical',
-    tools: FALLBACK_TOOL_IDS,
+    logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgcng9IjQ0IiBmaWxsPSIjMUUzQTlGIi8+PGNpcmNsZSBjeD0iMTAwIiBjeT0iMTAwIiByPSI2NCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utb3BhY2l0eT0iMC4zIiBzdHJva2Utd2lkdGg9IjciLz48cGF0aCBkPSJNMTAwIDQyIEwxMjggMTMyIEwxMDAgMTE0IEw3MiAxMzIgWiIgZmlsbD0iI0YwQjQyOSIvPjxjaXJjbGUgY3g9IjEwMCIgY3k9IjE0OCIgcj0iNyIgZmlsbD0iI2ZmZiIgZmlsbC1vcGFjaXR5PSIwLjg1Ii8+PC9zdmc+',
+    category: 'وكالة محتوى وإدارة حسابات',
+    type: 'content',
+    tools: ['overview', 'clients', 'content', 'execution', 'meetings', 'team', 'finance', 'kpis', 'notes'],
     createdAt: '2026-02-01T00:00:00Z',
-    updatedAt: '2026-06-03T00:00:00Z',
-    tags: ['React Native', 'Maps', 'GPS'],
+    updatedAt: '2026-06-10T00:00:00Z',
+    tags: ['إدارة حسابات', 'صناعة المحتوى', 'تصميم', 'هوية بصرية', 'تقارير شهرية'],
     links: [],
   },
   {
@@ -295,11 +296,11 @@ export const SEED_TASKS: Task[] = [
   { id: 'tk-mlsq-11', projectId: 'mellasaq', assigneeId: 'tm7', sprintId: 'sp-mlsq-5', title: 'حصر وتصنيف الحلفاء — جمعيات صحية وسلاسل تجزئة ومصانع أغذية', status: 'todo', priority: 'medium', startDate: '2026-07-15T00:00:00Z', dueDate: '2026-08-10T00:00:00Z', tags: ['شراكات'], createdAt: '2026-06-09T00:00:00Z' },
   { id: 'tk-mlsq-12', projectId: 'mellasaq', assigneeId: 'tm7', sprintId: 'sp-mlsq-5', title: 'صياغة عروض التعاون وهندسة خطة الوصول للسوق', status: 'todo', priority: 'medium', startDate: '2026-08-10T00:00:00Z', dueDate: '2026-09-05T00:00:00Z', tags: ['شراكات', 'نمو'], createdAt: '2026-06-09T00:00:00Z' },
 
-  // بوصلة
-  { id: 't11', projectId: 'bawsala', assigneeId: 'tm6', title: 'بحث مزودي الخرائط', status: 'done', priority: 'high', startDate: '2026-02-05T00:00:00Z', dueDate: '2026-02-15T00:00:00Z', createdAt: '2026-02-05T00:00:00Z' },
-  { id: 't12', projectId: 'bawsala', assigneeId: 'tm6', title: 'واجهة الخريطة الأساسية', status: 'in-progress', priority: 'high', startDate: '2026-02-20T00:00:00Z', dueDate: '2026-06-25T00:00:00Z', createdAt: '2026-02-20T00:00:00Z' },
-  { id: 't13', projectId: 'bawsala', assigneeId: 'tm5', title: 'نظام البحث عن الأماكن', status: 'todo', priority: 'high', startDate: '2026-06-05T00:00:00Z', dueDate: '2026-07-05T00:00:00Z', createdAt: '2026-04-01T00:00:00Z' },
-  { id: 't14', projectId: 'bawsala', assigneeId: 'tm6', title: 'حفظ المفضلات', status: 'todo', priority: 'medium', startDate: '2026-06-15T00:00:00Z', dueDate: '2026-07-20T00:00:00Z', createdAt: '2026-04-15T00:00:00Z' },
+  // بوصلة الأعمال — مهام تشغيل الوكالة
+  { id: 'tk-bsl-1', projectId: 'bawsala', assigneeId: 'tm-bsl-2', title: 'إعداد تقويم محتوى يوليو لجميع العملاء', description: 'تقويم شهري كامل لكل عميل وفق حصته التعاقدية، مع توزيع المناسبات والأيام العالمية', status: 'in-progress', priority: 'high', startDate: '2026-06-15T00:00:00Z', dueDate: '2026-06-25T00:00:00Z', tags: ['تقويم المحتوى'], createdAt: '2026-06-10T00:00:00Z' },
+  { id: 'tk-bsl-2', projectId: 'bawsala', assigneeId: 'tm-bsl-3', title: 'قوالب تصميم موحدة لكل عميل', description: 'قوالب شهرية ثابتة (منشور، ستوري، إنفوجرافيك) وفق الهوية البصرية لكل عميل لتسريع الإنتاج', status: 'todo', priority: 'medium', startDate: '2026-06-18T00:00:00Z', dueDate: '2026-07-05T00:00:00Z', tags: ['تصميم'], createdAt: '2026-06-10T00:00:00Z' },
+  { id: 'tk-bsl-3', projectId: 'bawsala', assigneeId: 'tm6', title: 'تقرير أداء الحسابات الشهري — مايو', description: 'تقرير لكل عميل: نمو المتابعين، التفاعل، أفضل القطع أداءً، وتوصيات الشهر القادم', status: 'done', priority: 'high', startDate: '2026-06-01T00:00:00Z', dueDate: '2026-06-05T00:00:00Z', tags: ['تقارير'], createdAt: '2026-06-01T00:00:00Z' },
+  { id: 'tk-bsl-4', projectId: 'bawsala', assigneeId: 'tm-bsl-1', title: 'إعداد عرض الباقات للعملاء المحتملين', description: 'عرض تجاري بثلاث باقات شهرية (أساسية / متقدمة / شاملة) مع نماذج من أعمالنا', status: 'todo', priority: 'medium', startDate: '2026-06-20T00:00:00Z', dueDate: '2026-07-10T00:00:00Z', tags: ['مبيعات'], createdAt: '2026-06-10T00:00:00Z' },
 ]
 
 export const SEED_PHASES: PlanPhase[] = [
@@ -371,24 +372,26 @@ export const SEED_PHASES: PlanPhase[] = [
     ],
   },
 
-  // بوصلة
+  // بوصلة الأعمال
   {
-    id: 'ph6', projectId: 'bawsala', planId: 'pl-bawsala', title: 'مرحلة البحث والتأسيس',
-    description: 'اختيار التقنيات وإعداد البيئة',
+    id: 'ph-bsl-1', projectId: 'bawsala', planId: 'pl-bawsala', title: 'مرحلة التأسيس وبناء الفريق',
+    description: 'تشكيل فريق الإنتاج، اعتماد سير عمل صناعة المحتوى، وتوقيع العقود الأولى',
     status: 'completed', order: 1,
     milestones: [
-      { id: 'm16', title: 'اختيار مزود الخرائط', done: true },
-      { id: 'm17', title: 'إعداد بيئة التطوير', done: true },
+      { id: 'm-bsl-1', title: 'تشكيل الفريق: كتابة محتوى، تصميم، إدارة حسابات، تحليل أداء', done: true },
+      { id: 'm-bsl-2', title: 'اعتماد سير الإنتاج: طلب ← كتابة ← تصميم ← مراجعة ← نشر', done: true },
+      { id: 'm-bsl-3', title: 'توقيع أول 3 عقود إدارة حسابات شهرية', done: true },
     ],
   },
   {
-    id: 'ph7', projectId: 'bawsala', planId: 'pl-bawsala', title: 'مرحلة التطوير الأساسي',
-    description: 'بناء الميزات الجوهرية للتطبيق',
+    id: 'ph-bsl-2', projectId: 'bawsala', planId: 'pl-bawsala', title: 'مرحلة التشغيل وتنمية المحفظة',
+    description: 'الالتزام الكامل بالحصص الشهرية، ورفع جودة الإنتاج، والوصول إلى 5 عملاء نشطين',
     status: 'in-progress', order: 2,
     milestones: [
-      { id: 'm18', title: 'عرض الخريطة التفاعلية', done: false },
-      { id: 'm19', title: 'البحث عن الأماكن', done: false },
-      { id: 'm20', title: 'نظام المفضلات', done: false },
+      { id: 'm-bsl-4', title: 'الالتزام الكامل بالحصص الشهرية للعملاء الثلاثة', done: false },
+      { id: 'm-bsl-5', title: 'بناء معرض أعمال لعروض المبيعات', done: false },
+      { id: 'm-bsl-6', title: 'أتمتة تقارير الأداء الشهرية للعملاء', done: false },
+      { id: 'm-bsl-7', title: 'التعاقد مع عميلين جديدين', done: false },
     ],
   },
 ]
@@ -422,11 +425,11 @@ export const SEED_NOTES: Note[] = [
     pinned: false,
   },
   {
-    id: 'n3', projectId: 'bawsala',
-    title: 'مصادر الخرائط',
-    content: 'Mapbox GL JS هو الخيار الأفضل:\n- يدعم RTL Text Plugin للعربية\n- أداء ممتاز على الجوال\n- مكتبة ثرية من الأيقونات\n\nالبديل المجاني: Leaflet + OpenStreetMap\nمناسب للميزات الأساسية دون تكلفة اشتراك.',
-    createdAt: '2026-02-10T00:00:00Z',
-    updatedAt: '2026-02-10T00:00:00Z',
+    id: 'n-bsl-1', projectId: 'bawsala',
+    title: 'سير عمل إنتاج المحتوى',
+    content: 'رحلة القطعة الواحدة:\n1. الطلب — من العميل مباشرة (طلب عميل) أو من التقويم الشهري المخطط (داخلي)\n2. الكتابة — صياغة النص والكوبي وفق هوية العميل ونبرة صوته\n3. التصميم — تنفيذ التصميم أو الموشن وفق القوالب المعتمدة\n4. المراجعة — مراجعة داخلية ثم اعتماد العميل\n5. الجدولة والنشر — حسب التقويم الشهري\n\nالتزامات ثابتة:\n- تسليم تقويم الشهر القادم قبل يوم 25 من كل شهر\n- تقرير الأداء الشهري لكل عميل خلال أول 5 أيام من الشهر\n- الاجتماع التحريري الأسبوعي كل أحد صباحاً',
+    createdAt: '2026-06-10T00:00:00Z',
+    updatedAt: '2026-06-10T00:00:00Z',
     pinned: true,
   },
   {
@@ -461,8 +464,12 @@ export const SEED_TEAM: TeamMember[] = [
   { id: 'tm3', projectId: 'mehwar', name: 'ريّان الزهراني', role: 'مطوّر واجهات', status: 'active', order: 3, createdAt: '2026-01-01T00:00:00Z' },
   { id: 'tm4', projectId: 'mehwar', name: 'سارة العتيبي', role: 'مطوّرة خلفية', status: 'active', order: 4, createdAt: '2026-01-01T00:00:00Z' },
   { id: 'tm5', projectId: 'mellasaq', name: 'عبدالله العبود', role: 'مدير المنتج', status: 'active', order: 5, createdAt: '2026-01-01T00:00:00Z' },
-  { id: 'tm6', projectId: 'bawsala', name: 'فهد الدوسري', role: 'محلل بيانات', status: 'active', order: 6, createdAt: '2026-01-01T00:00:00Z' },
+  { id: 'tm6', projectId: 'bawsala', name: 'فهد الدوسري', role: 'محلل أداء ومنصات', status: 'active', notes: 'تقارير الأداء الشهرية للعملاء وتحليل نمو الحسابات', order: 6, createdAt: '2026-01-01T00:00:00Z' },
   { id: 'tm7', projectId: 'mellasaq', name: 'سفيان', role: 'مستشار تطوير المنتجات والنمو', status: 'active', notes: 'اتفاق مرحلة التمكين الاستراتيجي — 3 أشهر من العمل المشترك (يونيو – سبتمبر 2026)', order: 7, createdAt: '2026-06-09T00:00:00Z' },
+  // بوصلة الأعمال — فريق الوكالة
+  { id: 'tm-bsl-1', projectId: 'bawsala', name: 'ريم الشمري', role: 'مديرة الحسابات والمشاريع', status: 'active', notes: 'استلام طلبات العملاء، متابعة العقود الشهرية، وتسليم التقارير', order: 8, createdAt: '2026-06-10T00:00:00Z' },
+  { id: 'tm-bsl-2', projectId: 'bawsala', name: 'نوف الحربي', role: 'كاتبة محتوى', status: 'active', notes: 'صياغة المحتوى والكوبي والتقويم الشهري لجميع العملاء', order: 9, createdAt: '2026-06-10T00:00:00Z' },
+  { id: 'tm-bsl-3', projectId: 'bawsala', name: 'مشعل العتيبي', role: 'مصمم جرافيك', status: 'active', notes: 'التصاميم والهويات البصرية والموشن جرافيك', order: 10, createdAt: '2026-06-10T00:00:00Z' },
 ]
 
 // Remaining modular-tool stores start empty; seed projects are technical and don't use them.
@@ -476,6 +483,18 @@ export const SEED_FINANCE: FinanceEntry[] = [
   { id: 'fin-mlsq-4', projectId: 'mellasaq', title: 'نطاق checkersa.com وشهادات الأمان (سنوي)', kind: 'expense', amount: 350, currency: 'SAR', category: 'بنية تحتية', status: 'paid', date: '2026-05-15T00:00:00Z', order: 3, createdAt: '2026-05-15T00:00:00Z' },
   { id: 'fin-mlsq-5', projectId: 'mellasaq', title: 'حملة تعريفية بمنصة الأعمال (مخططة)', kind: 'expense', amount: 2500, currency: 'SAR', category: 'تسويق', status: 'planned', date: '2026-08-01T00:00:00Z', order: 4, createdAt: '2026-06-09T00:00:00Z' },
   { id: 'fin-mlsq-6', projectId: 'mellasaq', title: 'إيراد باقات الأعمال المتوقع بعد الإطلاق', kind: 'income', amount: 15000, currency: 'SAR', category: 'إيرادات', status: 'planned', date: '2026-09-15T00:00:00Z', order: 5, createdAt: '2026-06-09T00:00:00Z' },
+
+  // بوصلة الأعمال — اشتراكات العملاء الشهرية + الرواتب والأتعاب + أدوات العمل
+  { id: 'fin-bsl-1', projectId: 'bawsala', title: 'اشتراك شهري — مطاعم لمسة ذوق', kind: 'income', amount: 7000, currency: 'SAR', category: 'اشتراكات العملاء', status: 'paid', date: '2026-06-01T00:00:00Z', recurring: true, order: 0, createdAt: '2026-06-01T00:00:00Z' },
+  { id: 'fin-bsl-2', projectId: 'bawsala', title: 'اشتراك شهري — مؤسسة وقاء الصحية', kind: 'income', amount: 5500, currency: 'SAR', category: 'اشتراكات العملاء', status: 'paid', date: '2026-06-01T00:00:00Z', recurring: true, order: 1, createdAt: '2026-06-01T00:00:00Z' },
+  { id: 'fin-bsl-3', projectId: 'bawsala', title: 'اشتراك شهري — جمعية إتقان التعليمية', kind: 'income', amount: 4000, currency: 'SAR', category: 'اشتراكات العملاء', status: 'planned', date: '2026-06-15T00:00:00Z', recurring: true, order: 2, createdAt: '2026-06-01T00:00:00Z' },
+  { id: 'fin-bsl-4', projectId: 'bawsala', title: 'راتب كاتبة المحتوى — نوف الحربي', kind: 'expense', amount: 4500, currency: 'SAR', category: 'رواتب وأتعاب', status: 'paid', date: '2026-06-01T00:00:00Z', recurring: true, order: 3, createdAt: '2026-06-01T00:00:00Z' },
+  { id: 'fin-bsl-5', projectId: 'bawsala', title: 'راتب المصمم — مشعل العتيبي', kind: 'expense', amount: 5500, currency: 'SAR', category: 'رواتب وأتعاب', status: 'paid', date: '2026-06-01T00:00:00Z', recurring: true, order: 4, createdAt: '2026-06-01T00:00:00Z' },
+  { id: 'fin-bsl-6', projectId: 'bawsala', title: 'أتعاب مديرة الحسابات — ريم الشمري', kind: 'expense', amount: 3500, currency: 'SAR', category: 'رواتب وأتعاب', status: 'planned', date: '2026-06-28T00:00:00Z', recurring: true, order: 5, createdAt: '2026-06-01T00:00:00Z' },
+  { id: 'fin-bsl-7', projectId: 'bawsala', title: 'مكافأة محلل الأداء — التقارير الشهرية', kind: 'expense', amount: 1500, currency: 'SAR', category: 'رواتب وأتعاب', status: 'planned', date: '2026-06-28T00:00:00Z', recurring: true, order: 6, createdAt: '2026-06-01T00:00:00Z' },
+  { id: 'fin-bsl-8', projectId: 'bawsala', title: 'اشتراك Adobe Creative Cloud', kind: 'expense', amount: 240, currency: 'SAR', category: 'أدوات واشتراكات', status: 'paid', date: '2026-06-01T00:00:00Z', recurring: true, order: 7, createdAt: '2026-06-01T00:00:00Z' },
+  { id: 'fin-bsl-9', projectId: 'bawsala', title: 'أداة جدولة المنشورات', kind: 'expense', amount: 180, currency: 'SAR', category: 'أدوات واشتراكات', status: 'paid', date: '2026-06-01T00:00:00Z', recurring: true, order: 8, createdAt: '2026-06-01T00:00:00Z' },
+  { id: 'fin-bsl-10', projectId: 'bawsala', title: 'بنك صور وخطوط عربية مرخصة', kind: 'expense', amount: 120, currency: 'SAR', category: 'أدوات واشتراكات', status: 'paid', date: '2026-06-01T00:00:00Z', recurring: true, order: 9, createdAt: '2026-06-01T00:00:00Z' },
 ]
 
 // ملصق — مؤشرات مخرجات النجاح لمرحلة التمكين (يتابعها الشركاء من تبويب المؤشرات)
@@ -484,6 +503,12 @@ export const SEED_KPIS: Kpi[] = [
   { id: 'kpi-mlsq-2', projectId: 'mellasaq', name: 'تسوية ملاحظات هيئة الغذاء والدواء', value: 0, unit: '%', target: 100, trend: 'flat', notes: 'إغلاق الملفات والملاحظات الفنية المعلقة', order: 1, createdAt: '2026-06-09T00:00:00Z', updatedAt: '2026-06-09T00:00:00Z' },
   { id: 'kpi-mlsq-3', projectId: 'mellasaq', name: 'ميزات جديدة مُطلقة في التطبيق', value: 0, unit: 'ميزة', target: 3, trend: 'flat', notes: 'ميزات تعزز تجربة المستهلك في تطبيق الأفراد', order: 2, createdAt: '2026-06-09T00:00:00Z', updatedAt: '2026-06-09T00:00:00Z' },
   { id: 'kpi-mlsq-4', projectId: 'mellasaq', name: 'جاهزية لوحة تحكم الأعمال', value: 10, unit: '%', target: 100, trend: 'up', notes: 'لوحة تحكم مخصصة لباقات الشركات والأعمال', order: 3, createdAt: '2026-06-09T00:00:00Z', updatedAt: '2026-06-09T00:00:00Z' },
+
+  // بوصلة الأعمال — مؤشرات تشغيل الوكالة
+  { id: 'kpi-bsl-1', projectId: 'bawsala', name: 'قطع المحتوى المنشورة شهرياً', value: 38, unit: 'قطعة', target: 48, trend: 'up', notes: 'إجمالي الحصص التعاقدية: 48 قطعة شهرياً لثلاثة عملاء', order: 0, createdAt: '2026-06-01T00:00:00Z', updatedAt: '2026-06-10T00:00:00Z' },
+  { id: 'kpi-bsl-2', projectId: 'bawsala', name: 'الالتزام بمواعيد النشر', value: 92, unit: '%', target: 95, trend: 'up', notes: 'نسبة القطع المنشورة في موعدها المجدول', order: 1, createdAt: '2026-06-01T00:00:00Z', updatedAt: '2026-06-10T00:00:00Z' },
+  { id: 'kpi-bsl-3', projectId: 'bawsala', name: 'العملاء النشطون', value: 3, unit: 'عميل', target: 5, trend: 'flat', notes: 'الهدف: عقدان جديدان قبل نهاية الربع الثالث', order: 2, createdAt: '2026-06-01T00:00:00Z', updatedAt: '2026-06-10T00:00:00Z' },
+  { id: 'kpi-bsl-4', projectId: 'bawsala', name: 'رضا العملاء — الاستبيان الشهري', value: 4.6, unit: 'من 5', target: 4.8, trend: 'up', notes: 'متوسط تقييم العملاء الثلاثة لشهر مايو', order: 3, createdAt: '2026-06-01T00:00:00Z', updatedAt: '2026-06-10T00:00:00Z' },
 ]
 
 // ملصق — الاجتماعات الدورية لمرحلة التمكين
@@ -565,6 +590,45 @@ export const SEED_MEETINGS: Meeting[] = [
     recurringInterval: 'weekly',
     status: 'preparation', createdAt: '2026-06-09T12:00:00Z',
   },
+
+  // بوصلة الأعمال — الاجتماع التحريري الأسبوعي + المراجعات الشهرية مع العملاء
+  {
+    id: 'meet-bsl-1', projectId: 'bawsala', title: 'الاجتماع التحريري الأسبوعي',
+    date: '2026-06-07', startTime: '10:00', endTime: '11:00', kind: 'weekly',
+    attendees: ['tm-bsl-1', 'tm-bsl-2', 'tm-bsl-3', 'tm6'],
+    agenda: [
+      { id: 'ag-bsl-1', text: 'مراجعة تقويم الأسبوع لكل عميل' },
+      { id: 'ag-bsl-2', text: 'طلبات العملاء الجديدة وتوزيعها على الفريق' },
+      { id: 'ag-bsl-3', text: 'حالة القطع المتأخرة ومعالجتها' },
+    ],
+    achievements: 'اعتماد تقويم الأسبوع الثاني من يونيو للعملاء الثلاثة.\nتوزيع طلب تغطية افتتاح فرع لمسة ذوق على فريق التصميم.',
+    challenges: 'ضغط مواعيد منتصف الشهر مع تزامن حملتين — المعالجة: تقديم مواد وقاء التوعوية يومين.',
+    decisions: [
+      { id: 'dec-bsl-1', text: 'تثبيت موعد تسليم تقويم الشهر القادم: يوم 25 من كل شهر', ownerId: 'tm-bsl-1' },
+      { id: 'dec-bsl-2', text: 'مراجعة داخلية إلزامية قبل إرسال أي قطعة لاعتماد العميل', ownerId: 'tm-bsl-2' },
+    ],
+    recommendations: [
+      { id: 'rec-bsl-1', text: 'بناء مكتبة وسوم معتمدة لكل عميل لتوحيد الهوية النصية', assigneeId: 'tm-bsl-2', dueDate: '2026-06-20', done: false },
+    ],
+    actionItems: [
+      { id: 'ai-bsl-1', title: 'تنفيذ تصاميم تغطية افتتاح فرع لمسة ذوق', assigneeId: 'tm-bsl-3', dueDate: '2026-06-06', done: true },
+      { id: 'ai-bsl-2', title: 'إرسال مسودات وقاء التوعوية للمراجعة الطبية', assigneeId: 'tm-bsl-2', dueDate: '2026-06-10', done: false },
+    ],
+    recurring: true, recurringInterval: 'weekly',
+    status: 'minuted', createdAt: '2026-06-07T08:00:00Z',
+  },
+  {
+    id: 'meet-bsl-2', projectId: 'bawsala', title: 'المراجعة الشهرية مع مطاعم لمسة ذوق',
+    date: '2026-06-16', startTime: '13:00', endTime: '14:00', kind: 'review',
+    attendees: ['tm-bsl-1', 'tm6'],
+    agenda: [
+      { id: 'ag-bsl-4', text: 'عرض تقرير أداء الحسابات لشهر مايو' },
+      { id: 'ag-bsl-5', text: 'نتائج حملة افتتاح الفرع الجديد' },
+      { id: 'ag-bsl-6', text: 'مقترحات تقويم يوليو واعتماد التوجه' },
+    ],
+    actionItems: [],
+    status: 'preparation', createdAt: '2026-06-10T08:00:00Z',
+  },
 ]
 
 // ── جسد ─────────────────────────────────────────────────────
@@ -589,6 +653,62 @@ export const SEED_CLIENTS: Client[] = [
     order: 0,
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
+  },
+
+  // ── بوصلة الأعمال — عملاء إدارة الحسابات الشهرية ──────────
+  {
+    id: 'cl-bsl-1',
+    projectId: 'bawsala',
+    name: 'مطاعم لمسة ذوق',
+    contactName: 'مدير التسويق — خالد العمري',
+    email: 'marketing@lamsatthawq.sa',
+    phone: '0555000001',
+    contractValue: 7000,
+    contractCurrency: 'SAR',
+    contractStart: '2026-01-01T00:00:00Z',
+    contractEnd: '2026-12-31T00:00:00Z',
+    deliverableCount: 20,
+    status: 'active',
+    notes: 'سلسلة مطاعم سعودية — إدارة كاملة لحسابات إنستغرام وتيك توك وسناب شات: محتوى يومي، تغطيات، وحملات إطلاق الأطباق الموسمية',
+    order: 1,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-06-01T00:00:00Z',
+  },
+  {
+    id: 'cl-bsl-2',
+    projectId: 'bawsala',
+    name: 'مؤسسة وقاء الصحية',
+    contactName: 'منسقة الإعلام — هند الشهري',
+    email: 'media@weqaa-health.sa',
+    phone: '0555000002',
+    contractValue: 5500,
+    contractCurrency: 'SAR',
+    contractStart: '2026-02-01T00:00:00Z',
+    contractEnd: '2027-01-31T00:00:00Z',
+    deliverableCount: 16,
+    status: 'active',
+    notes: 'مجمع عيادات — محتوى توعوي طبي، تصاميم إنفوجرافيك، وإدارة حسابي X ولينكدإن مع تقرير أداء شهري',
+    order: 2,
+    createdAt: '2026-02-01T00:00:00Z',
+    updatedAt: '2026-06-01T00:00:00Z',
+  },
+  {
+    id: 'cl-bsl-3',
+    projectId: 'bawsala',
+    name: 'جمعية إتقان التعليمية',
+    contactName: 'مسؤول العلاقات — عبدالعزيز الحربي',
+    email: 'info@itqan-edu.org.sa',
+    phone: '0555000003',
+    contractValue: 4000,
+    contractCurrency: 'SAR',
+    contractStart: '2026-03-01T00:00:00Z',
+    contractEnd: '2026-12-31T00:00:00Z',
+    deliverableCount: 12,
+    status: 'active',
+    notes: 'جمعية تعليمية غير ربحية — تغطية البرامج والمبادرات، قصص نجاح المستفيدين، وحملات التسجيل الموسمية',
+    order: 3,
+    createdAt: '2026-03-01T00:00:00Z',
+    updatedAt: '2026-06-01T00:00:00Z',
   },
 ]
 
@@ -652,9 +772,34 @@ export const SEED_CONTENT: ContentItem[] = [
 
   // ── 30 يونيو ──────────────────────────────────────────────
   { id: 'ct-25', projectId: 'jasad', clientId: J, title: 'ستوري: أبرز لحظات يونيو مع جسد', type: 'story', platform: 'instagram', status: 'idea', publishDate: D('06-30'), order: 24, createdAt: D('06-03') },
+
+  // ── بوصلة الأعمال — تقويم يونيو 2026 لثلاثة عملاء ──────────
+  // مطاعم لمسة ذوق
+  { id: 'ct-bsl-01', projectId: 'bawsala', clientId: 'cl-bsl-1', title: 'إطلاق أطباق الصيف — منشور تشويقي', type: 'post', platform: 'instagram', status: 'published', source: 'internal', assigneeId: 'tm-bsl-2', publishDate: D('06-02'), order: 0, createdAt: D('05-25') },
+  { id: 'ct-bsl-02', projectId: 'bawsala', clientId: 'cl-bsl-1', title: 'ريلز: خلف الكواليس في مطبخ لمسة ذوق', type: 'reel', platform: 'tiktok', status: 'published', source: 'internal', assigneeId: 'tm-bsl-3', publishDate: D('06-04'), dimensions: '1080×1920', order: 1, createdAt: D('05-25') },
+  { id: 'ct-bsl-03', projectId: 'bawsala', clientId: 'cl-bsl-1', title: 'طلب: تغطية افتتاح فرع الرياض الجديد', type: 'post', platform: 'snapchat', status: 'delivered', source: 'client-request', assigneeId: 'tm-bsl-3', publishDate: D('06-07'), notes: 'وصل الطلب من مدير التسويق — تغطية مصورة كاملة يوم الافتتاح', order: 2, createdAt: D('06-01') },
+  { id: 'ct-bsl-04', projectId: 'bawsala', clientId: 'cl-bsl-1', title: 'طلب: ستوري عرض نهاية الأسبوع', type: 'story', platform: 'instagram', status: 'approved', source: 'client-request', assigneeId: 'tm-bsl-3', publishDate: D('06-12'), order: 3, createdAt: D('06-08') },
+  { id: 'ct-bsl-05', projectId: 'bawsala', clientId: 'cl-bsl-1', title: 'تصميم المسابقة الأسبوعية — اربح وجبة عائلية', type: 'design', platform: 'instagram', status: 'design', source: 'internal', assigneeId: 'tm-bsl-3', publishDate: D('06-15'), dimensions: '1080×1080', order: 4, createdAt: D('06-05') },
+  { id: 'ct-bsl-06', projectId: 'bawsala', clientId: 'cl-bsl-1', title: 'ريلز: وصفة الشيف — طبق الأسبوع', type: 'reel', platform: 'tiktok', status: 'draft', source: 'internal', assigneeId: 'tm-bsl-2', publishDate: D('06-19'), order: 5, createdAt: D('06-05') },
+  { id: 'ct-bsl-07', projectId: 'bawsala', clientId: 'cl-bsl-1', title: 'منشور: تقييمات عملائنا هذا الشهر', type: 'post', platform: 'instagram', status: 'idea', source: 'internal', publishDate: D('06-25'), order: 6, createdAt: D('06-05') },
+
+  // مؤسسة وقاء الصحية
+  { id: 'ct-bsl-08', projectId: 'bawsala', clientId: 'cl-bsl-2', title: 'إنفوجرافيك: الوقاية من ضربات الشمس في الصيف', type: 'design', platform: 'twitter', status: 'published', source: 'internal', assigneeId: 'tm-bsl-3', publishDate: D('06-03'), dimensions: '1600×900', order: 7, createdAt: D('05-26') },
+  { id: 'ct-bsl-09', projectId: 'bawsala', clientId: 'cl-bsl-2', title: 'مقال: أهمية الفحص الدوري الشامل', type: 'article', platform: 'linkedin', status: 'delivered', source: 'internal', assigneeId: 'tm-bsl-2', publishDate: D('06-08'), order: 8, createdAt: D('05-28') },
+  { id: 'ct-bsl-10', projectId: 'bawsala', clientId: 'cl-bsl-2', title: 'طلب: إعلان افتتاح عيادة الجلدية الجديدة', type: 'design', platform: 'instagram', status: 'review', source: 'client-request', assigneeId: 'tm-bsl-3', publishDate: D('06-14'), dimensions: '1080×1350', notes: 'طلب من منسقة الإعلام — بانتظار اعتماد التصميم النهائي', order: 9, createdAt: D('06-06') },
+  { id: 'ct-bsl-11', projectId: 'bawsala', clientId: 'cl-bsl-2', title: 'منشور توعوي: صحة النوم وجودة الحياة', type: 'post', platform: 'twitter', status: 'draft', source: 'internal', assigneeId: 'tm-bsl-2', publishDate: D('06-18'), order: 10, createdAt: D('06-06') },
+  { id: 'ct-bsl-12', projectId: 'bawsala', clientId: 'cl-bsl-2', title: 'ستوري: سؤال وجواب مع طبيب الأسرة', type: 'story', platform: 'instagram', status: 'idea', source: 'internal', publishDate: D('06-22'), order: 11, createdAt: D('06-06') },
+  { id: 'ct-bsl-13', projectId: 'bawsala', clientId: 'cl-bsl-2', title: 'تقرير الأداء الشهري — حسابات وقاء', type: 'other', status: 'idea', source: 'internal', assigneeId: 'tm6', publishDate: D('06-30'), notes: 'يُسلَّم للعميلة مع مطلع يوليو', order: 12, createdAt: D('06-06') },
+
+  // جمعية إتقان التعليمية
+  { id: 'ct-bsl-14', projectId: 'bawsala', clientId: 'cl-bsl-3', title: 'طلب: تغطية حفل تخريج الدفعة الخامسة', type: 'post', platform: 'twitter', status: 'published', source: 'client-request', assigneeId: 'tm-bsl-2', publishDate: D('06-05'), order: 13, createdAt: D('06-01') },
+  { id: 'ct-bsl-15', projectId: 'bawsala', clientId: 'cl-bsl-3', title: 'قصة نجاح: من متدربة إلى مدربة معتمدة', type: 'design', platform: 'instagram', status: 'approved', source: 'internal', assigneeId: 'tm-bsl-2', publishDate: D('06-10'), dimensions: '1080×1350', order: 14, createdAt: D('06-02') },
+  { id: 'ct-bsl-16', projectId: 'bawsala', clientId: 'cl-bsl-3', title: 'طلب: حملة التسجيل في البرامج الصيفية', type: 'design', platform: 'snapchat', status: 'design', source: 'client-request', assigneeId: 'tm-bsl-3', publishDate: D('06-16'), dimensions: '1080×1920', notes: 'حملة من 3 تصاميم متتابعة — هذا الأول منها', order: 15, createdAt: D('06-08') },
+  { id: 'ct-bsl-17', projectId: 'bawsala', clientId: 'cl-bsl-3', title: 'منشور: أثر التعليم المستمر في تطوير المهارات', type: 'post', platform: 'linkedin', status: 'draft', source: 'internal', assigneeId: 'tm-bsl-2', publishDate: D('06-21'), order: 16, createdAt: D('06-08') },
+  { id: 'ct-bsl-18', projectId: 'bawsala', clientId: 'cl-bsl-3', title: 'ريلز: جولة في مقر الجمعية وقاعات التدريب', type: 'reel', platform: 'instagram', status: 'idea', source: 'internal', publishDate: D('06-28'), order: 17, createdAt: D('06-08') },
 ]
 
 export const SEED_PORTFOLIOS: Portfolio[] = [
-  { id: 'pf-product', name: 'منتجات رقمية', color: 'var(--iris-500)', icon: 'rocket', projectIds: ['mehwar', 'mellasaq', 'bawsala'], createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' },
-  { id: 'pf-clients', name: 'عملاء المحتوى', color: 'var(--success-500)', icon: 'target', projectIds: ['jasad'], createdAt: '2026-03-01T00:00:00Z', updatedAt: '2026-03-01T00:00:00Z' },
+  { id: 'pf-product', name: 'منتجات رقمية', color: 'var(--iris-500)', icon: 'rocket', projectIds: ['mehwar', 'mellasaq'], createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' },
+  { id: 'pf-clients', name: 'عملاء المحتوى', color: 'var(--success-500)', icon: 'target', projectIds: ['jasad', 'bawsala'], createdAt: '2026-03-01T00:00:00Z', updatedAt: '2026-03-01T00:00:00Z' },
 ]

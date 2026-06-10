@@ -46,7 +46,7 @@ export const useProjectStore = create<ProjectStore>()(
     }),
     {
       name: 'mhwar-projects',
-      version: 4,
+      version: 5,
       skipHydration: true,
       // v1 → v2: backfill the modular-tools fields on existing projects.
       // Older projects predate `type`/`tools`; treat them as technical with the
@@ -94,6 +94,32 @@ export const useProjectStore = create<ProjectStore>()(
               ? { ...p, tools: [...p.tools.filter((t) => t !== 'notes'), 'finance', ...(p.tools.includes('notes') ? ['notes'] : [])] }
               : p
           )
+        }
+        // v4 → v5: بوصلة الأعمال — transform from technical navigation app to a
+        // content/social-media agency (in-place, non-destructive for user edits).
+        if (version < 5) {
+          const seed = SEED_PROJECTS.find((p) => p.id === 'bawsala')
+          if (seed) {
+            state.projects = (state.projects ?? []).map((p) =>
+              p.id === 'bawsala'
+                ? {
+                    ...p,
+                    name: seed.name,
+                    nameEn: seed.nameEn,
+                    description: seed.description,
+                    progress: seed.progress,
+                    color: seed.color,
+                    icon: seed.icon,
+                    logo: p.logo ?? seed.logo,
+                    category: seed.category,
+                    type: seed.type,
+                    tags: seed.tags,
+                    tools: [...seed.tools, ...(p.tools ?? []).filter((t) => !seed.tools.includes(t))],
+                    updatedAt: seed.updatedAt,
+                  }
+                : p
+            )
+          }
         }
         return state as never
       },
@@ -147,12 +173,14 @@ export const useTaskStore = create<TaskStore>()(
     }),
     {
       name: 'mhwar-tasks',
-      version: 3,
+      version: 4,
       skipHydration: true,
       // v1→v2: backfill demo assignees onto seed tasks that have none (non-destructive).
       // v2→v3: مشروع ملصق — replace the two placeholder tasks (t9/t10) with the real
       // enablement-phase ones (only when the titles are still untouched) and merge
       // the new seeded phase tasks by id.
+      // v3→v4: بوصلة الأعمال — drop the old navigation-app tasks (t11–t14, only when
+      // untouched) and merge the new agency tasks by id.
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { tasks?: Task[] } | undefined
         if (!state?.tasks) return state
@@ -176,6 +204,19 @@ export const useTaskStore = create<TaskStore>()(
           const have = new Set(state.tasks.map((t) => t.id))
           for (const seed of SEED_TASKS) {
             if (seed.id.startsWith('tk-mlsq-') && !have.has(seed.id)) state.tasks.push(seed)
+          }
+        }
+        if (version < 4) {
+          const bawsalaLegacy: Record<string, string> = {
+            t11: 'بحث مزودي الخرائط',
+            t12: 'واجهة الخريطة الأساسية',
+            t13: 'نظام البحث عن الأماكن',
+            t14: 'حفظ المفضلات',
+          }
+          state.tasks = state.tasks.filter((t) => !(bawsalaLegacy[t.id] && t.title === bawsalaLegacy[t.id]))
+          const have = new Set(state.tasks.map((t) => t.id))
+          for (const seed of SEED_TASKS) {
+            if (seed.id.startsWith('tk-bsl-') && !have.has(seed.id)) state.tasks.push(seed)
           }
         }
         return state
@@ -356,7 +397,7 @@ export const usePlanStore = create<PlanStore>()(
     }),
     {
       name: 'mhwar-plans',
-      version: 5,
+      version: 6,
       skipHydration: true,
       // Cumulative migrations (each `version < N` branch runs in order):
       //   v1 → v2: introduce named plans; assign each legacy phase to a default plan
@@ -364,6 +405,8 @@ export const usePlanStore = create<PlanStore>()(
       //   v3 → v4: مشروع ملصق — replace the placeholder roadmap phases with the real
       //            enablement-phase roadmap (only untouched phases) and merge new ones
       //   v4 → v5: ensure all mellasaq phases exist (guard for stores already at v4)
+      //   v5 → v6: بوصلة الأعمال — replace the navigation-app phases (ph6/ph7, only
+      //            untouched) with the agency growth roadmap
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { plans?: Plan[]; phases?: PlanPhase[] } | undefined
         if (!state) return state as never
@@ -429,6 +472,20 @@ export const usePlanStore = create<PlanStore>()(
           const phases = state.phases ?? []
           const haveIds = new Set(phases.map((p: PlanPhase) => p.id))
           for (const seed of SEED_PHASES.filter((p) => p.projectId === 'mellasaq')) {
+            if (!haveIds.has(seed.id)) phases.push(seed)
+          }
+          state.phases = phases
+        }
+        if (version < 6) {
+          const bawsalaLegacy: Record<string, string> = {
+            ph6: 'مرحلة البحث والتأسيس',
+            ph7: 'مرحلة التطوير الأساسي',
+          }
+          const phases = (state.phases ?? []).filter(
+            (ph: PlanPhase) => !(bawsalaLegacy[ph.id] && ph.title === bawsalaLegacy[ph.id])
+          )
+          const haveIds = new Set(phases.map((p: PlanPhase) => p.id))
+          for (const seed of SEED_PHASES.filter((p) => p.projectId === 'bawsala')) {
             if (!haveIds.has(seed.id)) phases.push(seed)
           }
           state.phases = phases
@@ -671,9 +728,11 @@ export const useNoteStore = create<NoteStore>()(
     }),
     {
       name: 'mhwar-notes',
-      version: 2,
+      version: 3,
       skipHydration: true,
       // v1→v2: merge the seeded ملصق profile/work-mechanism notes by id.
+      // v2→v3: بوصلة الأعمال — drop the old maps note (n3, only untouched) and merge
+      // the agency workflow note.
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { notes?: Note[] } | undefined
         if (!state?.notes) return state
@@ -681,6 +740,13 @@ export const useNoteStore = create<NoteStore>()(
           const have = new Set(state.notes.map((n) => n.id))
           for (const seed of SEED_NOTES) {
             if (seed.id.startsWith('n-mlsq-') && !have.has(seed.id)) state.notes.push(seed)
+          }
+        }
+        if (version < 3) {
+          state.notes = state.notes.filter((n) => !(n.id === 'n3' && n.title === 'مصادر الخرائط'))
+          const have = new Set(state.notes.map((n) => n.id))
+          for (const seed of SEED_NOTES) {
+            if (seed.id.startsWith('n-bsl-') && !have.has(seed.id)) state.notes.push(seed)
           }
         }
         return state
@@ -844,10 +910,12 @@ export const useTeamStore = create<TeamStore>()(
     }),
     {
       name: 'mhwar-team',
-      version: 3,
+      version: 4,
       skipHydration: true,
       // v1→v2: seed the demo team for users who never added members (non-destructive).
       // v2→v3: merge missing seed members by id (adds سفيان to مشروع ملصق).
+      // v3→v4: بوصلة الأعمال — merge the agency team and repurpose فهد الدوسري's role
+      // from data analyst to performance analyst (only if untouched).
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { members?: TeamMember[] } | undefined
         if (!state) return state
@@ -858,6 +926,18 @@ export const useTeamStore = create<TeamStore>()(
           const members = state.members ?? []
           const have = new Set(members.map((m) => m.id))
           for (const seed of SEED_TEAM) if (!have.has(seed.id)) members.push(seed)
+          state.members = members
+        }
+        if (version < 4) {
+          const members = (state.members ?? []).map((m) =>
+            m.id === 'tm6' && m.role === 'محلل بيانات'
+              ? { ...m, role: 'محلل أداء ومنصات', notes: m.notes ?? 'تقارير الأداء الشهرية للعملاء وتحليل نمو الحسابات' }
+              : m
+          )
+          const have = new Set(members.map((m) => m.id))
+          for (const seed of SEED_TEAM) {
+            if (seed.id.startsWith('tm-bsl-') && !have.has(seed.id)) members.push(seed)
+          }
           state.members = members
         }
         return state
@@ -932,13 +1012,14 @@ export const useMeetingStore = create<MeetingStore>()(
     }),
     {
       name: 'mhwar-meetings',
-      version: 6,
+      version: 7,
       skipHydration: true,
       // v1→v2: backfill recommendations field on seeded kickoff meeting.
       // v2→v3: decisions/recommendations from strings → structured lists.
       // v3→v4: add done:false to existing recommendations that lack it.
       // v4→v5: rename statuses: upcoming→preparation, done→minuted.
       // v5→v6: merge meet-mlsq-0 (first contracting meeting with Sufyan).
+      // v6→v7: بوصلة الأعمال — merge the agency editorial/review meetings by id.
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { meetings?: Meeting[] } | undefined
         if (!state?.meetings) return state
@@ -988,6 +1069,12 @@ export const useMeetingStore = create<MeetingStore>()(
             state.meetings = [seedMeet0, ...state.meetings]
           }
         }
+        if (version < 7) {
+          const have = new Set(state.meetings.map((m) => m.id))
+          for (const seed of SEED_MEETINGS) {
+            if (seed.id.startsWith('meet-bsl-') && !have.has(seed.id)) state.meetings.push(seed)
+          }
+        }
         return state
       },
     }
@@ -1025,9 +1112,10 @@ export const useFinanceStore = create<FinanceStore>()(
     }),
     {
       name: 'mhwar-finance',
-      version: 2,
+      version: 3,
       skipHydration: true,
       // v1→v2: merge ملصق salaries/infrastructure demo entries by id.
+      // v2→v3: بوصلة الأعمال — merge client subscriptions, salaries and tools by id.
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { entries?: FinanceEntry[] } | undefined
         if (!state) return state
@@ -1036,6 +1124,14 @@ export const useFinanceStore = create<FinanceStore>()(
           const have = new Set(entries.map((e) => e.id))
           for (const seed of SEED_FINANCE) {
             if (seed.id.startsWith('fin-mlsq-') && !have.has(seed.id)) entries.push(seed)
+          }
+          state.entries = entries
+        }
+        if (version < 3) {
+          const entries = state.entries ?? []
+          const have = new Set(entries.map((e) => e.id))
+          for (const seed of SEED_FINANCE) {
+            if (seed.id.startsWith('fin-bsl-') && !have.has(seed.id)) entries.push(seed)
           }
           state.entries = entries
         }
@@ -1076,9 +1172,10 @@ export const useKpiStore = create<KpiStore>()(
     }),
     {
       name: 'mhwar-kpis',
-      version: 2,
+      version: 3,
       skipHydration: true,
       // v1→v2: merge ملصق success-outcome KPIs by id.
+      // v2→v3: بوصلة الأعمال — merge the agency operations KPIs by id.
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { kpis?: Kpi[] } | undefined
         if (!state?.kpis) return state
@@ -1086,6 +1183,12 @@ export const useKpiStore = create<KpiStore>()(
           const have = new Set(state.kpis.map((k) => k.id))
           for (const seed of SEED_KPIS) {
             if (seed.id.startsWith('kpi-mlsq-') && !have.has(seed.id)) state.kpis.push(seed)
+          }
+        }
+        if (version < 3) {
+          const have = new Set(state.kpis.map((k) => k.id))
+          for (const seed of SEED_KPIS) {
+            if (seed.id.startsWith('kpi-bsl-') && !have.has(seed.id)) state.kpis.push(seed)
           }
         }
         return state
@@ -1123,7 +1226,25 @@ export const useClientStore = create<ClientStore>()(
       deleteClient: (id) =>
         set((s) => ({ clients: s.clients.filter((c) => c.id !== id) })),
     }),
-    { name: 'mhwar-clients', version: 1, skipHydration: true }
+    {
+      name: 'mhwar-clients',
+      version: 2,
+      skipHydration: true,
+      // v1→v2: بوصلة الأعمال — merge the agency's monthly-contract clients by id.
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as { clients?: Client[] } | undefined
+        if (!state) return state
+        if (version < 2) {
+          const clients = state.clients ?? []
+          const have = new Set(clients.map((c) => c.id))
+          for (const seed of SEED_CLIENTS) {
+            if (seed.id.startsWith('cl-bsl-') && !have.has(seed.id)) clients.push(seed)
+          }
+          state.clients = clients
+        }
+        return state
+      },
+    }
   )
 )
 
@@ -1156,7 +1277,25 @@ export const useContentStore = create<ContentStore>()(
       deleteItem: (id) =>
         set((s) => ({ items: s.items.filter((i) => i.id !== id) })),
     }),
-    { name: 'mhwar-content', version: 1, skipHydration: true }
+    {
+      name: 'mhwar-content',
+      version: 2,
+      skipHydration: true,
+      // v1→v2: بوصلة الأعمال — merge the agency's June content calendar by id.
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as { items?: ContentItem[] } | undefined
+        if (!state) return state
+        if (version < 2) {
+          const items = state.items ?? []
+          const have = new Set(items.map((i) => i.id))
+          for (const seed of SEED_CONTENT) {
+            if (seed.id.startsWith('ct-bsl-') && !have.has(seed.id)) items.push(seed)
+          }
+          state.items = items
+        }
+        return state
+      },
+    }
   )
 )
 

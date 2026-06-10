@@ -5,8 +5,8 @@ import {
   Globe, Printer, AlertCircle,
 } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
-import type { Project, ContentItem, ContentStatus, ContentPlatform } from '@/types'
-import { useContentStore, useClientStore } from '@/store/store'
+import type { Project, ContentItem, ContentStatus, ContentPlatform, ContentSource } from '@/types'
+import { useContentStore, useClientStore, useTeamStore } from '@/store/store'
 import Segmented from '@/components/ui/Segmented'
 import ContentDrawer from './content/ContentDrawer'
 import ContentCalendar from './content/ContentCalendar'
@@ -17,7 +17,7 @@ import ContentExportModal from './content/ContentExportModal'
 import { PlatformIcon } from './content/PlatformIcon'
 import {
   scheduledKey, keyInMonth, keyToISO, monthLabel, DONE_STATUSES, buildClientColorMap, CLIENT_COLORS,
-  STATUS_ORDER, STATUS_LABEL, STATUS_VAR, todayKey,
+  STATUS_ORDER, STATUS_LABEL, STATUS_VAR, SOURCE_LABEL, todayKey,
 } from './content/contentMeta'
 
 type View = 'calendar' | 'board' | 'list'
@@ -33,6 +33,7 @@ export default function ContentTab({ project }: Props) {
   const clients = useClientStore(useShallow((s) =>
     s.clients.filter((c) => c.projectId === pid).sort((a, b) => a.order - b.order)
   ))
+  const team = useTeamStore(useShallow((s) => s.members.filter((m) => m.projectId === pid)))
 
   const today = new Date()
   const [view, setView] = useState<View>('calendar')
@@ -41,6 +42,7 @@ export default function ContentTab({ project }: Props) {
   const [filterClient, setFilterClient] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<ContentStatus | 'all'>('all')
   const [filterPlatform, setFilterPlatform] = useState<ContentPlatform | 'all'>('all')
+  const [filterSource, setFilterSource] = useState<ContentSource | 'all'>('all')
   const [search, setSearch] = useState('')
   const [quickTitle, setQuickTitle] = useState('')
   const [quickClient, setQuickClient] = useState<string>('')
@@ -50,6 +52,7 @@ export default function ContentTab({ project }: Props) {
 
   const clientColorMap = useMemo(() => buildClientColorMap(clients.map((c) => c.id)), [clients])
   const clientNameMap = useMemo(() => Object.fromEntries(clients.map((c) => [c.id, c.name])), [clients])
+  const assigneeNameMap = useMemo(() => Object.fromEntries(team.map((m) => [m.id, m.name])), [team])
 
   const { year, month } = cursor
   const inMonthOrUndated = (i: ContentItem) => {
@@ -64,10 +67,11 @@ export default function ContentTab({ project }: Props) {
       if (filterClient !== 'all' && i.clientId !== filterClient) return false
       if (filterStatus !== 'all' && i.status !== filterStatus) return false
       if (filterPlatform !== 'all' && i.platform !== filterPlatform) return false
+      if (filterSource !== 'all' && (i.source ?? 'internal') !== filterSource) return false
       if (q && !i.title.toLowerCase().includes(q)) return false
       return true
     })
-  }, [items, filterClient, filterStatus, filterPlatform, search])
+  }, [items, filterClient, filterStatus, filterPlatform, filterSource, search])
 
   const availablePlatforms = useMemo(() => {
     const seen = new Set<ContentPlatform>()
@@ -380,6 +384,13 @@ export default function ContentTab({ project }: Props) {
             {STATUS_LABEL[s]}
           </Chip>
         ))}
+        <span className="w-px h-7 mx-1" style={{ background: 'var(--color-surface-border)' }} />
+        <Chip active={filterSource === 'client-request'} onClick={() => setFilterSource(filterSource === 'client-request' ? 'all' : 'client-request')} color="var(--warning-500)">
+          {SOURCE_LABEL['client-request']}
+        </Chip>
+        <Chip active={filterSource === 'internal'} onClick={() => setFilterSource(filterSource === 'internal' ? 'all' : 'internal')} color="oklch(0.62 0.17 215)">
+          {SOURCE_LABEL.internal}
+        </Chip>
       </div>
 
       {/* Platform filter chips */}
@@ -450,6 +461,7 @@ export default function ContentTab({ project }: Props) {
           items={scopedItems}
           clientColorMap={clientColorMap}
           clientNameMap={clientNameMap}
+          assigneeNameMap={assigneeNameMap}
           onOpenItem={openEdit}
           onAddInStatus={(status) => openNew({ status })}
           onSetStatus={setStatus}
@@ -461,6 +473,7 @@ export default function ContentTab({ project }: Props) {
             items={scopedItems}
             clientColorMap={clientColorMap}
             clientNameMap={clientNameMap}
+            assigneeNameMap={assigneeNameMap}
             onOpenItem={openEdit}
             onSetStatus={setStatus}
             onDelete={deleteItem}

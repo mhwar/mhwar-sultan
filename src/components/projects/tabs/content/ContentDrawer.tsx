@@ -1,12 +1,14 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { X, Trash2, Check, Plus, ListChecks, FileText, Maximize2, ChevronLeft } from 'lucide-react'
-import type { Client, ContentItem, ContentType, ContentStatus, ContentPlatform, ContentChecklistItem } from '@/types'
+import { X, Trash2, Check, Plus, ListChecks, FileText, Maximize2, ChevronLeft, Inbox } from 'lucide-react'
+import type { Client, ContentItem, ContentType, ContentStatus, ContentPlatform, ContentChecklistItem, ContentSource } from '@/types'
 import {
-  TYPE_LABEL, PLATFORM_LABEL, STATUS_LABEL, STATUS_ORDER, STATUS_VAR, CONTENT_SIZES, nextStatus,
+  TYPE_LABEL, PLATFORM_LABEL, STATUS_LABEL, STATUS_ORDER, STATUS_VAR, SOURCE_LABEL, CONTENT_SIZES, nextStatus,
 } from './contentMeta'
 import { generateId } from '@/lib/utils'
 import { PlatformIcon } from './PlatformIcon'
+import { useTeamStore } from '@/store/store'
+import { useShallow } from 'zustand/shallow'
 
 const fieldCls = 'w-full h-9 rounded-md px-2.5 text-sm outline-none'
 const fieldStyle = {
@@ -31,6 +33,7 @@ export default function ContentDrawer({ item, clients, accent, onUpdate, onDelet
   // Custom-dimension mode when the stored value isn't one of the presets.
   const isPreset = CONTENT_SIZES.some((s) => s.value === item.dimensions)
   const [customSize, setCustomSize] = useState(!!item.dimensions && !isPreset)
+  const team = useTeamStore(useShallow((s) => s.members.filter((m) => m.projectId === item.projectId).sort((a, b) => a.order - b.order)))
 
   useEffect(() => { requestAnimationFrame(() => setOpen(true)) }, [])
 
@@ -202,6 +205,36 @@ export default function ContentDrawer({ item, clients, accent, onUpdate, onDelet
                     <option value="__custom">مقاس مخصص…</option>
                   </select>
                 )}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="axis-label mb-1 flex items-center gap-1.5"><Inbox size={11} /> المصدر</label>
+                <div className="flex h-9 rounded-md overflow-hidden" style={{ border: '1px solid var(--border-default)' }}>
+                  {(Object.keys(SOURCE_LABEL) as ContentSource[]).map((s) => {
+                    const active = (item.source ?? 'internal') === s
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => onUpdate({ source: s })}
+                        className="flex-1 text-xs font-medium transition-colors"
+                        style={{
+                          background: active ? (s === 'client-request' ? 'color-mix(in oklch, var(--warning-500) 18%, transparent)' : 'var(--surface-1)') : 'transparent',
+                          color: active ? (s === 'client-request' ? 'var(--warning-500)' : 'var(--fg-1)') : 'var(--fg-3)',
+                        }}
+                      >
+                        {SOURCE_LABEL[s]}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              <div>
+                <label className="axis-label mb-1 block">المسؤول</label>
+                <select className={fieldCls} style={fieldStyle} value={item.assigneeId ?? ''} onChange={(e) => onUpdate({ assigneeId: e.target.value || undefined })}>
+                  <option value="">— بدون مسؤول —</option>
+                  {team.map((m) => <option key={m.id} value={m.id}>{m.name} — {m.role}</option>)}
+                </select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
