@@ -192,10 +192,13 @@ export default function OverviewTab({ project }: OverviewTabProps) {
 
   const exportReport = () => {
     const html = buildProductReportHTML({ project, phases, docs, team, kpis, tasks, doneTasks })
-    const w = window.open('', '_blank', 'width=900,height=800,resizable=yes')
-    if (!w) return
-    w.document.write(html)
-    w.document.close()
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `تقرير-${project.name}-${new Date().toISOString().slice(0, 10)}.html`
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
   }
 
   return (

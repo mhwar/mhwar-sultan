@@ -356,13 +356,14 @@ export const usePlanStore = create<PlanStore>()(
     }),
     {
       name: 'mhwar-plans',
-      version: 4,
+      version: 5,
       skipHydration: true,
       // Cumulative migrations (each `version < N` branch runs in order):
       //   v1 → v2: introduce named plans; assign each legacy phase to a default plan
       //   v2 → v3: tag each plan with a workspace domain; re-home any orphan phase
       //   v3 → v4: مشروع ملصق — replace the placeholder roadmap phases with the real
       //            enablement-phase roadmap (only untouched phases) and merge new ones
+      //   v4 → v5: ensure all mellasaq phases exist (guard for stores already at v4)
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { plans?: Plan[]; phases?: PlanPhase[] } | undefined
         if (!state) return state as never
@@ -423,6 +424,14 @@ export const usePlanStore = create<PlanStore>()(
           for (const seed of SEED_PHASES) {
             if (seed.id.startsWith('ph-mlsq-') && !have.has(seed.id)) state.phases.push(seed)
           }
+        }
+        if (version < 5) {
+          const phases = state.phases ?? []
+          const haveIds = new Set(phases.map((p: PlanPhase) => p.id))
+          for (const seed of SEED_PHASES.filter((p) => p.projectId === 'mellasaq')) {
+            if (!haveIds.has(seed.id)) phases.push(seed)
+          }
+          state.phases = phases
         }
         return state as never
       },

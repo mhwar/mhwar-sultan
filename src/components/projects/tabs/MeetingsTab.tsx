@@ -754,10 +754,13 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
         finance: mode === 'minutes' && incFinance && finance.length > 0 ? { income, expense, currency } : undefined,
       },
     })
-    const w = window.open('', '_blank', 'width=900,height=800,resizable=yes')
-    if (!w) return
-    w.document.write(html)
-    w.document.close()
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${mode === 'agenda' ? 'بنود' : 'محضر'}-${m.title}-${m.date.slice(0, 10)}.html`
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
   }
 
   const kindLabel = kindText(m)
