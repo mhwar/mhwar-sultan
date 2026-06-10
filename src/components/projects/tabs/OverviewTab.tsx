@@ -2,7 +2,7 @@
 import { ExternalLink, Tag, Calendar, Layers } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import type { Project } from '@/types'
-import { useTaskStore, usePlanStore } from '@/store/store'
+import { useTaskStore, usePlanStore, useSprintStore, useNoteStore } from '@/store/store'
 import StatusBadge from '@/components/shared/StatusBadge'
 import ProgressBar from '@/components/shared/ProgressBar'
 import { formatDateAr, hexToRgba } from '@/lib/utils'
@@ -14,10 +14,33 @@ interface OverviewTabProps {
 export default function OverviewTab({ project }: OverviewTabProps) {
   const tasks = useTaskStore(useShallow((s) => s.tasks.filter((t) => t.projectId === project.id)))
   const phases = usePlanStore(useShallow((s) => s.phases.filter((ph) => ph.projectId === project.id)))
+  const sprints = useSprintStore(useShallow((s) => s.sprints.filter((sp) => sp.projectId === project.id)))
+  const notes = useNoteStore(useShallow((s) => s.notes.filter((n) => n.projectId === project.id)))
   const doneTasks = tasks.filter((t) => t.status === 'done').length
   const donePhases = phases.filter((ph) => ph.status === 'completed').length
+  const activeSprints = sprints.filter((sp) => sp.status === 'active').length
+
+  const stats = [
+    { label: 'التقدم',    value: `${project.progress}%` },
+    { label: 'المهام',    value: `${doneTasks}/${tasks.length}` },
+    { label: 'السبرنتات', value: `${activeSprints}/${sprints.length}` },
+    { label: 'الملاحظات', value: `${notes.length}` },
+  ]
 
   return (
+    <div className="space-y-5">
+      {/* Stats strip */}
+      <div className="axis-stats">
+        {stats.map((s) => (
+          <div key={s.label} className="axis-stat">
+            <span className="axis-label">{s.label}</span>
+            <span className="axis-num text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+              {s.value}
+            </span>
+          </div>
+        ))}
+      </div>
+
     <div className="grid lg:grid-cols-3 gap-5">
       {/* Main info — 2/3 */}
       <div className="lg:col-span-2 space-y-4">
@@ -155,6 +178,7 @@ export default function OverviewTab({ project }: OverviewTabProps) {
           ))}
         </div>
       </div>
+    </div>
     </div>
   )
 }

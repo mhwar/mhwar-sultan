@@ -484,6 +484,43 @@ export const SEED_KPIS: Kpi[] = [
 // ملصق — الاجتماعات الدورية لمرحلة التمكين
 export const SEED_MEETINGS: Meeting[] = [
   {
+    id: 'meet-mlsq-0', projectId: 'mellasaq',
+    title: 'الجلسة التأسيسية — انطلاق التعاون مع سفيان',
+    date: '2026-06-03', startTime: '14:00', endTime: '15:30',
+    kind: 'other', kindLabel: 'تأسيسية',
+    attendees: ['tm5', 'tm7'],
+    agenda: [
+      { id: 'ag-0-1', text: 'عرض شروط التعاقد وحجم العمل المتفق عليه' },
+      { id: 'ag-0-2', text: 'تصميم هوية الشعار ومتطلبات العلامة التجارية' },
+      { id: 'ag-0-3', text: 'الدومين والبريد الإلكتروني الرسمي للمنصة' },
+      { id: 'ag-0-4', text: 'الرد على بريد GS1 — مركز الترميز السعودي' },
+      { id: 'ag-0-5', text: 'خطة العمل للأشهر الثلاثة (يونيو – سبتمبر 2026)' },
+      { id: 'ag-0-6', text: 'آلية التواصل والمتابعة الأسبوعية' },
+    ],
+    achievements: 'اعتماد التعاقد مع سفيان كمستشار لتطوير المنتجات والنمو لمدة ثلاثة أشهر.\nالاتفاق على هوية بصرية احترافية تعكس مأمورية ملصق الرقمية.',
+    challenges: 'موعد تسليم الشعار يحتاج تنسيقاً مع المصمم — المعالجة: تحديد موعد لا يتجاوز 15 يونيو.',
+    decisions: [
+      { id: 'dec-0-1', text: 'اعتماد التعاقد مع سفيان بصيغة الاستشارة المتكاملة (3 أشهر — يونيو/سبتمبر 2026)', ownerId: 'tm5' },
+      { id: 'dec-0-2', text: 'تسجيل نطاق mellasaq.com واشتراك G-Suite للبريد الرسمي قبل نهاية الأسبوع', ownerId: 'tm5', dueDate: '2026-06-07' },
+      { id: 'dec-0-3', text: 'الرد على بريد مركز GS1 السعودي بعرض الاندماج التقني وطلب حساب تجريبي', ownerId: 'tm7', dueDate: '2026-06-05' },
+      { id: 'dec-0-4', text: 'إيفاد متطلبات الشعار للمصمم: رمز باركود، مفهوم الشفافية والثقة، ألوان زرقاء/خضراء', ownerId: 'tm5', dueDate: '2026-06-05' },
+    ],
+    recommendations: [
+      { id: 'rec-0-1', text: 'تفعيل المصادقة الثنائية على البريد الرسمي فور إنشائه', assigneeId: 'tm5', dueDate: '2026-06-10', done: true },
+      { id: 'rec-0-2', text: 'حجز نطاقات مشابهة (melasaq.com، mellasaq.sa) لحماية العلامة التجارية', assigneeId: 'tm5', dueDate: '2026-06-10', done: false },
+      { id: 'rec-0-3', text: 'إعداد وثيقة "هوية المنتج" تتضمن رسالة ملصق وقيمه قبل الشروع في تصميم الشعار', assigneeId: 'tm7', dueDate: '2026-06-08', done: true },
+    ],
+    actionItems: [
+      { id: 'ai-0-1', title: 'تسجيل نطاق mellasaq.com', assigneeId: 'tm5', dueDate: '2026-06-07', done: true },
+      { id: 'ai-0-2', title: 'إنشاء حسابات البريد الرسمي (info@mellasaq.com، support@mellasaq.com)', assigneeId: 'tm5', dueDate: '2026-06-07', done: true },
+      { id: 'ai-0-3', title: 'إرسال رد رسمي على بريد مركز GS1 السعودي', assigneeId: 'tm7', dueDate: '2026-06-05', done: true },
+      { id: 'ai-0-4', title: 'إرسال متطلبات الشعار للمصمم وتحديد موعد التسليم', assigneeId: 'tm5', dueDate: '2026-06-05', done: true },
+      { id: 'ai-0-5', title: 'مشاركة وثيقة "هوية المنتج" مع الفريق', assigneeId: 'tm7', dueDate: '2026-06-08', done: true },
+      { id: 'ai-0-6', title: 'ضبط جدول الاجتماعات الأسبوعية (كل اثنين — 10:00 صباحاً)', assigneeId: 'tm5', dueDate: '2026-06-08', done: false },
+    ],
+    status: 'minuted', createdAt: '2026-06-03T12:00:00Z',
+  },
+  {
     id: 'meet-mlsq-1', projectId: 'mellasaq', title: 'اجتماع انطلاق مرحلة التمكين الاستراتيجي',
     date: '2026-06-09', startTime: '10:00', endTime: '11:30', kind: 'review',
     attendees: ['tm7', 'tm5'],
