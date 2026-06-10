@@ -1,6 +1,6 @@
 'use client'
 import { useEffect } from 'react'
-import { useProjectStore, useTaskStore, usePlanStore, useNoteStore, useSprintStore, useDocumentStore, useGrowthStore, useTeamStore, useScheduleStore, useMeetingStore, useFinanceStore, useKpiStore, useClientStore, useContentStore, usePortfolioStore, useTaskFilterStore, bootstrapSprints } from '@/store/store'
+import { useProjectStore, useTaskStore, usePlanStore, useNoteStore, useSprintStore, useDocumentStore, useGrowthStore, useTeamStore, useScheduleStore, useMeetingStore, useFinanceStore, usePackageStore, useKpiStore, useClientStore, useContentStore, usePortfolioStore, useTaskFilterStore, bootstrapSprints } from '@/store/store'
 import { useThemeStore } from '@/store/themeStore'
 import { SEED_PROJECTS, SEED_CLIENTS, SEED_CONTENT } from '@/lib/seed-data'
 
@@ -56,6 +56,7 @@ export default function StoreHydration() {
     useScheduleStore.persist.rehydrate()
     useMeetingStore.persist.rehydrate()
     useFinanceStore.persist.rehydrate()
+    usePackageStore.persist.rehydrate()
     useKpiStore.persist.rehydrate()
     useClientStore.persist.rehydrate()
     useContentStore.persist.rehydrate()

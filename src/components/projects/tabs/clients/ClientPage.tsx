@@ -2,11 +2,11 @@
 import { useState, useMemo } from 'react'
 import {
   ArrowRight, Edit2, Mail, Phone, FileText, CheckCircle2, Inbox, Send, Plus,
-  Check, X,
+  Check, X, Package,
 } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import type { Client, ClientStatus, ContentItem, ContentStatus, ContentSource, FinanceEntry, FinanceKind, FinanceStatus, Project } from '@/types'
-import { useContentStore, useClientStore, useFinanceStore } from '@/store/store'
+import { useContentStore, useClientStore, useFinanceStore, usePackageStore } from '@/store/store'
 import { ClientAvatar } from '../ClientsTab'
 import ContentDrawer from '../content/ContentDrawer'
 import { PlatformIcon } from '../content/PlatformIcon'
@@ -646,6 +646,9 @@ function BillingTab({ client, project }: { client: Client; project: Project }) {
   const entries = useFinanceStore(useShallow((s) =>
     s.entries.filter((e) => e.projectId === project.id && e.clientId === client.id)
   ))
+  const pkg = usePackageStore(useShallow((s) =>
+    s.packages.find((p) => p.projectId === project.id && p.clientIds?.includes(client.id))
+  ))
   const { addEntry } = useFinanceStore()
   const [showAddForm, setShowAddForm] = useState(false)
   const [formTitle, setFormTitle] = useState('')
@@ -687,6 +690,45 @@ function BillingTab({ client, project }: { client: Client; project: Project }) {
 
   return (
     <div className="space-y-5">
+      {/* Package */}
+      {pkg ? (
+        <div className="axis-card p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'color-mix(in oklch, var(--iris-500) 12%, transparent)', color: 'var(--iris-500)' }}>
+              <Package size={15} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>{pkg.name}</p>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>الباقة المرتبطة</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs mb-3" style={{ color: 'var(--color-text-secondary)' }}>
+            <span className="inline-flex items-baseline gap-1">
+              <span className="axis-num font-semibold" style={{ color: 'var(--color-text-primary)' }}>{pkg.price.toLocaleString('en-US')}</span>
+              {pkg.currency} / شهر
+            </span>
+            {pkg.deliverables != null && (
+              <span className="inline-flex items-baseline gap-1">
+                <span className="axis-num font-semibold" style={{ color: 'var(--color-text-primary)' }}>{pkg.deliverables.toLocaleString('en-US')}</span>
+                قطعة / شهر
+              </span>
+            )}
+          </div>
+          {pkg.features && pkg.features.length > 0 && (
+            <ul className="space-y-1.5">
+              {pkg.features.map((f, i) => (
+                <li key={i} className="flex items-start gap-1.5 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                  <CheckCircle2 size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success-500)' }} />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : (
+        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>لا توجد باقة مرتبطة</p>
+      )}
+
       {/* Summary */}
       <div className="rounded-xl p-4" style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)' }}>
         <p className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>إجمالي الإيرادات المحصلة هذا الشهر</p>

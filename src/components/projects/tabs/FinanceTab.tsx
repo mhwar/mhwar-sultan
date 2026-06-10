@@ -1,9 +1,9 @@
 'use client'
 import { useMemo, useState } from 'react'
-import { Plus, Trash2, Check, X, Wallet, ArrowUpRight, ArrowDownRight, Repeat, Users2, Server, Megaphone, Wrench, Tag, CircleDollarSign, type LucideIcon } from 'lucide-react'
+import { Plus, Trash2, Check, X, Wallet, ArrowUpRight, ArrowDownRight, Repeat, Users2, Server, Megaphone, Wrench, Tag, CircleDollarSign, Package, Layers, type LucideIcon } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
-import type { Project, FinanceEntry, FinanceKind, FinanceStatus } from '@/types'
-import { useFinanceStore } from '@/store/store'
+import type { Project, FinanceEntry, FinanceKind, FinanceStatus, FinancePackage } from '@/types'
+import { useFinanceStore, usePackageStore, useClientStore } from '@/store/store'
 import { formatDateShort } from '@/lib/utils'
 
 const KIND_LABEL: Record<FinanceKind, string> = { income: 'إيراد', expense: 'مصروف' }
@@ -25,14 +25,20 @@ const OTHER_CATEGORY = 'غير مصنف'
 
 function fmt(n: number) { return n.toLocaleString('en-US') }
 
+type FinanceView = 'overview' | 'entries' | 'packages' | 'clients'
+const VIEW_TABS: { key: FinanceView; label: string }[] = [
+  { key: 'overview', label: 'نظرة عامة' },
+  { key: 'entries', label: 'الحركات' },
+  { key: 'packages', label: 'الباقات' },
+  { key: 'clients', label: 'العملاء' },
+]
+
 interface Props { project: Project }
 
 export default function FinanceTab({ project }: Props) {
   const pid = project.id
   const entries = useFinanceStore(useShallow((s) => s.entries.filter((e) => e.projectId === pid).sort((a, b) => a.order - b.order)))
-  const { addEntry, updateEntry, deleteEntry } = useFinanceStore()
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [adding, setAdding] = useState(false)
+  const [view, setView] = useState<FinanceView>('overview')
 
   const currency = entries[0]?.currency ?? 'SAR'
   const income = entries.filter((e) => e.kind === 'income').reduce((s, e) => s + e.amount, 0)
@@ -41,21 +47,39 @@ export default function FinanceTab({ project }: Props) {
   // Monthly burn: recurring expense commitments (salaries, hosting, subscriptions…)
   const monthly = entries.filter((e) => e.kind === 'expense' && e.recurring).reduce((s, e) => s + e.amount, 0)
 
-  // Group entries by category, largest total first
-  const groups = useMemo(() => {
-    const map = new Map<string, FinanceEntry[]>()
-    for (const e of entries) {
-      const cat = e.category || OTHER_CATEGORY
-      if (!map.has(cat)) map.set(cat, [])
-      map.get(cat)!.push(e)
-    }
-    return [...map.entries()].sort((a, b) => {
-      const ta = a[1].reduce((s, e) => s + e.amount, 0)
-      const tb = b[1].reduce((s, e) => s + e.amount, 0)
-      return tb - ta
-    })
-  }, [entries])
+  return (
+    <div className="space-y-5">
+      {/* Tabs */}
+      <div className="flex gap-1 border-b" style={{ borderColor: 'var(--color-surface-border)' }}>
+        {VIEW_TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setView(t.key)}
+            className="px-4 py-2 text-sm font-medium transition-colors relative"
+            style={{
+              color: view === t.key ? 'var(--iris-500)' : 'var(--color-text-muted)',
+              borderBottom: view === t.key ? '2px solid var(--iris-500)' : '2px solid transparent',
+              marginBottom: -1,
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
+      {view === 'overview' && (
+        <OverviewView income={income} expense={expense} balance={balance} monthly={monthly} currency={currency} entries={entries} />
+      )}
+      {view === 'entries' && <EntriesView project={project} entries={entries} currency={currency} />}
+      {view === 'packages' && <PackagesView project={project} currency={currency} />}
+      {view === 'clients' && <ClientsView project={project} entries={entries} currency={currency} />}
+    </div>
+  )
+}
+
+/* ── Overview view: summary cards + charts ─────────────────── */
+
+function OverviewView({ income, expense, balance, monthly, currency, entries }: { income: number; expense: number; balance: number; monthly: number; currency: string; entries: FinanceEntry[] }) {
   return (
     <div className="space-y-5">
       {/* Summary */}
@@ -67,7 +91,7 @@ export default function FinanceTab({ project }: Props) {
       </div>
 
       {/* Charts */}
-      {entries.length >= 2 && (
+      {entries.length >= 2 ? (
         <div className="axis-card p-4 md:p-6">
           <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>التوزيع</h3>
           <div className="flex items-start gap-6 flex-wrap">
@@ -75,65 +99,322 @@ export default function FinanceTab({ project }: Props) {
             <CategoryBars entries={entries} currency={currency} />
           </div>
         </div>
+      ) : (
+        <div className="flex flex-col items-center gap-2 py-10 text-center">
+          <Wallet size={28} style={{ color: 'var(--color-text-muted)' }} strokeWidth={1.5} />
+          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>لا توجد حركات مالية كافية لعرض التوزيع</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ── Entries view: grouped list + sub-filter + forms ──────── */
+
+type EntryFilter = 'all' | FinanceKind
+const ENTRY_FILTER_TABS: { key: EntryFilter; label: string }[] = [
+  { key: 'all', label: 'الكل' },
+  { key: 'income', label: 'إيراد' },
+  { key: 'expense', label: 'مصروف' },
+]
+
+function EntriesView({ project, entries, currency }: { project: Project; entries: FinanceEntry[]; currency: string }) {
+  const pid = project.id
+  const { addEntry, updateEntry, deleteEntry } = useFinanceStore()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
+  const [filter, setFilter] = useState<EntryFilter>('all')
+
+  const filtered = useMemo(
+    () => (filter === 'all' ? entries : entries.filter((e) => e.kind === filter)),
+    [entries, filter]
+  )
+
+  // Group entries by category, largest total first
+  const groups = useMemo(() => {
+    const map = new Map<string, FinanceEntry[]>()
+    for (const e of filtered) {
+      const cat = e.category || OTHER_CATEGORY
+      if (!map.has(cat)) map.set(cat, [])
+      map.get(cat)!.push(e)
+    }
+    return [...map.entries()].sort((a, b) => {
+      const ta = a[1].reduce((s, e) => s + e.amount, 0)
+      const tb = b[1].reduce((s, e) => s + e.amount, 0)
+      return tb - ta
+    })
+  }, [filtered])
+
+  return (
+    <div className="axis-card p-4 md:p-6">
+      <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
+        <h2 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>الحركات المالية</h2>
+        <button
+          onClick={() => setAdding(true)}
+          className="flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-semibold transition-colors"
+          style={{ background: 'var(--color-surface-overlay)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
+        >
+          <Plus size={13} /> إضافة حركة
+        </button>
+      </div>
+
+      {/* Sub-filter */}
+      <div className="flex gap-1 mb-4 p-0.5 rounded-lg w-fit" style={{ background: 'var(--color-surface-muted)' }}>
+        {ENTRY_FILTER_TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setFilter(t.key)}
+            className="px-3 h-7 rounded-md text-xs font-medium transition-colors"
+            style={{
+              background: filter === t.key ? 'var(--color-surface-overlay)' : 'transparent',
+              color: filter === t.key ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+              border: filter === t.key ? '1px solid var(--color-surface-border)' : '1px solid transparent',
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {adding && (
+        <div className="mb-4">
+          <EntryForm
+            defaultCurrency={currency}
+            onSave={(d) => { addEntry({ ...d, projectId: pid }); setAdding(false) }}
+            onCancel={() => setAdding(false)}
+          />
+        </div>
       )}
 
-      <div className="axis-card p-4 md:p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>الحركات المالية</h2>
-          <button
-            onClick={() => setAdding(true)}
-            className="flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-semibold transition-colors"
-            style={{ background: 'var(--color-surface-overlay)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
-          >
-            <Plus size={13} /> إضافة حركة
-          </button>
-        </div>
-
-        {adding && (
-          <div className="mb-4">
-            <EntryForm
-              defaultCurrency={currency}
-              onSave={(d) => { addEntry({ ...d, projectId: pid }); setAdding(false) }}
-              onCancel={() => setAdding(false)}
-            />
-          </div>
-        )}
-
-        {/* Grouped by category */}
-        <div className="space-y-5">
-          {groups.map(([cat, list]) => {
-            const Icon = CATEGORY_ICON[cat] ?? Tag
-            const subtotal = list.reduce((s, e) => s + (e.kind === 'income' ? e.amount : -e.amount), 0)
-            return (
-              <div key={cat}>
-                <div className="flex items-center justify-between mb-2 px-1">
-                  <p className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
-                    <Icon size={13} /> {cat}
-                    <span className="axis-num font-normal" style={{ color: 'var(--color-text-muted)' }}>({list.length})</span>
-                  </p>
-                  <span className="axis-num text-xs font-bold" style={{ color: subtotal >= 0 ? 'var(--success-500)' : 'var(--danger-500)' }}>
-                    {subtotal >= 0 ? '+' : '−'}{fmt(Math.abs(subtotal))} {currency}
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {list.map((e) =>
-                    editingId === e.id
-                      ? <EntryForm key={e.id} initial={e} onSave={(d) => { updateEntry(e.id, d); setEditingId(null) }} onCancel={() => setEditingId(null)} />
-                      : <EntryRow key={e.id} entry={e} onEdit={() => setEditingId(e.id)} onDelete={() => deleteEntry(e.id)} />
-                  )}
-                </div>
+      {/* Grouped by category */}
+      <div className="space-y-5">
+        {groups.map(([cat, list]) => {
+          const Icon = CATEGORY_ICON[cat] ?? Tag
+          const subtotal = list.reduce((s, e) => s + (e.kind === 'income' ? e.amount : -e.amount), 0)
+          return (
+            <div key={cat}>
+              <div className="flex items-center justify-between mb-2 px-1">
+                <p className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                  <Icon size={13} /> {cat}
+                  <span className="axis-num font-normal" style={{ color: 'var(--color-text-muted)' }}>({list.length})</span>
+                </p>
+                <span className="axis-num text-xs font-bold" style={{ color: subtotal >= 0 ? 'var(--success-500)' : 'var(--danger-500)' }}>
+                  {subtotal >= 0 ? '+' : '−'}{fmt(Math.abs(subtotal))} {currency}
+                </span>
               </div>
-            )
-          })}
-        </div>
+              <div className="space-y-2">
+                {list.map((e) =>
+                  editingId === e.id
+                    ? <EntryForm key={e.id} initial={e} onSave={(d) => { updateEntry(e.id, d); setEditingId(null) }} onCancel={() => setEditingId(null)} />
+                    : <EntryRow key={e.id} entry={e} onEdit={() => setEditingId(e.id)} onDelete={() => deleteEntry(e.id)} />
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
 
-        {entries.length === 0 && !adding && (
-          <div className="flex flex-col items-center gap-2 py-10 text-center">
-            <Wallet size={28} style={{ color: 'var(--color-text-muted)' }} strokeWidth={1.5} />
-            <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>لا توجد حركات مالية بعد — ابدأ بإضافة الرواتب والتزامات البنية التحتية</p>
-          </div>
+      {filtered.length === 0 && !adding && (
+        <div className="flex flex-col items-center gap-2 py-10 text-center">
+          <Wallet size={28} style={{ color: 'var(--color-text-muted)' }} strokeWidth={1.5} />
+          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>لا توجد حركات مالية بعد — ابدأ بإضافة الرواتب والتزامات البنية التحتية</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ── Packages view ────────────────────────────────────────── */
+
+function PackagesView({ project, currency }: { project: Project; currency: string }) {
+  const pid = project.id
+  const packages = usePackageStore(useShallow((s) => s.packages.filter((p) => p.projectId === pid).sort((a, b) => a.order - b.order)))
+  const clients = useClientStore(useShallow((s) => s.clients.filter((c) => c.projectId === pid)))
+  const { addPackage, updatePackage, deletePackage } = usePackageStore()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
+
+  const clientOptions = useMemo(() => clients.map((c) => ({ id: c.id, name: c.name })), [clients])
+  const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? id
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h2 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>الباقات</h2>
+        <button
+          onClick={() => setAdding(true)}
+          className="flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-semibold transition-colors"
+          style={{ background: 'var(--color-surface-overlay)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
+        >
+          <Plus size={13} /> إضافة باقة
+        </button>
+      </div>
+
+      {adding && (
+        <PackageForm
+          defaultCurrency={currency}
+          clients={clientOptions}
+          onSave={(d) => { addPackage({ ...d, projectId: pid }); setAdding(false) }}
+          onCancel={() => setAdding(false)}
+        />
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        {packages.map((pkg) =>
+          editingId === pkg.id ? (
+            <div key={pkg.id} className="md:col-span-2 xl:col-span-3">
+              <PackageForm
+                initial={pkg}
+                defaultCurrency={currency}
+                clients={clientOptions}
+                onSave={(d) => { updatePackage(pkg.id, d); setEditingId(null) }}
+                onCancel={() => setEditingId(null)}
+              />
+            </div>
+          ) : (
+            <PackageCard
+              key={pkg.id}
+              pkg={pkg}
+              clientName={clientName}
+              onEdit={() => setEditingId(pkg.id)}
+              onDelete={() => deletePackage(pkg.id)}
+            />
+          )
         )}
       </div>
+
+      {packages.length === 0 && !adding && (
+        <div className="flex flex-col items-center gap-2 py-10 text-center">
+          <Package size={28} style={{ color: 'var(--color-text-muted)' }} strokeWidth={1.5} />
+          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>لا توجد باقات بعد — أضف باقات الخدمة وأسعارها الشهرية</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PackageCard({ pkg, clientName, onEdit, onDelete }: { pkg: FinancePackage; clientName: (id: string) => string; onEdit: () => void; onDelete: () => void }) {
+  return (
+    <div
+      className="group axis-card p-4 flex flex-col gap-3 cursor-pointer transition-colors hover:bg-white/5"
+      onClick={onEdit}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'color-mix(in oklch, var(--iris-500) 12%, transparent)', color: 'var(--iris-500)' }}>
+            <Package size={15} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>{pkg.name}</p>
+            {pkg.description && <p className="text-xs truncate" style={{ color: 'var(--color-text-muted)' }}>{pkg.description}</p>}
+          </div>
+        </div>
+        <button
+          onClick={(ev) => { ev.stopPropagation(); onDelete() }}
+          className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded flex items-center justify-center transition-all shrink-0"
+          style={{ color: 'var(--danger-500)' }}
+        >
+          <Trash2 size={12} />
+        </button>
+      </div>
+
+      <div className="flex items-baseline gap-1">
+        <span className="axis-num text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>{fmt(pkg.price)}</span>
+        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{pkg.currency} / شهر</span>
+      </div>
+
+      {pkg.deliverables != null && (
+        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+          <span className="axis-num font-semibold">{fmt(pkg.deliverables)}</span> قطعة / شهر
+        </p>
+      )}
+
+      {pkg.features && pkg.features.length > 0 && (
+        <ul className="space-y-1.5">
+          {pkg.features.map((f, i) => (
+            <li key={i} className="flex items-start gap-1.5 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+              <Check size={12} className="mt-0.5 shrink-0" style={{ color: 'var(--success-500)' }} />
+              <span>{f}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {pkg.clientIds && pkg.clientIds.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          {pkg.clientIds.map((id) => (
+            <span key={id} className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--color-surface-muted)', color: 'var(--color-text-secondary)' }}>
+              <Users2 size={10} /> {clientName(id)}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ── Clients view: per-client revenue ─────────────────────── */
+
+function ClientsView({ project, entries, currency }: { project: Project; entries: FinanceEntry[]; currency: string }) {
+  const pid = project.id
+  const clients = useClientStore(useShallow((s) => s.clients.filter((c) => c.projectId === pid).sort((a, b) => a.order - b.order)))
+  const packages = usePackageStore(useShallow((s) => s.packages.filter((p) => p.projectId === pid)))
+
+  const rows = useMemo(() => clients.map((c) => {
+    const pkg = packages.find((p) => p.clientIds?.includes(c.id))
+    const clientIncome = entries.filter((e) => e.kind === 'income' && e.clientId === c.id)
+    const paid = clientIncome.filter((e) => e.status === 'paid').reduce((s, e) => s + e.amount, 0)
+    const planned = clientIncome.filter((e) => e.status !== 'paid').reduce((s, e) => s + e.amount, 0)
+    return { client: c, pkg, paid, planned }
+  }), [clients, packages, entries])
+
+  const totalRecurring = clients.reduce((s, c) => s + (c.contractValue || 0), 0)
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-xl p-4" style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)' }}>
+        <p className="text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>الإيراد الشهري المتكرر من العملاء</p>
+        <p className="axis-num text-xl font-bold" style={{ color: 'var(--success-500)' }}>
+          {fmt(totalRecurring)} <span className="text-xs font-normal" style={{ color: 'var(--color-text-muted)' }}>{currency} / شهر</span>
+        </p>
+      </div>
+
+      <div className="space-y-2.5">
+        {rows.map(({ client, pkg, paid, planned }) => (
+          <div key={client.id} className="axis-card p-4">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>{client.name}</p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                  <span className="inline-flex items-center gap-1">
+                    <Layers size={12} /> {pkg ? pkg.name : 'بلا باقة'}
+                  </span>
+                  <span className="axis-num">
+                    {fmt(client.contractValue || 0)} {client.contractCurrency || currency} / شهر
+                  </span>
+                </div>
+              </div>
+              <div className="flex gap-4 shrink-0">
+                <div className="text-end">
+                  <p className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>محصّل</p>
+                  <p className="axis-num text-sm font-bold" style={{ color: 'var(--success-500)' }}>{fmt(paid)}</p>
+                </div>
+                <div className="text-end">
+                  <p className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>مخطط</p>
+                  <p className="axis-num text-sm font-bold" style={{ color: 'var(--fg-3)' }}>{fmt(planned)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {clients.length === 0 && (
+        <div className="flex flex-col items-center gap-2 py-10 text-center">
+          <Users2 size={28} style={{ color: 'var(--color-text-muted)' }} strokeWidth={1.5} />
+          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>لا يوجد عملاء مرتبطون بهذا المشروع</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -346,6 +627,105 @@ function EntryForm({ initial, defaultCurrency, onSave, onCancel }: { initial?: F
         </button>
         <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>التزام شهري متكرر (راتب، استضافة، اشتراك…)</span>
       </label>
+      <div className="flex gap-2 pt-1">
+        <button onClick={save} className="flex items-center gap-1 px-3 h-7 rounded-md text-xs font-semibold" style={{ background: 'var(--iris-500)', color: 'white' }}>
+          <Check size={12} /> حفظ
+        </button>
+        <button onClick={onCancel} className="flex items-center gap-1 px-3 h-7 rounded-md text-xs" style={{ background: 'var(--color-surface-muted)', color: 'var(--color-text-muted)', border: '1px solid var(--color-surface-border)' }}>
+          <X size={12} /> إلغاء
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ── Package form ─────────────────────────────────────────── */
+
+function PackageForm({ initial, defaultCurrency, clients, onSave, onCancel }: { initial?: FinancePackage; defaultCurrency?: string; clients: { id: string; name: string }[]; onSave: (d: Omit<FinancePackage, 'id' | 'order' | 'createdAt' | 'projectId'>) => void; onCancel: () => void }) {
+  const [name, setName] = useState(initial?.name ?? '')
+  const [description, setDescription] = useState(initial?.description ?? '')
+  const [price, setPrice] = useState(initial ? String(initial.price) : '')
+  const [currency, setCurrency] = useState(initial?.currency ?? defaultCurrency ?? 'SAR')
+  const [deliverables, setDeliverables] = useState(initial?.deliverables != null ? String(initial.deliverables) : '')
+  const [features, setFeatures] = useState((initial?.features ?? []).join('\n'))
+  const [clientIds, setClientIds] = useState<string[]>(initial?.clientIds ?? [])
+
+  const toggleClient = (id: string) =>
+    setClientIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
+
+  const save = () => {
+    if (!name.trim()) return
+    const featureList = features.split('\n').map((f) => f.trim()).filter(Boolean)
+    onSave({
+      name: name.trim(),
+      description: description.trim() || undefined,
+      price: parseFloat(price) || 0,
+      currency,
+      deliverables: deliverables.trim() ? parseInt(deliverables, 10) || 0 : undefined,
+      features: featureList.length ? featureList : undefined,
+      clientIds: clientIds.length ? clientIds : undefined,
+    })
+  }
+
+  return (
+    <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--iris-500)' }}>
+      <div>
+        <label className="axis-label mb-1 block">اسم الباقة</label>
+        <input className={inputCls} style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="مثال: الباقة الذهبية" autoFocus />
+      </div>
+      <div>
+        <label className="axis-label mb-1 block">الوصف</label>
+        <input className={inputCls} style={inputStyle} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="مثال: إدارة محتوى لمنصتين مع تصاميم متقدمة" />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <label className="axis-label mb-1 block">السعر الشهري</label>
+          <input type="number" className={inputCls} style={inputStyle} value={price} onChange={(e) => setPrice(e.target.value)} />
+        </div>
+        <div>
+          <label className="axis-label mb-1 block">العملة</label>
+          <input className={inputCls} style={inputStyle} value={currency} onChange={(e) => setCurrency(e.target.value)} />
+        </div>
+        <div>
+          <label className="axis-label mb-1 block">عدد القطع</label>
+          <input type="number" className={inputCls} style={inputStyle} value={deliverables} onChange={(e) => setDeliverables(e.target.value)} />
+        </div>
+      </div>
+      <div>
+        <label className="axis-label mb-1 block">المزايا (سطر لكل ميزة)</label>
+        <textarea
+          className="w-full rounded-md px-2 py-1.5 text-sm outline-none"
+          style={{ ...inputStyle, minHeight: 88 }}
+          value={features}
+          onChange={(e) => setFeatures(e.target.value)}
+          placeholder={'16 قطعة محتوى شهرياً\nإدارة منصتين\nتقرير أداء نصف شهري'}
+        />
+      </div>
+      {clients.length > 0 && (
+        <div>
+          <label className="axis-label mb-1 block">العملاء المرتبطون</label>
+          <div className="flex flex-wrap gap-1.5">
+            {clients.map((c) => {
+              const on = clientIds.includes(c.id)
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => toggleClient(c.id)}
+                  className="inline-flex items-center gap-1 px-2 h-7 rounded-md text-xs font-medium transition-colors"
+                  style={{
+                    background: on ? 'color-mix(in oklch, var(--iris-500) 14%, transparent)' : 'var(--color-surface-muted)',
+                    color: on ? 'var(--iris-500)' : 'var(--color-text-secondary)',
+                    border: on ? '1px solid var(--iris-500)' : '1px solid var(--color-surface-border)',
+                  }}
+                >
+                  {on && <Check size={11} />} {c.name}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
       <div className="flex gap-2 pt-1">
         <button onClick={save} className="flex items-center gap-1 px-3 h-7 rounded-md text-xs font-semibold" style={{ background: 'var(--iris-500)', color: 'white' }}>
           <Check size={12} /> حفظ
