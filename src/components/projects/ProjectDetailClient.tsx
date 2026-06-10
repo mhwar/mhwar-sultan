@@ -1,17 +1,17 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, Edit2, Trash2, Calendar, Clock, Plus } from 'lucide-react'
+import { ArrowRight, Edit2, Trash2, Plus } from 'lucide-react'
 import Link from 'next/link'
 import StatusBadge from '@/components/shared/StatusBadge'
 import ProjectForm from '@/components/projects/ProjectForm'
 import ToolsLibrarySheet from '@/components/projects/ToolsLibrarySheet'
-import { useProjectStore, useTaskStore, useNoteStore, useSprintStore, useNavStore } from '@/store/store'
+import { useProjectStore, useTaskStore, useNavStore } from '@/store/store'
 import { useShallow } from 'zustand/shallow'
 import { getTool } from '@/lib/tool-registry'
 import { FALLBACK_TOOL_IDS } from '@/lib/project-types'
 import ProjectIcon from '@/lib/icons'
-import { hexToRgba, formatDateAr } from '@/lib/utils'
+import { hexToRgba } from '@/lib/utils'
 
 interface Props {
   id: string
@@ -22,14 +22,6 @@ export default function ProjectDetailClient({ id }: Props) {
   const project = useProjectStore((s) => s.projects.find((p) => p.id === id))
   const { deleteProject } = useProjectStore()
   const tasks = useTaskStore(useShallow((s) => s.tasks.filter((t) => t.projectId === id)))
-  const notes = useNoteStore(useShallow((s) =>
-    [...s.notes.filter((n) => n.projectId === id)].sort((a, b) => {
-      if (a.pinned && !b.pinned) return -1
-      if (!a.pinned && b.pinned) return 1
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    })
-  ))
-  const sprints = useSprintStore(useShallow((s) => s.sprints.filter((sp) => sp.projectId === id)))
   const [activeTab, setActiveTab] = useState<string>('')
   const [showEdit, setShowEdit] = useState(false)
   const [showTools, setShowTools] = useState(false)
@@ -91,65 +83,93 @@ export default function ProjectDetailClient({ id }: Props) {
     }
   }
 
-  const doneTasks = tasks.filter((t) => t.status === 'done').length
-  const activeSprints = sprints.filter((sp) => sp.status === 'active').length
-
-  const stats = [
-    { label: 'التقدم',   value: `${project.progress}%` },
-    { label: 'المهام',   value: `${doneTasks}/${tasks.length}` },
-    { label: 'السبرنتات', value: `${activeSprints}/${sprints.length}` },
-    { label: 'الملاحظات', value: `${notes.length}` },
-  ]
-
   return (
     <div className="p-4 md:p-6 lg:p-8 animate-fade-up">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs mb-4" style={{ color: 'var(--color-text-muted)' }}>
+      <div className="flex items-center gap-2 text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>
         <Link href="/projects" className="hover:text-white transition-colors">المشاريع</Link>
         <ArrowRight size={12} style={{ opacity: 0.4 }} data-flip-rtl />
         <span style={{ color: 'var(--color-text-secondary)' }}>{project.name}</span>
       </div>
 
-      {/* Hero */}
-      <div className="axis-projhead mb-6">
-        {/* Cover band */}
-        <div className="relative h-[120px] md:h-[160px] overflow-hidden">
-          {project.cover ? (
-            <img src={project.cover} alt="" className="absolute inset-0 w-full h-full object-cover" />
-          ) : (
-            <div
-              className="absolute inset-0"
-              style={{ background: `linear-gradient(135deg, ${hexToRgba(project.color, 0.55)} 0%, ${hexToRgba(project.color, 0.12)} 100%)` }}
-            />
-          )}
+      {/* Non-sticky cover band — scrolls away */}
+      <div
+        className="relative overflow-hidden"
+        style={{
+          height: '80px',
+          borderRadius: 'var(--radius-xl) var(--radius-xl) 0 0',
+          border: '1px solid var(--color-surface-border)',
+          borderBottom: 'none',
+        }}
+      >
+        {project.cover ? (
+          <img src={project.cover} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
           <div
-            className="absolute inset-0 pointer-events-none"
-            style={{ background: 'radial-gradient(ellipse 60% 100% at 0% 0%, oklch(1 0 0 / 0.12), transparent 60%)' }}
+            className="absolute inset-0"
+            style={{ background: `linear-gradient(135deg, ${hexToRgba(project.color, 0.55)} 0%, ${hexToRgba(project.color, 0.12)} 100%)` }}
           />
-        </div>
+        )}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 60% 100% at 0% 0%, oklch(1 0 0 / 0.12), transparent 60%)' }}
+        />
+      </div>
 
-        {/* Body */}
-        <div className="relative px-4 md:px-6 pb-4 flex flex-col gap-4">
-          {/* Top row — logo + corner actions */}
-          <div className="flex items-end justify-between -mt-8 md:-mt-11">
+      {/* Sticky header — stays pinned when scrolling */}
+      <div
+        className="sticky top-0 z-30 mb-6"
+        style={{
+          background: 'var(--color-surface-raised)',
+          border: '1px solid var(--color-surface-border)',
+          borderTop: 'none',
+          borderRadius: '0 0 var(--radius-xl) var(--radius-xl)',
+          boxShadow: 'var(--shadow-sm)',
+        }}
+      >
+        <div className="relative px-4 md:px-6 pb-0 flex flex-col gap-3">
+          {/* Logo + title + actions */}
+          <div className="flex items-center gap-3 pt-2">
+            {/* Logo — pokes into the cover band above */}
             <div
-              className="w-16 h-16 md:w-[88px] md:h-[88px] flex items-center justify-center shrink-0 overflow-hidden"
+              className="w-14 h-14 md:w-[72px] md:h-[72px] flex items-center justify-center shrink-0 overflow-hidden -mt-9 md:-mt-11"
               style={{
-                background: hexToRgba(project.color, 0.2),
+                background: hexToRgba(project.color, 0.18),
                 color: project.color,
                 borderRadius: 'var(--radius-lg)',
-                boxShadow: '0 0 0 4px var(--color-surface-raised), var(--shadow-md)',
+                boxShadow: '0 0 0 3px var(--color-surface-raised), var(--shadow-md)',
               }}
             >
               {project.logo
                 ? <img src={project.logo} alt="" className="w-full h-full object-cover" />
-                : <ProjectIcon name={project.icon} size={40} />}
+                : <ProjectIcon name={project.icon} size={32} />}
             </div>
 
-            <div className="flex items-center gap-2 mb-1">
+            {/* Title */}
+            <div className="flex-1 min-w-0">
+              {project.category && (
+                <span className="axis-label text-[10px]" style={{ color: 'var(--color-brand-light)', letterSpacing: '0.1em' }}>
+                  {project.category}
+                </span>
+              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base md:text-lg font-bold leading-tight" style={{ color: 'var(--color-text-primary)' }}>
+                  {project.name}
+                </h1>
+                {project.nameEn && (
+                  <span className="text-xs font-medium hidden md:inline" style={{ color: 'var(--color-text-muted)', direction: 'ltr' }}>
+                    {project.nameEn}
+                  </span>
+                )}
+                <StatusBadge status={project.status} size="sm" />
+              </div>
+            </div>
+
+            {/* Edit / delete */}
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => setShowEdit(true)}
-                className="flex items-center gap-1.5 px-3 h-9 rounded-md text-xs font-semibold transition-colors"
+                className="flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-semibold transition-colors"
                 style={{
                   background: 'var(--color-surface-overlay)',
                   color: 'var(--color-text-secondary)',
@@ -157,12 +177,12 @@ export default function ProjectDetailClient({ id }: Props) {
                   boxShadow: 'var(--shadow-xs)',
                 }}
               >
-                <Edit2 size={13} />
+                <Edit2 size={12} />
                 تعديل
               </button>
               <button
                 onClick={handleDelete}
-                className="w-9 h-9 rounded-md flex items-center justify-center transition-colors hover:bg-red-500/15"
+                className="w-8 h-8 rounded-md flex items-center justify-center transition-colors hover:bg-red-500/15"
                 style={{
                   background: 'var(--color-surface-overlay)',
                   color: 'var(--color-text-muted)',
@@ -170,61 +190,14 @@ export default function ProjectDetailClient({ id }: Props) {
                   boxShadow: 'var(--shadow-xs)',
                 }}
               >
-                <Trash2 size={13} />
+                <Trash2 size={12} />
               </button>
             </div>
           </div>
 
-          {/* Title block */}
-          <div className="flex flex-col gap-1.5">
-            {project.category && (
-              <span className="axis-label" style={{ color: 'var(--color-brand-light)', letterSpacing: '0.1em' }}>
-                {project.category}
-              </span>
-            )}
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-xl md:text-2xl font-bold leading-tight" style={{ color: 'var(--color-text-primary)' }}>
-                {project.name}
-              </h1>
-              {project.nameEn && (
-                <span className="text-sm font-medium" style={{ color: 'var(--color-text-muted)', direction: 'ltr' }}>
-                  {project.nameEn}
-                </span>
-              )}
-              <StatusBadge status={project.status} size="sm" />
-            </div>
-            {project.description && (
-              <p className="text-sm leading-relaxed max-w-2xl" style={{ color: 'var(--color-text-secondary)' }}>
-                {project.description}
-              </p>
-            )}
-            <div className="flex items-center flex-wrap gap-x-4 gap-y-1.5 mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              <span className="inline-flex items-center gap-1.5">
-                <Calendar size={12} />
-                أُنشئ {formatDateAr(project.createdAt)}
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Clock size={12} />
-                آخر تحديث {formatDateAr(project.updatedAt)}
-              </span>
-            </div>
-          </div>
-
-          {/* Stats strip */}
-          <div className="axis-stats">
-            {stats.map((s) => (
-              <div key={s.label} className="axis-stat">
-                <span className="axis-label">{s.label}</span>
-                <span className="axis-num text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                  {s.value}
-                </span>
-              </div>
-            ))}
-          </div>
-
           {/* Tabs */}
           <div
-            className="flex gap-1 overflow-x-auto no-scrollbar mt-1"
+            className="flex gap-1 overflow-x-auto no-scrollbar"
             style={{ borderTop: '1px solid var(--color-surface-border)', marginInline: '-1rem', paddingInline: '1rem' }}
           >
             {toolIds.map((tabId) => {

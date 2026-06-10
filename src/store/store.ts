@@ -907,12 +907,13 @@ export const useMeetingStore = create<MeetingStore>()(
     }),
     {
       name: 'mhwar-meetings',
-      version: 5,
+      version: 6,
       skipHydration: true,
       // v1→v2: backfill recommendations field on seeded kickoff meeting.
       // v2→v3: decisions/recommendations from strings → structured lists.
       // v3→v4: add done:false to existing recommendations that lack it.
       // v4→v5: rename statuses: upcoming→preparation, done→minuted.
+      // v5→v6: merge meet-mlsq-0 (first contracting meeting with Sufyan).
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as { meetings?: Meeting[] } | undefined
         if (!state?.meetings) return state
@@ -955,6 +956,12 @@ export const useMeetingStore = create<MeetingStore>()(
                   : (m.status as any) === 'done' ? 'minuted'
                   : m.status,
           }))
+        }
+        if (version < 6) {
+          const seedMeet0 = SEED_MEETINGS.find((m) => m.id === 'meet-mlsq-0')
+          if (seedMeet0 && !state.meetings.some((m) => m.id === 'meet-mlsq-0')) {
+            state.meetings = [seedMeet0, ...state.meetings]
+          }
         }
         return state
       },
