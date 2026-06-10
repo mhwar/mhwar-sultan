@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import type { ContentItem, ContentStatus } from '@/types'
 import {
-  STATUS_ORDER, STATUS_LABEL, STATUS_VAR, TYPE_LABEL, scheduledKey,
+  STATUS_ORDER, STATUS_LABEL, STATUS_VAR, TYPE_LABEL, SOURCE_LABEL, scheduledKey,
 } from './contentMeta'
 import { formatDateShort } from '@/lib/utils'
 import { DimBadge, ChecklistMeta } from './ContentCardMeta'
@@ -13,13 +13,14 @@ interface Props {
   items: ContentItem[]
   clientColorMap: Record<string, string>
   clientNameMap: Record<string, string>
+  assigneeNameMap?: Record<string, string>
   onOpenItem: (item: ContentItem) => void
   onAddInStatus: (status: ContentStatus) => void
   onSetStatus: (id: string, status: ContentStatus) => void
 }
 
 export default function ContentBoard({
-  items, clientColorMap, clientNameMap, onOpenItem, onAddInStatus, onSetStatus,
+  items, clientColorMap, clientNameMap, assigneeNameMap, onOpenItem, onAddInStatus, onSetStatus,
 }: Props) {
   const [dragOver, setDragOver] = useState<ContentStatus | null>(null)
 
@@ -76,6 +77,7 @@ export default function ContentBoard({
                     item={it}
                     color={it.clientId ? (clientColorMap[it.clientId] ?? 'var(--fg-3)') : 'var(--fg-3)'}
                     clientName={it.clientId ? clientNameMap[it.clientId] : undefined}
+                    assigneeName={it.assigneeId ? assigneeNameMap?.[it.assigneeId] : undefined}
                     onClick={() => onOpenItem(it)}
                   />
                 ))}
@@ -92,11 +94,12 @@ export default function ContentBoard({
 }
 
 function BoardCard({
-  item, color, clientName, onClick,
+  item, color, clientName, assigneeName, onClick,
 }: {
   item: ContentItem
   color: string
   clientName?: string
+  assigneeName?: string
   onClick: () => void
 }) {
   const sched = scheduledKey(item)
@@ -118,9 +121,18 @@ function BoardCard({
         <p className="text-sm font-medium leading-snug" style={{ color: 'var(--color-text-primary)' }}>{item.title}</p>
       </div>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+        {item.source === 'client-request' && (
+          <span
+            className="px-1.5 rounded-full text-[10px] font-semibold"
+            style={{ background: 'color-mix(in oklch, var(--warning-500) 15%, transparent)', color: 'var(--warning-500)' }}
+          >
+            {SOURCE_LABEL['client-request']}
+          </span>
+        )}
         {clientName && <span>{clientName}</span>}
         <span>{TYPE_LABEL[item.type]}</span>
         {item.platform && <PlatformIcon platform={item.platform} size={12} style={{ color: 'var(--color-text-muted)' }} />}
+        {assigneeName && <span>{assigneeName}</span>}
         <DimBadge dimensions={item.dimensions} />
         <ChecklistMeta item={item} />
         {sched && <span className="num-tabular ms-auto">{formatDateShort(item.publishDate ?? item.dueDate)}</span>}

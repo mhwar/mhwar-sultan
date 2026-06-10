@@ -1,9 +1,12 @@
-import type { ContentItem, ContentType, ContentStatus, ContentPlatform } from '@/types'
+import type { ContentItem, ContentType, ContentStatus, ContentPlatform, ContentSource } from '@/types'
 
 /* ── Labels ─────────────────────────────────────────────── */
 export const TYPE_LABEL: Record<ContentType, string> = {
   post: 'منشور', design: 'تصميم', video: 'فيديو', story: 'ستوري',
   reel: 'ريلز', article: 'مقال', other: 'أخرى',
+}
+export const SOURCE_LABEL: Record<ContentSource, string> = {
+  'client-request': 'طلب عميل', internal: 'داخلي',
 }
 export const PLATFORM_LABEL: Record<ContentPlatform, string> = {
   twitter: 'تويتر', instagram: 'انستقرام', linkedin: 'لينكدإن',

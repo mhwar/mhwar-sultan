@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Trash2, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react'
 import type { ContentItem, ContentStatus } from '@/types'
 import {
-  STATUS_ORDER, STATUS_LABEL, STATUS_VAR, TYPE_LABEL,
+  STATUS_ORDER, STATUS_LABEL, STATUS_VAR, TYPE_LABEL, SOURCE_LABEL,
   nextStatus, prevStatus, scheduledKey,
 } from './contentMeta'
 import { formatDateShort } from '@/lib/utils'
@@ -14,6 +14,7 @@ interface Props {
   items: ContentItem[]
   clientColorMap: Record<string, string>
   clientNameMap: Record<string, string>
+  assigneeNameMap?: Record<string, string>
   onOpenItem: (item: ContentItem) => void
   onSetStatus: (id: string, status: ContentStatus) => void
   onDelete: (id: string) => void
@@ -21,7 +22,7 @@ interface Props {
 }
 
 export default function ContentList({
-  items, clientColorMap, clientNameMap, onOpenItem, onSetStatus, onDelete, onReorder,
+  items, clientColorMap, clientNameMap, assigneeNameMap, onOpenItem, onSetStatus, onDelete, onReorder,
 }: Props) {
   const [dragId, setDragId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
@@ -47,6 +48,7 @@ export default function ContentList({
                   item={it}
                   color={it.clientId ? (clientColorMap[it.clientId] ?? 'var(--fg-3)') : 'var(--fg-3)'}
                   clientName={it.clientId ? clientNameMap[it.clientId] : undefined}
+                  assigneeName={it.assigneeId ? assigneeNameMap?.[it.assigneeId] : undefined}
                   onOpen={() => onOpenItem(it)}
                   onAdvance={() => { const n = nextStatus(it.status); if (n) onSetStatus(it.id, n) }}
                   onRevert={() => { const p = prevStatus(it.status); if (p) onSetStatus(it.id, p) }}
@@ -81,13 +83,14 @@ export default function ContentList({
 }
 
 function Row({
-  item, color, clientName, onOpen, onAdvance, onRevert, onDelete,
+  item, color, clientName, assigneeName, onOpen, onAdvance, onRevert, onDelete,
   isDragging, isDropTarget,
   onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd,
 }: {
   item: ContentItem
   color: string
   clientName?: string
+  assigneeName?: string
   onOpen: () => void
   onAdvance: () => void
   onRevert: () => void
@@ -137,9 +140,18 @@ function Row({
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{item.title}</p>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+          {item.source === 'client-request' && (
+            <span
+              className="px-1.5 rounded-full text-[10px] font-semibold"
+              style={{ background: 'color-mix(in oklch, var(--warning-500) 15%, transparent)', color: 'var(--warning-500)' }}
+            >
+              {SOURCE_LABEL['client-request']}
+            </span>
+          )}
           {clientName && <span>{clientName}</span>}
           <span>{TYPE_LABEL[item.type]}</span>
           {item.platform && <PlatformIcon platform={item.platform} size={12} style={{ color: 'var(--color-text-muted)' }} />}
+          {assigneeName && <span>{assigneeName}</span>}
           <DimBadge dimensions={item.dimensions} />
           <ChecklistMeta item={item} />
           {sched && <span className="num-tabular">{formatDateShort(item.publishDate ?? item.dueDate)}</span>}

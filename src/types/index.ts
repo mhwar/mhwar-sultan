@@ -391,6 +391,7 @@ export interface Portfolio {
 export type ContentType = 'post' | 'design' | 'video' | 'story' | 'reel' | 'article' | 'other'
 export type ContentPlatform = 'twitter' | 'instagram' | 'linkedin' | 'tiktok' | 'youtube' | 'snapchat' | 'facebook' | 'other'
 export type ContentStatus = 'idea' | 'draft' | 'design' | 'review' | 'approved' | 'delivered' | 'published'
+export type ContentSource = 'client-request' | 'internal'
 
 export interface ContentChecklistItem {
   id: string
@@ -410,6 +411,10 @@ export interface ContentItem {
   publishDate?: string
   body?: string          // نص المنشور / الكوبي الفعلي
   dimensions?: string    // مقاس التصميم مثل "1080×1080"
+  /** منشأ القطعة: طلب مباشر من العميل أم محتوى مخطط داخلياً. */
+  source?: ContentSource
+  /** عضو الفريق المسؤول عن القطعة حالياً (كاتب، مصمم…). */
+  assigneeId?: string
   checklist?: ContentChecklistItem[]
   notes?: string
   order: number

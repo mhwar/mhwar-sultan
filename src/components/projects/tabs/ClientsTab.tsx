@@ -1,10 +1,12 @@
 'use client'
-import { useState } from 'react'
-import { Plus, Trash2, Check, X, Building2, Mail, Phone, FileText, ChevronLeft, Image } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Plus, Trash2, Check, X, Building2, Mail, Phone, FileText, ChevronLeft, Image, Edit2 } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import type { Project, Client, ClientStatus } from '@/types'
 import { useClientStore } from '@/store/store'
 import { formatDateShort } from '@/lib/utils'
+import ClientDrawer from './clients/ClientDrawer'
+import { buildClientColorMap } from './content/contentMeta'
 
 const STATUS_LABEL: Record<ClientStatus, string> = {
   active: 'نشط', paused: 'موقوف', ended: 'منتهٍ',
@@ -31,11 +33,14 @@ export default function ClientsTab({ project }: Props) {
   ))
   const { addClient, updateClient, deleteClient } = useClientStore()
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [openId, setOpenId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
 
   const active = clients.filter((c) => c.status === 'active')
   const totalValue = active.reduce((s, c) => s + c.contractValue, 0)
   const currency = active[0]?.contractCurrency ?? clients[0]?.contractCurrency ?? 'SAR'
+  const clientColorMap = useMemo(() => buildClientColorMap(clients.map((c) => c.id)), [clients])
+  const openClient = openId ? clients.find((c) => c.id === openId) : undefined
 
   return (
     <div className="space-y-5">
@@ -64,7 +69,7 @@ export default function ClientsTab({ project }: Props) {
           {clients.map((c) =>
             editingId === c.id
               ? <ClientForm key={c.id} initial={c} onSave={(d) => { updateClient(c.id, d); setEditingId(null) }} onCancel={() => setEditingId(null)} />
-              : <ClientCard key={c.id} client={c} onEdit={() => setEditingId(c.id)} onDelete={() => deleteClient(c.id)} />
+              : <ClientCard key={c.id} client={c} onOpen={() => setOpenId(c.id)} onEdit={() => setEditingId(c.id)} onDelete={() => deleteClient(c.id)} />
           )}
           {adding && (
             <ClientForm
@@ -82,6 +87,15 @@ export default function ClientsTab({ project }: Props) {
           </div>
         )}
       </div>
+
+      {openClient && (
+        <ClientDrawer
+          client={openClient}
+          accent={clientColorMap[openClient.id] ?? 'var(--iris-500)'}
+          onEdit={() => { setOpenId(null); setEditingId(openClient.id) }}
+          onClose={() => setOpenId(null)}
+        />
+      )}
     </div>
   )
 }
@@ -126,13 +140,13 @@ export function ClientAvatar({ client, size = 40 }: { client: { name: string; lo
   )
 }
 
-function ClientCard({ client: c, onEdit, onDelete }: { client: Client; onEdit: () => void; onDelete: () => void }) {
+function ClientCard({ client: c, onOpen, onEdit, onDelete }: { client: Client; onOpen: () => void; onEdit: () => void; onDelete: () => void }) {
   const statusColor = STATUS_VAR[c.status]
   return (
     <div
       className="group relative rounded-xl p-4 cursor-pointer transition-colors hover:bg-white/5"
       style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)' }}
-      onClick={onEdit}
+      onClick={onOpen}
     >
       <div className="flex items-start gap-3">
         <ClientAvatar client={c} size={44} />
@@ -175,13 +189,24 @@ function ClientCard({ client: c, onEdit, onDelete }: { client: Client; onEdit: (
           )}
           {c.notes && <p className="text-xs mt-2 leading-relaxed line-clamp-2" style={{ color: 'var(--color-text-muted)' }}>{c.notes}</p>}
         </div>
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete() }}
-          className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded flex items-center justify-center transition-all shrink-0"
-          style={{ color: 'var(--danger-500)' }}
-        >
-          <Trash2 size={12} />
-        </button>
+        <div className="flex flex-col gap-1 shrink-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit() }}
+            className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded flex items-center justify-center transition-all"
+            style={{ color: 'var(--color-text-muted)' }}
+            title="تعديل"
+          >
+            <Edit2 size={12} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete() }}
+            className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded flex items-center justify-center transition-all"
+            style={{ color: 'var(--danger-500)' }}
+            title="حذف"
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
       </div>
     </div>
   )
