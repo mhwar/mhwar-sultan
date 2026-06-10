@@ -32,6 +32,42 @@ export const STATUS_VAR: Record<ContentStatus, string> = {
 /** Statuses that count as "fulfilled" against a monthly contract quota. */
 export const DONE_STATUSES: ContentStatus[] = ['delivered', 'published']
 
+/* ── Board stages ───────────────────────────────────────────
+ * The kanban board mirrors the Execution tab: exactly three columns.
+ * The seven fine-grained statuses (kept for the drawer) fold into three
+ * production stages. */
+export type ContentStage = 'production' | 'review' | 'done'
+
+export const STAGE_ORDER: ContentStage[] = ['production', 'review', 'done']
+export const STAGE_LABEL: Record<ContentStage, string> = {
+  production: 'قيد الإعداد',
+  review: 'مراجعة واعتماد',
+  done: 'منشور',
+}
+export const STAGE_VAR: Record<ContentStage, string> = {
+  production: 'var(--warning-500)',
+  review: 'oklch(0.62 0.17 215)',
+  done: 'var(--iris-500)',
+}
+/** Which fine statuses live in each stage. */
+export const STAGE_STATUSES: Record<ContentStage, ContentStatus[]> = {
+  production: ['idea', 'draft', 'design'],
+  review: ['review', 'approved'],
+  done: ['delivered', 'published'],
+}
+/** The status applied when a card is dropped into a stage (only across stages). */
+export const STAGE_PRIMARY: Record<ContentStage, ContentStatus> = {
+  production: 'draft',
+  review: 'review',
+  done: 'published',
+}
+/** The stage a fine status belongs to. */
+export function stageOf(status: ContentStatus): ContentStage {
+  if (STAGE_STATUSES.review.includes(status)) return 'review'
+  if (STAGE_STATUSES.done.includes(status)) return 'done'
+  return 'production'
+}
+
 /** Common social/design content sizes (the value is shown on cards & export). */
 export const CONTENT_SIZES: { value: string; label: string }[] = [
   { value: '1080×1080', label: 'مربع 1:1 — 1080×1080' },

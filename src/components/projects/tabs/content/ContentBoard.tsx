@@ -1,9 +1,10 @@
 'use client'
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, ChevronDown } from 'lucide-react'
 import type { ContentItem, ContentStatus } from '@/types'
 import {
-  STATUS_ORDER, STATUS_LABEL, STATUS_VAR, TYPE_LABEL, SOURCE_LABEL, scheduledKey,
+  STAGE_ORDER, STAGE_LABEL, STAGE_VAR, STAGE_PRIMARY, STAGE_STATUSES, stageOf,
+  STATUS_LABEL, STATUS_VAR, TYPE_LABEL, SOURCE_LABEL, scheduledKey,
 } from './contentMeta'
 import { formatDateShort } from '@/lib/utils'
 import { DimBadge, ChecklistMeta } from './ContentCardMeta'
@@ -19,108 +20,86 @@ interface Props {
   onSetStatus: (id: string, status: ContentStatus) => void
 }
 
+/** Three-stage kanban that mirrors the Execution board (board-grid/board-col/board-card).
+ *  The seven fine statuses fold into production / review / done. */
 export default function ContentBoard({
   items, clientColorMap, clientNameMap, assigneeNameMap, onOpenItem, onAddInStatus, onSetStatus,
 }: Props) {
-  const [dragOver, setDragOver] = useState<ContentStatus | null>(null)
+  const [dragOver, setDragOver] = useState<string | null>(null)
+
+  const moveToStage = (id: string, stage: typeof STAGE_ORDER[number]) => {
+    const item = items.find((i) => i.id === id)
+    if (!item) return
+    // Keep the fine status when the card already lives in the target stage.
+    if (stageOf(item.status) === stage) return
+    onSetStatus(id, STAGE_PRIMARY[stage])
+  }
 
   return (
-    <div className="overflow-x-auto -mx-1 px-1 pb-2">
-      <div className="flex gap-3" style={{ minWidth: 'min-content' }}>
-        {STATUS_ORDER.map((status) => {
-          const colItems = items.filter((i) => i.status === status)
-          const isOver = dragOver === status
-          return (
-            <div
-              key={status}
-              onDragOver={(e) => { e.preventDefault(); if (dragOver !== status) setDragOver(status) }}
-              onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver((d) => (d === status ? null : d)) }}
-              onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) onSetStatus(id, status); setDragOver(null) }}
-              className="shrink-0 rounded-xl p-2 flex flex-col"
-              style={{
-                width: 240,
-                background: isOver ? 'oklch(0.62 0.21 275 / 0.06)' : 'var(--color-surface-overlay)',
-                border: `1px solid ${isOver ? 'var(--iris-500)' : 'var(--color-surface-border)'}`,
-              }}
-            >
-              <div className="flex items-center gap-2 px-1.5 py-1.5">
-                <span className="w-2 h-2 rounded-full" style={{ background: STATUS_VAR[status] }} />
-                <span className="text-xs font-bold flex-1" style={{ color: 'var(--color-text-secondary)' }}>{STATUS_LABEL[status]}</span>
-                <span className="axis-num text-xs" style={{ color: 'var(--color-text-muted)' }}>{colItems.length}</span>
-                <button
-                  onClick={() => onAddInStatus(status)}
-                  className="w-6 h-6 rounded flex items-center justify-center transition-colors hover:bg-white/10"
-                  style={{ color: 'var(--color-text-muted)' }}
-                  aria-label="إضافة"
-                >
-                  <Plus size={13} />
-                </button>
+    <div className="board-grid">
+      {STAGE_ORDER.map((stage) => {
+        const colItems = items.filter((i) => STAGE_STATUSES[stage].includes(i.status))
+        const isOver = dragOver === stage
+        return (
+          <div
+            key={stage}
+            className="board-col"
+            style={isOver ? { borderColor: 'var(--iris-400)', background: 'oklch(0.62 0.21 275 / 0.04)' } : undefined}
+            onDragOver={(e) => { e.preventDefault(); if (dragOver !== stage) setDragOver(stage) }}
+            onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver((d) => (d === stage ? null : d)) }}
+            onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain'); if (id) moveToStage(id, stage); setDragOver(null) }}
+          >
+            <div className="board-col__head">
+              <div className="board-col__title">
+                <span className="priority-dot" style={{ background: STAGE_VAR[stage] }} />
+                <span className="text-xs font-bold" style={{ color: 'var(--fg-2)' }}>{STAGE_LABEL[stage]}</span>
+                <span className="board-col__count">{colItems.length}</span>
               </div>
-
-              {items.length > 0 && colItems.length > 0 && (
-                <div className="mx-1.5 mb-2 h-0.5 rounded-full overflow-hidden" style={{ background: 'var(--color-surface-border)' }}>
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${Math.round(colItems.length / items.length * 100)}%`,
-                      background: STATUS_VAR[status],
-                      opacity: 0.7,
-                    }}
-                  />
-                </div>
-              )}
-
-              <div className="flex flex-col gap-2 mt-1 min-h-[60px]">
-                {colItems.map((it) => (
-                  <BoardCard
-                    key={it.id}
-                    item={it}
-                    color={it.clientId ? (clientColorMap[it.clientId] ?? 'var(--fg-3)') : 'var(--fg-3)'}
-                    clientName={it.clientId ? clientNameMap[it.clientId] : undefined}
-                    assigneeName={it.assigneeId ? assigneeNameMap?.[it.assigneeId] : undefined}
-                    onClick={() => onOpenItem(it)}
-                  />
-                ))}
-                {colItems.length === 0 && (
-                  <div className="text-xs text-center py-4" style={{ color: 'var(--color-text-muted)' }}>—</div>
-                )}
-              </div>
+              <button className="board-col__add" onClick={() => onAddInStatus(STAGE_PRIMARY[stage])} aria-label="إضافة محتوى"><Plus size={14} /></button>
             </div>
-          )
-        })}
-      </div>
+            <div className="board-col__body">
+              {colItems.map((it) => (
+                <BoardCard
+                  key={it.id}
+                  item={it}
+                  color={it.clientId ? (clientColorMap[it.clientId] ?? 'var(--fg-3)') : 'var(--fg-3)'}
+                  clientName={it.clientId ? clientNameMap[it.clientId] : undefined}
+                  assigneeName={it.assigneeId ? assigneeNameMap?.[it.assigneeId] : undefined}
+                  onMove={(s) => moveToStage(it.id, s)}
+                  onOpen={() => onOpenItem(it)}
+                />
+              ))}
+              {colItems.length === 0 && <div className="board-col__empty">—</div>}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
 
 function BoardCard({
-  item, color, clientName, assigneeName, onClick,
+  item, color, clientName, assigneeName, onMove, onOpen,
 }: {
   item: ContentItem
   color: string
   clientName?: string
   assigneeName?: string
-  onClick: () => void
+  onMove: (stage: typeof STAGE_ORDER[number]) => void
+  onOpen: () => void
 }) {
+  const [showMove, setShowMove] = useState(false)
   const sched = scheduledKey(item)
   return (
     <div
+      className="board-card group"
       draggable
       onDragStart={(e) => { e.dataTransfer.setData('text/plain', item.id); e.dataTransfer.effectAllowed = 'move' }}
-      onClick={onClick}
-      className="rounded-lg p-2.5 transition-colors hover:bg-white/5"
-      style={{
-        background: 'var(--color-surface-overlay)',
-        border: '1px solid var(--color-surface-border)',
-        borderInlineStart: `2px solid ${color}`,
-        cursor: 'grab',
-      }}
+      style={{ cursor: 'grab', borderInlineStart: `2px solid ${color}` }}
     >
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STATUS_VAR[item.status] }} />
-        <p className="text-sm font-medium leading-snug" style={{ color: 'var(--color-text-primary)' }}>{item.title}</p>
-      </div>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+      <div className="board-card__head">
+        <span className="priority-dot" style={{ background: STATUS_VAR[item.status] }} />
+        <span className="text-xs font-medium" style={{ color: 'var(--fg-3)' }}>{STATUS_LABEL[item.status]}</span>
         {item.source === 'client-request' && (
           <span
             className="px-1.5 rounded-full text-[10px] font-semibold"
@@ -129,9 +108,37 @@ function BoardCard({
             {SOURCE_LABEL['client-request']}
           </span>
         )}
+        <div className="board-card__id relative">
+          <button onClick={() => setShowMove(!showMove)} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost">
+            <ChevronDown size={13} />
+          </button>
+          {showMove && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowMove(false)} />
+              <div className="absolute end-0 top-7 z-20 axis-menu" style={{ minWidth: '140px' }}>
+                {STAGE_ORDER.map((stage) => (
+                  <button
+                    key={stage}
+                    onClick={() => { onMove(stage); setShowMove(false) }}
+                    className="axis-menu__item"
+                    style={{ fontWeight: stageOf(item.status) === stage ? 600 : 400 }}
+                  >
+                    <span className="priority-dot" style={{ background: STAGE_VAR[stage] }} />
+                    {STAGE_LABEL[stage]}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      <p className="board-card__title" style={{ cursor: 'pointer' }} onClick={onOpen}>{item.title}</p>
+
+      <div className="board-card__foot" style={{ flexWrap: 'wrap', gap: 8 }}>
         {clientName && <span>{clientName}</span>}
         <span>{TYPE_LABEL[item.type]}</span>
-        {item.platform && <PlatformIcon platform={item.platform} size={12} style={{ color: 'var(--color-text-muted)' }} />}
+        {item.platform && <PlatformIcon platform={item.platform} size={12} style={{ color: 'var(--fg-3)' }} />}
         {assigneeName && <span>{assigneeName}</span>}
         <DimBadge dimensions={item.dimensions} />
         <ChecklistMeta item={item} />
