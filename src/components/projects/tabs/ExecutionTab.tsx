@@ -1,8 +1,8 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Plus, Zap, Pencil, Inbox, LayoutList, Calendar, Target } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
-import { useSprintStore, useTaskStore } from '@/store/store'
+import { useSprintStore, useTaskStore, useNavStore } from '@/store/store'
 import type { Project } from '@/types'
 import EmptyState from '@/components/shared/EmptyState'
 import Button from '@/components/ui/Button'
@@ -24,6 +24,14 @@ export default function ExecutionTab({ project }: ExecutionTabProps) {
   // `null` means "not yet chosen" → fall back to the active sprint (or first).
   const [picked, setPicked] = useState<Scope | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const { targetSprintId, clearSprintId } = useNavStore()
+
+  useEffect(() => {
+    if (targetSprintId) {
+      setEditingId(targetSprintId)
+      clearSprintId()
+    }
+  }, [targetSprintId])
 
   const defaultScope: Scope = sprints.find((s) => s.status === 'active')?.id ?? sprints[0]?.id ?? 'all'
   const scope: Scope = picked ?? defaultScope

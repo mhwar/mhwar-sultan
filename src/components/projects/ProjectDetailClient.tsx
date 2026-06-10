@@ -6,7 +6,7 @@ import Link from 'next/link'
 import StatusBadge from '@/components/shared/StatusBadge'
 import ProjectForm from '@/components/projects/ProjectForm'
 import ToolsLibrarySheet from '@/components/projects/ToolsLibrarySheet'
-import { useProjectStore, useTaskStore, useNoteStore, useSprintStore } from '@/store/store'
+import { useProjectStore, useTaskStore, useNoteStore, useSprintStore, useNavStore } from '@/store/store'
 import { useShallow } from 'zustand/shallow'
 import { getTool } from '@/lib/tool-registry'
 import { FALLBACK_TOOL_IDS } from '@/lib/project-types'
@@ -34,6 +34,7 @@ export default function ProjectDetailClient({ id }: Props) {
   const [showEdit, setShowEdit] = useState(false)
   const [showTools, setShowTools] = useState(false)
   const [hydrated, setHydrated] = useState(false)
+  const { targetTab, clearTab } = useNavStore()
 
   useEffect(() => { setHydrated(true) }, [])
 
@@ -46,6 +47,14 @@ export default function ProjectDetailClient({ id }: Props) {
     if (toolIds.length === 0) return
     if (!activeTab || !toolIds.includes(activeTab)) setActiveTab(toolIds[0])
   }, [toolIds.join(','), activeTab])
+
+  // Cross-tab navigation: respond to signals from child components (e.g. MeetingsTab → ExecutionTab).
+  useEffect(() => {
+    if (targetTab && toolIds.includes(targetTab)) {
+      setActiveTab(targetTab)
+      clearTab()
+    }
+  }, [targetTab])
 
   if (!hydrated) {
     return (
