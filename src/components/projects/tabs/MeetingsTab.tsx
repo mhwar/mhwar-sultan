@@ -1201,31 +1201,24 @@ function buildMeetingHTML({ mode, project, meeting: m, members, memberName, prev
 
   if (isAgenda) {
     const agendaAttendees = m.attendees.filter((id) => memberName[id])
-    const signInTable = agendaAttendees.length
-      ? `<div class="sec"><h2>قائمة الحضور</h2>
-         <table><thead><tr><th>الاسم</th><th>المسمى الوظيفي</th><th class="sig-col">التوقيع</th></tr></thead><tbody>
-         ${agendaAttendees.map((id) => `<tr><td>${esc(memberName[id])}</td><td>${esc(memberRole[id] ?? '—')}</td><td class="sig-col">&nbsp;</td></tr>`).join('')}
-         </tbody></table></div>`
+    const attendeeLineHtml = agendaAttendees.length
+      ? `<div class="sec"><h2>الحضور</h2><p class="att-line">${agendaAttendees.map((id) => esc(memberName[id])).join(' · ')}</p></div>`
       : ''
     let agendaInitHtml = ''
     if (snapshot.initiatives?.length) {
-      agendaInitHtml = `<div class="sec"><h2>المبادرات والمعالم</h2>
-        <table><thead><tr><th>المبادرة</th><th>الحالة</th><th>التقدم</th></tr></thead><tbody>`
+      agendaInitHtml = `<div class="sec"><h2>مسارات العمل</h2><div class="init-list">`
       for (const it of snapshot.initiatives) {
-        agendaInitHtml += `<tr><td>${esc(it.sp.name)}</td><td>${SPRINT_STATUS_LABEL[it.sp.status]}</td><td><div class="bar"><div class="fill" style="width:${it.pct}%"></div></div><span class="num pct">${it.pct}%</span></td></tr>`
-        if (it.checklistItems.length > 0) {
-          agendaInitHtml += `<tr><td colspan="3" style="padding:4px 10px 8px"><ul class="cl">${it.checklistItems.map((c) => `<li class="${c.done ? 'done' : ''}">${c.done ? '✓' : '○'} ${esc(c.text)}</li>`).join('')}</ul></td></tr>`
-        }
+        agendaInitHtml += `<div class="init-card"><div class="init-row"><b class="init-name">${esc(it.sp.name)}</b><span class="pill ${it.sp.status === 'active' ? 'pill-active' : it.sp.status === 'completed' ? 'ok' : 'wait'}">${SPRINT_STATUS_LABEL[it.sp.status]}</span><span class="bar-grp"><span class="bar"><span class="fill" style="width:${it.pct}%"></span></span><span class="num pct">${it.pct}%</span></span></div>${it.checklistItems.length ? `<ul class="cl">${it.checklistItems.map((c) => `<li class="${c.done ? 'done' : ''}">${c.done ? '✓' : '○'} ${esc(c.text)}</li>`).join('')}</ul>` : ''}</div>`
       }
-      agendaInitHtml += `</tbody></table></div>`
+      agendaInitHtml += `</div></div>`
     }
     const body = `
-${signInTable}
+${attendeeLineHtml}
 ${agendaHtml || '<div class="sec"><p style="color:#64748b">لم تُضف بنود للأجندة بعد.</p></div>'}
 ${prevHtml}
 ${agendaInitHtml}
 <div class="note">هذه أجندة للاطلاع والتحضير قبل انعقاد الاجتماع.</div>`
-    return wrapDoc({ color, title: `${docKind} — ${m.title}`, project, m, dateLabel, meetKind, body })
+    return wrapDoc({ color, title: `${docKind} — ${m.title}`, isAgenda, project, m, dateLabel, meetKind, body })
   }
 
   const minuteSec = (title: string, bodyText?: string) =>
@@ -1255,6 +1248,11 @@ ${agendaInitHtml}
        </tbody></table></div>`
     : ''
 
+  const attendeeNames = m.attendees.filter((id) => memberName[id])
+  const minutesAttendeeHtml = attendeeNames.length
+    ? `<div class="sec"><h2>الحضور</h2><p class="att-line">${attendeeNames.map((id) => esc(memberName[id])).join(' · ')}</p></div>`
+    : ''
+
   let snapHtml = ''
   if (snapshot.progress || snapshot.initiatives?.length || snapshot.finance) {
     snapHtml += `<div class="sec"><h2>ملخص حالة المشروع</h2>`
@@ -1263,19 +1261,11 @@ ${agendaInitHtml}
       snapHtml += `<div class="snap"><b>الإنجاز الكلي:</b> <span class="num">${p.progress}%</span> · المهام: <span class="num">${p.doneTasks}</span> منجزة، <span class="num">${p.activeTasks}</span> جارية من أصل <span class="num">${p.totalTasks}</span></div>`
     }
     if (snapshot.initiatives?.length) {
-      snapHtml += `<table><thead><tr><th>المبادرة</th><th>الحالة</th><th>المعالم</th><th>المهام</th><th>التقدم</th></tr></thead><tbody>`
+      snapHtml += `<div class="init-list">`
       for (const it of snapshot.initiatives) {
-        snapHtml += `<tr><td>${esc(it.sp.name)}</td><td>${SPRINT_STATUS_LABEL[it.sp.status]}</td><td class="num">${it.clTotal ? `${it.clDone}/${it.clTotal}` : '—'}</td><td class="num">${it.spTotal ? `${it.spDone}/${it.spTotal}` : '—'}</td><td><div class="bar"><div class="fill" style="width:${it.pct}%"></div></div><span class="num pct">${it.pct}%</span></td></tr>`
-        // Checklist items
-        if (it.checklistItems.length > 0) {
-          snapHtml += `<tr><td colspan="5" style="padding:4px 10px 8px"><ul class="cl">${it.checklistItems.map((c) => `<li class="${c.done ? 'done' : ''}">${c.done ? '✓' : '○'} ${esc(c.text)}</li>`).join('')}</ul></td></tr>`
-        }
-        // Task items
-        if (it.taskItems.length > 0) {
-          snapHtml += `<tr><td colspan="5" style="padding:4px 10px 8px"><table class="inner"><thead><tr><th>المهمة</th><th>المسؤول</th><th>الحالة</th></tr></thead><tbody>${it.taskItems.map((t) => `<tr><td>${esc(t.title)}</td><td>${esc(t.assignee ?? '—')}</td><td>${esc(t.status)}</td></tr>`).join('')}</tbody></table></td></tr>`
-        }
+        snapHtml += `<div class="init-card"><div class="init-row"><b class="init-name">${esc(it.sp.name)}</b><span class="pill ${it.sp.status === 'active' ? 'pill-active' : it.sp.status === 'completed' ? 'ok' : 'wait'}">${SPRINT_STATUS_LABEL[it.sp.status]}</span><span class="bar-grp"><span class="bar"><span class="fill" style="width:${it.pct}%"></span></span><span class="num pct">${it.pct}%</span></span>${it.clTotal ? `<span class="num dim">معالم ${it.clDone}/${it.clTotal}</span>` : ''}${it.spTotal ? `<span class="num dim">مهام ${it.spDone}/${it.spTotal}</span>` : ''}</div>${it.checklistItems.length ? `<ul class="cl">${it.checklistItems.map((c) => `<li class="${c.done ? 'done' : ''}">${c.done ? '✓' : '○'} ${esc(c.text)}</li>`).join('')}</ul>` : ''}${it.taskItems.length ? `<table class="inner"><thead><tr><th>المهمة</th><th>المسؤول</th><th>الحالة</th></tr></thead><tbody>${it.taskItems.map((t) => `<tr><td>${esc(t.title)}</td><td>${esc(t.assignee ?? '—')}</td><td>${esc(t.status)}</td></tr>`).join('')}</tbody></table>` : ''}</div>`
       }
-      snapHtml += `</tbody></table>`
+      snapHtml += `</div>`
     }
     if (snapshot.finance) {
       const f = snapshot.finance
@@ -1285,7 +1275,7 @@ ${agendaInitHtml}
   }
 
   const body = `
-${attendeesHtml ? `<div class="sec"><h2>الحضور</h2>${attendeesHtml}</div>` : ''}
+${minutesAttendeeHtml}
 ${agendaHtml}
 ${prevHtml}
 ${minuteSec('المنجزات', m.achievements)}
@@ -1294,15 +1284,18 @@ ${decisionsHtml}
 ${recsHtml}
 ${itemsHtml}
 ${snapHtml}`
-  return wrapDoc({ color, title: `${docKind} — ${m.title}`, project, m, dateLabel, meetKind, body })
+  return wrapDoc({ color, title: `${docKind} — ${m.title}`, isAgenda, project, m, dateLabel, meetKind, body })
 }
 
-function wrapDoc({ color, title, project, m, dateLabel, meetKind, body }: {
-  color: string; title: string; project: Project; m: Meeting; dateLabel: string; meetKind?: string; body: string
+function wrapDoc({ color, title, isAgenda, project, m, dateLabel, meetKind, body }: {
+  color: string; title: string; isAgenda: boolean; project: Project; m: Meeting; dateLabel: string; meetKind?: string; body: string
 }): string {
-  const logoHtml = project.logo
-    ? `<div class="logo-wrap"><img src="${project.logo}" alt="${esc(project.name)}" class="logo-img" /></div>`
-    : `<div class="logo-wrap"><span class="logo-text" style="color:${color}">${esc(project.name)}</span></div>`
+  const logoBlock = project.logo
+    ? `<img src="${project.logo}" alt="${esc(project.name)}" class="lh-logo">`
+    : `<span class="lh-icon" style="background:color-mix(in srgb,${color} 15%,#fff);color:${color}">${esc(project.name.slice(0, 2))}</span>`
+  const docBadgeStyle = isAgenda
+    ? 'background:#eff6ff;color:#1e40af'
+    : 'background:#f0fdf4;color:#15803d'
   return `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -1312,53 +1305,78 @@ function wrapDoc({ color, title, project, m, dateLabel, meetKind, body }: {
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 body{font-family:'Cairo',sans-serif;background:#fff;color:#0f172a;padding:28px 36px;direction:rtl;font-size:13px;line-height:1.7}
-.print-btn{padding:9px 22px;background:${color};color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:'Cairo',sans-serif;margin-bottom:18px}
+.print-btn{padding:8px 20px;background:${color};color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;margin-bottom:16px}
 @media print{.print-btn{display:none}}
-.logo-wrap{text-align:center;margin-bottom:16px;padding-bottom:14px;border-bottom:2px solid ${color}}
-.logo-img{max-height:56px;max-width:180px;object-fit:contain}
-.logo-text{font-size:18px;font-weight:700}
-.head{border-inline-start:4px solid ${color};padding-inline-start:14px;margin-bottom:20px}
-.head .proj{font-size:12px;color:#64748b;font-weight:600}
-h1{font-size:20px;font-weight:700;margin:2px 0}
-.meta{font-size:12px;color:#475569}
-.sec{margin-bottom:18px}
-h2{font-size:14px;font-weight:700;color:${color};margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0}
+/* ── Letterhead ── */
+.lh{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.lh-brand{display:flex;align-items:center;gap:10px}
+.lh-logo{height:40px;width:auto;object-fit:contain}
+.lh-icon{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;font-size:15px;font-weight:700}
+.lh-meta{display:flex;flex-direction:column;gap:1px}
+.lh-name{font-size:14px;font-weight:700;color:#0f172a}
+.lh-sub{font-size:10px;color:#94a3b8;font-weight:400}
+.lh-badge{font-size:11px;font-weight:700;padding:3px 12px;border-radius:99px;${docBadgeStyle}}
+.lh-rule{border:none;border-top:2px solid ${color};margin:10px 0 14px}
+/* ── Doc title ── */
+.doc-head{margin-bottom:18px}
+.doc-head h1{font-size:18px;font-weight:700;margin-bottom:3px}
+.doc-head .meta{font-size:12px;color:#475569}
+/* ── Sections ── */
+.sec{margin-bottom:16px}
+h2{font-size:13px;font-weight:700;color:${color};margin-bottom:7px;padding-bottom:3px;border-bottom:1px solid #e2e8f0}
 ul,ol{padding-inline-start:20px}
 li{margin-bottom:3px}
-.att{display:inline-block;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:99px;padding:2px 12px;margin:0 0 6px 6px;font-size:12px}
+.att-line{font-size:12px;color:#334155}
 table{width:100%;border-collapse:collapse;font-size:12px}
-th{background:#f1f5f9;text-align:right;padding:6px 10px;font-weight:700;border:1px solid #e2e8f0}
-td{padding:6px 10px;border:1px solid #e2e8f0;vertical-align:middle}
-.sig-col{width:30%;min-width:90px;border-bottom-color:#94a3b8}
-.inner{margin-top:4px;font-size:11px}
-.inner th{font-size:10px;padding:4px 8px}
-.inner td{padding:4px 8px}
-.cl{padding-inline-start:16px;font-size:12px;list-style:none}
+th{background:#f8fafc;text-align:right;padding:5px 10px;font-weight:700;border:1px solid #e2e8f0;font-size:11px}
+td{padding:5px 10px;border:1px solid #e2e8f0;vertical-align:middle}
+.inner{margin-top:6px;font-size:11px}
+.inner th{font-size:10px;padding:3px 7px;background:#f1f5f9}
+.inner td{padding:3px 7px}
+.cl{padding-inline-start:4px;font-size:11px;list-style:none;margin-top:5px}
 .cl li{margin-bottom:2px;color:#334155}
-.cl li.done{color:#6b7280;text-decoration:line-through}
-.pill{display:inline-block;border-radius:99px;padding:1px 10px;font-size:11px;font-weight:700}
+.cl li.done{color:#9ca3af;text-decoration:line-through}
+.pill{display:inline-block;border-radius:99px;padding:1px 8px;font-size:10px;font-weight:700}
 .pill.ok{background:#dcfce7;color:#15803d}
 .pill.wait{background:#fef3c7;color:#b45309}
+.pill.pill-active{background:#dbeafe;color:#1d4ed8}
 .num{font-variant-numeric:tabular-nums}
+.dim{font-size:10px;color:#94a3b8}
 .good{color:#15803d}.bad{color:#b91c1c}
-.snap{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;margin-bottom:8px}
-.bar{display:inline-block;width:70px;height:6px;background:#e2e8f0;border-radius:99px;overflow:hidden;vertical-align:middle;margin-inline-end:6px}
-.fill{height:100%;background:${color};border-radius:99px}
-.pct{font-size:11px}
-.note{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;padding:8px 12px;font-size:12px;color:#64748b}
-.footer{margin-top:24px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;display:flex;justify-content:space-between}
+.snap{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:7px 11px;margin-bottom:7px;font-size:12px}
+/* ── Initiative cards ── */
+.init-list{display:flex;flex-direction:column;gap:8px}
+.init-card{border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;background:#fafafa}
+.init-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.init-name{font-size:12px;flex:1;min-width:0}
+.bar-grp{display:inline-flex;align-items:center;gap:4px}
+.bar{display:inline-block;width:56px;height:5px;background:#e2e8f0;border-radius:99px;overflow:hidden;vertical-align:middle}
+.fill{display:block;height:100%;background:${color};border-radius:99px}
+.pct{font-size:10px;color:#64748b}
+/* ── Footer ── */
+.note{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:7px;padding:7px 11px;font-size:11px;color:#64748b;margin-top:4px}
+.footer{margin-top:22px;padding-top:9px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;display:flex;justify-content:space-between}
 </style>
 </head>
 <body>
 <button class="print-btn" onclick="window.print()">طباعة / حفظ كـ PDF</button>
-${logoHtml}
-<div class="head">
-  <p class="proj">${esc(project.name)} — ${esc(title.split('—')[0].trim())}</p>
+<div class="lh">
+  <div class="lh-brand">
+    ${logoBlock}
+    <div class="lh-meta">
+      <span class="lh-name">${esc(project.name)}</span>
+      <span class="lh-sub">منصة محور</span>
+    </div>
+  </div>
+  <span class="lh-badge">${isAgenda ? 'أجندة اجتماع' : 'محضر اجتماع'}</span>
+</div>
+<hr class="lh-rule">
+<div class="doc-head">
   <h1>${esc(m.title)}</h1>
-  <p class="meta">${dateLabel}${m.startTime ? ` · <span class="num">${m.startTime}${m.endTime ? `–${m.endTime}` : ''}</span>` : ''}${meetKind ? ` · ${esc(meetKind)}` : ''} · الحالة: ${STATUS_LABEL[m.status]}</p>
+  <p class="meta">${dateLabel}${m.startTime ? ` · <span class="num">${m.startTime}${m.endTime ? `–${m.endTime}` : ''}</span>` : ''}${meetKind ? ` · ${esc(meetKind)}` : ''} · ${STATUS_LABEL[m.status]}</p>
 </div>
 ${body}
-<div class="footer"><span>أُعدّ عبر منصة محور</span><span class="num">تاريخ التصدير: ${new Date().toLocaleDateString('ar-SA')}</span></div>
+<div class="footer"><span>أُعدّ عبر منصة محور</span><span class="num">${new Date().toLocaleDateString('ar-SA')}</span></div>
 </body>
 </html>`
 }
