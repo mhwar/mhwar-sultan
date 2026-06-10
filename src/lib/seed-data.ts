@@ -397,6 +397,11 @@ export const SEED_DOCS: ProductDoc[] = [
   { id: 'doc-1', projectId: 'mehwar', title: 'مواصفات المنتج', type: 'spec', description: 'متطلبات الوظائف والمستخدمين — نطاق المنصة وحالات الاستخدام الأساسية', order: 0, createdAt: '2026-01-01T00:00:00Z' },
   { id: 'doc-2', projectId: 'mehwar', title: 'دليل التصميم', type: 'design', description: 'نظام Axis للألوان والمكوّنات — ألوان، مسافات، أيقونات، وأنماط مكوّنات Figma', order: 1, createdAt: '2026-01-05T00:00:00Z' },
   { id: 'doc-3', projectId: 'mehwar', title: 'دليل المطوّر', type: 'guide', description: 'إعداد البيئة، هيكل المشروع، والـ conventions المتبعة', order: 2, createdAt: '2026-01-10T00:00:00Z' },
+  // ملصق — وثائق المنتج والوصف التفصيلي للمنتجين
+  { id: 'doc-mlsq-1', projectId: 'mellasaq', title: 'تطبيق ملصق للأفراد', type: 'spec', description: 'تطبيق يتيح للمستهلك فحص أي منتج بمسح الباركود — تحليل المكونات والحساسيات في أقل من ثانية واحدة. يستهدف المستخدمين الذين يعانون من حساسيات غذائية أو يبحثون عن شفافية في المنتجات الاستهلاكية.', url: 'https://checkersa.com', order: 0, createdAt: '2026-01-01T00:00:00Z' },
+  { id: 'doc-mlsq-2', projectId: 'mellasaq', title: 'منصة ملصق للأعمال', type: 'spec', description: 'حلقة الوصل بين الشركات والمصانع والأسر المنتجة وبين الجهات التنظيمية (GS1 — هيئة الغذاء والدواء). لوحة تحكم مخصصة لإدارة بيانات المنتجات، باقات اشتراك شهرية، وواجهات ربط (API) للتحقق والتسجيل.', order: 1, createdAt: '2026-03-01T00:00:00Z' },
+  { id: 'doc-mlsq-3', projectId: 'mellasaq', title: 'وثيقة هوية المنتج', type: 'research', description: 'رسالة ملصق وقيمه الجوهرية: الشفافية، الثقة، وسهولة الوصول للمعلومات الغذائية. تتضمن الهوية البصرية، نبرة الصوت، والقيم التأسيسية للعلامة.', order: 2, createdAt: '2026-06-08T00:00:00Z' },
+  { id: 'doc-mlsq-4', projectId: 'mellasaq', title: 'دليل تكامل GS1', type: 'guide', description: 'مواصفات الربط الفني مع مركز الترميز السعودي — GTIN، تسجيل المنتجات تلقائياً، سحب البيانات عبر API، ومطابقة حقول النموذج العالمي مع قاعدة بيانات ملصق.', order: 3, createdAt: '2026-06-09T00:00:00Z' },
 ]
 
 export const SEED_NOTES: Note[] = [
