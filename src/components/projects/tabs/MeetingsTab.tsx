@@ -1,9 +1,9 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   Plus, Trash2, Check, CalendarClock, ListTodo, ArrowUpRight, ClipboardList,
   Sparkles, ArrowRight, Printer, History, Gauge, Target, Wallet, CornerDownLeft,
-  FileText, Gavel, Lightbulb, Calendar,
+  FileText, Gavel, Lightbulb, Calendar, Save,
 } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import type {
@@ -457,10 +457,30 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
   const sprints = useSprintStore(useShallow((s) => s.sprints.filter((sp) => sp.projectId === pid).sort((a, b) => a.order - b.order)))
   const finance = useFinanceStore(useShallow((s) => s.entries.filter((e) => e.projectId === pid)))
 
+  // ── Auto-save indicator ──
+  const [savedVisible, setSavedVisible] = useState(false)
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const trackSave = (d: Partial<Meeting>) => {
+    onChange(d)
+    setSavedVisible(true)
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => setSavedVisible(false), 2000)
+  }
+
   // Which live blocks get embedded in the exported minutes
   const [incProgress, setIncProgress] = useState(true)
-  const [incInitiatives, setIncInitiatives] = useState(true)
+  // Per-initiative inclusion: null = all, Set = selected ids
+  const [incInitiativesOn, setIncInitiativesOn] = useState(true)
+  const [selectedInitiatives, setSelectedInitiatives] = useState<Set<string> | null>(null) // null = all
   const [incFinance, setIncFinance] = useState(false)
+
+  const toggleInitiativeId = (id: string) => {
+    setSelectedInitiatives((prev) => {
+      const next = new Set(prev ?? [])
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
 
   const decisions = m.decisions ?? []
   const recommendations = m.recommendations ?? []
@@ -483,7 +503,7 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
     const carried = prevPendingItems
       .filter((a) => !existing.has(a.title))
       .map((a) => ({ id: generateId(), title: a.title, assigneeId: a.assigneeId, dueDate: a.dueDate, done: false, taskId: a.taskId }))
-    if (carried.length) onChange({ actionItems: [...m.actionItems, ...carried] })
+    if (carried.length) trackSave({ actionItems: [...m.actionItems, ...carried] })
   }
 
   // ── Live project snapshot ──
@@ -503,7 +523,7 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
 
   // ── Action items ──
   const toggleItem = (a: MeetingActionItem) => {
-    onChange({ actionItems: m.actionItems.map((x) => (x.id === a.id ? { ...x, done: !x.done } : x)) })
+    trackSave({ actionItems: m.actionItems.map((x) => (x.id === a.id ? { ...x, done: !x.done } : x)) })
     if (a.taskId) updateTask(a.taskId, { status: !a.done ? 'done' : 'todo' })
   }
   const convertToTask = (a: MeetingActionItem) => {
@@ -512,11 +532,16 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
       projectId: pid, title: a.title, assigneeId: a.assigneeId, dueDate: a.dueDate,
       status: a.done ? 'done' : 'todo', priority: 'medium',
     })
-    onChange({ actionItems: m.actionItems.map((x) => (x.id === a.id ? { ...x, taskId } : x)) })
+    trackSave({ actionItems: m.actionItems.map((x) => (x.id === a.id ? { ...x, taskId } : x)) })
   }
 
   const toggleAttendee = (id: string) =>
-    onChange({ attendees: m.attendees.includes(id) ? m.attendees.filter((a) => a !== id) : [...m.attendees, id] })
+    trackSave({ attendees: m.attendees.includes(id) ? m.attendees.filter((a) => a !== id) : [...m.attendees, id] })
+
+  // Initiatives selected for export
+  const exportInitiatives = incInitiativesOn
+    ? (selectedInitiatives === null ? initiatives : initiatives.filter((i) => selectedInitiatives.has(i.sp.id)))
+    : undefined
 
   // ── Export (agenda before / minutes after) ──
   const exportDoc = (mode: 'agenda' | 'minutes') => {
@@ -525,7 +550,7 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
       prevMeeting: prev,
       snapshot: mode === 'minutes' ? {
         progress: incProgress ? { progress: project.progress, doneTasks, activeTasks, totalTasks: tasks.length } : undefined,
-        initiatives: incInitiatives ? initiatives : undefined,
+        initiatives: exportInitiatives,
         finance: incFinance && finance.length > 0 ? { income, expense, currency } : undefined,
       } : {},
     })
@@ -544,19 +569,24 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
         <div className="flex items-start gap-3 flex-wrap">
           <button
             onClick={onBack}
-            className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 transition-colors hover:bg-white/5"
+            className="flex items-center gap-1.5 px-2.5 h-8 rounded-md shrink-0 transition-colors hover:bg-white/5 text-xs font-medium"
             style={{ border: '1px solid var(--color-surface-border)', color: 'var(--color-text-secondary)' }}
             aria-label="عودة لقائمة الاجتماعات"
           >
-            <ArrowRight size={15} />
+            <ArrowRight size={14} /> رجوع
           </button>
+          {savedVisible && (
+            <span className="flex items-center gap-1 px-2 h-7 rounded-md text-xs font-medium shrink-0 transition-opacity" style={{ background: 'color-mix(in oklch, var(--success-500) 14%, transparent)', color: 'var(--success-500)' }}>
+              <Save size={11} /> تم الحفظ
+            </span>
+          )}
           <div className="flex-1 min-w-[220px]">
             <label className="axis-label mb-1 block">عنوان الاجتماع</label>
             <input
               className="w-full h-9 rounded-md px-2.5 outline-none text-lg font-bold"
               style={inputStyle}
               value={m.title}
-              onChange={(e) => onChange({ title: e.target.value })}
+              onChange={(e) => trackSave({ title: e.target.value })}
               placeholder="اكتب عنواناً للاجتماع…"
             />
             <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
@@ -589,26 +619,26 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-4">
           <div>
             <label className="axis-label mb-1 block">التاريخ</label>
-            <input type="date" className={inputCls} style={inputStyle} value={m.date} onChange={(e) => onChange({ date: e.target.value })} />
+            <input type="date" className={inputCls} style={inputStyle} value={m.date} onChange={(e) => trackSave({ date: e.target.value })} />
           </div>
           <div>
             <label className="axis-label mb-1 block">من</label>
-            <input type="time" className={inputCls} style={inputStyle} value={m.startTime ?? ''} onChange={(e) => onChange({ startTime: e.target.value || undefined })} />
+            <input type="time" className={inputCls} style={inputStyle} value={m.startTime ?? ''} onChange={(e) => trackSave({ startTime: e.target.value || undefined })} />
           </div>
           <div>
             <label className="axis-label mb-1 block">إلى</label>
-            <input type="time" className={inputCls} style={inputStyle} value={m.endTime ?? ''} onChange={(e) => onChange({ endTime: e.target.value || undefined })} />
+            <input type="time" className={inputCls} style={inputStyle} value={m.endTime ?? ''} onChange={(e) => trackSave({ endTime: e.target.value || undefined })} />
           </div>
           <div>
             <label className="axis-label mb-1 block">النوع</label>
-            <select className={inputCls} style={inputStyle} value={m.kind ?? ''} onChange={(e) => onChange({ kind: (e.target.value || undefined) as MeetingKind | undefined })}>
+            <select className={inputCls} style={inputStyle} value={m.kind ?? ''} onChange={(e) => trackSave({ kind: (e.target.value || undefined) as MeetingKind | undefined })}>
               <option value="">—</option>
               {(Object.keys(KIND_LABEL) as MeetingKind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
             </select>
           </div>
           <div>
             <label className="axis-label mb-1 block">الحالة</label>
-            <select className={inputCls} style={inputStyle} value={m.status} onChange={(e) => onChange({ status: e.target.value as MeetingStatus })}>
+            <select className={inputCls} style={inputStyle} value={m.status} onChange={(e) => trackSave({ status: e.target.value as MeetingStatus })}>
               {(Object.keys(STATUS_LABEL) as MeetingStatus[]).map((k) => <option key={k} value={k}>{STATUS_LABEL[k]}</option>)}
             </select>
           </div>
@@ -620,7 +650,7 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
             <label className="axis-label mb-1 block">مسمى النوع</label>
             <input
               className={inputCls} style={inputStyle} value={m.kindLabel ?? ''}
-              onChange={(e) => onChange({ kindLabel: e.target.value || undefined })}
+              onChange={(e) => trackSave({ kindLabel: e.target.value || undefined })}
               placeholder="مثال: ورشة عمل، جلسة تنسيق مع GS1، عرض للشركاء…"
             />
           </div>
@@ -700,7 +730,7 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
 
           {/* Agenda */}
           <SectionCard icon={<ClipboardList size={15} />} title="الأجندة">
-            <AgendaEditor items={m.agenda} onChange={(agenda) => onChange({ agenda })} />
+            <AgendaEditor items={m.agenda} onChange={(agenda) => trackSave({ agenda })} />
           </SectionCard>
 
           {/* Minutes — narrative */}
@@ -708,30 +738,30 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="axis-label mb-1 block">المنجزات</label>
-                <textarea rows={4} className={areaCls} style={inputStyle} value={m.achievements ?? ''} onChange={(e) => onChange({ achievements: e.target.value || undefined })} placeholder="ما الذي أُنجز منذ آخر اجتماع؟" />
+                <textarea rows={4} className={areaCls} style={inputStyle} value={m.achievements ?? ''} onChange={(e) => trackSave({ achievements: e.target.value || undefined })} placeholder="ما الذي أُنجز منذ آخر اجتماع؟" />
               </div>
               <div>
                 <label className="axis-label mb-1 block">التحديات والمعالجات</label>
-                <textarea rows={4} className={areaCls} style={inputStyle} value={m.challenges ?? ''} onChange={(e) => onChange({ challenges: e.target.value || undefined })} placeholder="التحديات القائمة وكيف ستُعالج" />
+                <textarea rows={4} className={areaCls} style={inputStyle} value={m.challenges ?? ''} onChange={(e) => trackSave({ challenges: e.target.value || undefined })} placeholder="التحديات القائمة وكيف ستُعالج" />
               </div>
             </div>
           </SectionCard>
 
           {/* Decisions */}
           <SectionCard icon={<Gavel size={15} />} title="القرارات">
-            <DecisionEditor items={decisions} onChange={(v) => onChange({ decisions: v })} members={members} />
+            <DecisionEditor items={decisions} onChange={(v) => trackSave({ decisions: v })} members={members} />
           </SectionCard>
 
           {/* Recommendations */}
           <SectionCard icon={<Lightbulb size={15} />} title="التوصيات والمخرجات">
-            <RecommendationEditor items={recommendations} onChange={(v) => onChange({ recommendations: v })} members={members} />
+            <RecommendationEditor items={recommendations} onChange={(v) => trackSave({ recommendations: v })} members={members} />
           </SectionCard>
 
           {/* Action items */}
           <SectionCard icon={<ListTodo size={15} />} title="بنود العمل">
             <ActionItemEditor
               items={m.actionItems}
-              onChange={(v) => onChange({ actionItems: v })}
+              onChange={(v) => trackSave({ actionItems: v })}
               members={members}
               onToggle={toggleItem}
               onConvert={convertToTask}
@@ -780,26 +810,51 @@ function MeetingPage({ project, meeting: m, meetings, members, memberById, membe
             <SectionCard
               icon={<Target size={15} />}
               title="المبادرات"
-              extra={<IncludeToggle on={incInitiatives} onToggle={() => setIncInitiatives((v) => !v)} />}
+              extra={<IncludeToggle on={incInitiativesOn} onToggle={() => setIncInitiativesOn((v) => !v)} />}
             >
-              <div className="space-y-2.5">
-                {initiatives.map(({ sp, pct, clDone, clTotal, spDone, spTotal }) => (
-                  <div key={sp.id}>
-                    <div className="flex items-center justify-between gap-2 text-xs mb-1">
-                      <span className="truncate font-medium" style={{ color: 'var(--color-text-primary)' }}>{sp.name}</span>
-                      <span className="axis-num shrink-0" style={{ color: 'var(--color-text-muted)' }}>{pct}%</span>
+              <div className="space-y-2">
+                {initiatives.map(({ sp, pct, clDone, clTotal, spDone, spTotal }) => {
+                  const isSelected = selectedInitiatives === null || selectedInitiatives.has(sp.id)
+                  return (
+                    <div key={sp.id}
+                      className="rounded-lg p-2 transition-colors"
+                      style={{ background: incInitiativesOn && isSelected ? `color-mix(in oklch, ${project.color} 6%, var(--color-surface-muted))` : 'var(--color-surface-muted)', opacity: incInitiativesOn ? 1 : 0.45 }}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        {incInitiativesOn && (
+                          <button
+                            onClick={() => toggleInitiativeId(sp.id)}
+                            className="w-4 h-4 rounded flex items-center justify-center shrink-0 transition-colors"
+                            style={{ background: isSelected ? project.color : 'transparent', border: isSelected ? 'none' : '1.5px solid var(--color-surface-border)' }}
+                            title={isSelected ? 'إلغاء التضمين في المحضر' : 'تضمين في المحضر'}
+                          >
+                            {isSelected && <Check size={10} color="#fff" strokeWidth={3} />}
+                          </button>
+                        )}
+                        <span className="flex-1 truncate text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>{sp.name}</span>
+                        <span className="axis-num text-xs shrink-0" style={{ color: 'var(--color-text-muted)' }}>{pct}%</span>
+                      </div>
+                      <div className="h-1 rounded-full overflow-hidden ms-6" style={{ background: 'var(--color-surface-border)' }}>
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: project.color }} />
+                      </div>
+                      <p className="text-[10px] mt-0.5 ms-6" style={{ color: 'var(--color-text-muted)' }}>
+                        {SPRINT_STATUS_LABEL[sp.status]}
+                        {clTotal > 0 && <> · معالم <span className="axis-num">{clDone}/{clTotal}</span></>}
+                        {spTotal > 0 && <> · مهام <span className="axis-num">{spDone}/{spTotal}</span></>}
+                      </p>
                     </div>
-                    <div className="h-1 rounded-full overflow-hidden" style={{ background: 'var(--color-surface-muted)' }}>
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: project.color }} />
-                    </div>
-                    <p className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                      {SPRINT_STATUS_LABEL[sp.status]}
-                      {clTotal > 0 && <> · معالم <span className="axis-num">{clDone}/{clTotal}</span></>}
-                      {spTotal > 0 && <> · مهام <span className="axis-num">{spDone}/{spTotal}</span></>}
-                    </p>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
+              {incInitiativesOn && (
+                <p className="text-[11px] mt-2" style={{ color: 'var(--color-text-muted)' }}>
+                  {selectedInitiatives === null
+                    ? `جميع المبادرات (${initiatives.length}) مضمّنة في المحضر`
+                    : selectedInitiatives.size === 0
+                    ? 'لم تُختر أي مبادرة'
+                    : `${selectedInitiatives.size} من ${initiatives.length} مبادرة مضمّنة`}
+                </p>
+              )}
             </SectionCard>
           )}
 
