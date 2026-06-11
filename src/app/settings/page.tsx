@@ -7,6 +7,7 @@ import Tag from '@/components/ui/Tag'
 import { useProjectStore, useTaskStore } from '@/store/store'
 import { useThemeStore } from '@/store/themeStore'
 import { cn } from '@/lib/utils'
+import PermissionsSection from '@/components/settings/PermissionsSection'
 
 function SectionHeader({ icon, title, tint }: { icon: React.ReactNode; title: string; tint: string }) {
   return (
@@ -62,6 +63,9 @@ export default function SettingsPage() {
     <AppLayout>
       <div className="p-4 md:p-6 lg:p-8 max-w-2xl animate-fade-up space-y-4">
         <PageHeader title="الإعدادات" sub="إعدادات المنصة والبيانات" />
+
+        {/* Permissions */}
+        <PermissionsSection />
 
         {/* Appearance */}
         <div className="axis-card p-6">
