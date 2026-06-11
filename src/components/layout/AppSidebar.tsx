@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
-import { LayoutDashboard, FolderKanban, BarChart3, Settings, Plus, X, Search, Wallet, CheckSquare } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, BarChart3, Settings, Plus, X, Search, CheckSquare } from 'lucide-react'
 import { useProjectStore } from '@/store/store'
 import ThemeToggle from '@/components/shared/ThemeToggle'
 
@@ -65,11 +65,11 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
                 boxShadow: 'inset 0 1px 0 0 oklch(0.40 0.16 275 / 0.4)',
               }}
             >
-              م
+              ب
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-bold leading-tight" style={{ color: 'var(--color-text-primary)' }}>محور</div>
-              <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>إدارة المشاريع</div>
+              <div className="text-sm font-bold leading-tight" style={{ color: 'var(--color-text-primary)' }}>بوصلة الأعمال</div>
+              <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>حلول أعمال متكاملة</div>
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -167,21 +167,8 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
             </div>
           </div>
 
-          {/* Footer — settings + billing preview */}
+          {/* Footer — settings */}
           <div className="pt-2 mt-2 space-y-0.5" style={{ borderTop: '1px solid var(--color-surface-border)' }}>
-            <Link
-              href="/billing"
-              className={`sidebar-nav-item${pathname === '/billing' ? ' active' : ''}`}
-            >
-              <Wallet size={17} />
-              <span>الرصيد والباقات</span>
-              <span
-                className="ms-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                style={{ background: 'var(--color-surface-overlay)', color: 'var(--color-text-muted)', border: '1px solid var(--color-surface-border)' }}
-              >
-                معاينة
-              </span>
-            </Link>
             <Link
               href="/settings"
               className={`sidebar-nav-item${pathname === '/settings' ? ' active' : ''}`}
