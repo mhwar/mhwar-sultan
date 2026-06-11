@@ -3,6 +3,7 @@ import { useState, useMemo } from 'react'
 import {
   ArrowRight, Edit2, Mail, Phone, FileText, CheckCircle2, Inbox, Send, Plus,
   Check, X, Package, Printer, CalendarRange, FileSpreadsheet,
+  ChevronLeft, ChevronRight, List, CalendarDays,
 } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import type { Client, ClientStatus, ContentItem, ContentStatus, ContentSource, FinanceEntry, FinanceKind, FinanceStatus, Project } from '@/types'
@@ -12,11 +13,12 @@ import ContentDrawer from '../content/ContentDrawer'
 import ContentExportModal from '../content/ContentExportModal'
 import ContentMonthComposer from '../content/ContentMonthComposer'
 import ContentImportModal from '../content/ContentImportModal'
+import ContentCalendar from '../content/ContentCalendar'
 import { PlatformIcon } from '../content/PlatformIcon'
 import {
   STATUS_LABEL, STATUS_VAR, SOURCE_LABEL, DONE_STATUSES,
   STAGE_ORDER, STAGE_LABEL, STAGE_VAR, STAGE_STATUSES, stageOf, type ContentStage,
-  scheduledKey, keyInMonth, monthLabel, fmtDayMonth, TYPE_LABEL,
+  scheduledKey, keyInMonth, keyToISO, monthLabel, fmtDayMonth, TYPE_LABEL,
   buildClientColorMap,
 } from '../content/contentMeta'
 
@@ -331,9 +333,23 @@ function WorkRow({ item, showDate }: { item: ContentItem; showDate?: boolean }) 
 
 /* ── Content Tab ──────────────────────────────────────────── */
 
+type ContentPeriod = 'month' | 'week' | 'all'
+type ContentView = 'list' | 'calendar'
+
+const PERIOD_OPTS: { key: ContentPeriod; label: string }[] = [
+  { key: 'month', label: 'الشهر' },
+  { key: 'week', label: 'الأسبوع' },
+  { key: 'all', label: 'الكل' },
+]
+
+function pad2(n: number) { return String(n).padStart(2, '0') }
+
 function ContentTab({ client, project, accent }: { client: Client; project: Project; accent: string }) {
   const [filterStage, setFilterStage] = useState<ContentStage | 'all'>('all')
   const [filterSource, setFilterSource] = useState<ContentSource | 'all'>('all')
+  const [period, setPeriod] = useState<ContentPeriod>('month')
+  const [view, setView] = useState<ContentView>('list')
+  const [cursor, setCursor] = useState(() => new Date())
   const [openId, setOpenId] = useState<string | null>(null)
   const [showExport, setShowExport] = useState(false)
   const [showComposer, setShowComposer] = useState(false)
@@ -344,15 +360,47 @@ function ContentTab({ client, project, accent }: { client: Client; project: Proj
   ))
   const allClients = useClientStore(useShallow((s) => s.clients.filter((c) => c.projectId === project.id)))
   const clientColorMap = useMemo(() => buildClientColorMap(allClients.map((c) => c.id)), [allClients])
-  const now = new Date()
+
+  const year = cursor.getFullYear()
+  const month = cursor.getMonth()
+
+  /* Week range (Sunday-start) as comparable yyyy-mm-dd keys. */
+  const week = useMemo(() => {
+    const d = new Date(cursor)
+    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate() - d.getDay())
+    const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6)
+    const key = (x: Date) => `${x.getFullYear()}-${pad2(x.getMonth() + 1)}-${pad2(x.getDate())}`
+    return { startKey: key(start), endKey: key(end) }
+  }, [cursor])
+
+  const shift = (dir: number) => {
+    const d = new Date(cursor)
+    if (period === 'week') d.setDate(d.getDate() + dir * 7)
+    else d.setMonth(d.getMonth() + dir)
+    setCursor(d)
+  }
+
+  const inPeriod = (it: ContentItem): boolean => {
+    if (period === 'all') return true
+    const k = scheduledKey(it)
+    if (!k) return true // keep unscheduled work-in-progress visible
+    if (period === 'month') return keyInMonth(k, year, month)
+    return k >= week.startKey && k <= week.endKey
+  }
+
+  const periodLabel = period === 'week'
+    ? `${fmtDayMonth(week.startKey)} – ${fmtDayMonth(week.endKey)}`
+    : monthLabel(year, month)
 
   const filtered = useMemo(() => items.filter((i) => {
     if (filterStage !== 'all' && stageOf(i.status) !== filterStage) return false
     if (filterSource !== 'all' && (i.source ?? 'internal') !== filterSource) return false
+    if (!inPeriod(i)) return false
     return true
-  }), [items, filterStage, filterSource])
+  }), [items, filterStage, filterSource, period, year, month, week])
 
   const openItem = openId ? items.find((i) => i.id === openId) : undefined
+  const clientNameMap = useMemo(() => ({ [client.id]: client.name }), [client.id, client.name])
 
   const closeDrawer = () => {
     const cur = openId ? items.find((i) => i.id === openId) : undefined
@@ -371,8 +419,59 @@ function ContentTab({ client, project, accent }: { client: Client; project: Proj
     setOpenId(id)
   }
 
+  const handleAddOnDay = (key: string) => {
+    const id = addItem({
+      projectId: client.projectId,
+      clientId: client.id,
+      title: '',
+      type: 'post',
+      status: 'idea',
+      publishDate: keyToISO(key),
+    })
+    setOpenId(id)
+  }
+
   return (
     <div className="space-y-4">
+      {/* Period + view toolbar */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Period segmented */}
+        <div className="inline-flex rounded-lg p-0.5" style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)' }}>
+          {PERIOD_OPTS.map((p) => (
+            <button
+              key={p.key}
+              onClick={() => setPeriod(p.key)}
+              className="px-2.5 h-7 rounded-md text-xs font-medium transition-colors"
+              style={{
+                background: period === p.key ? accent : 'transparent',
+                color: period === p.key ? 'white' : 'var(--color-text-muted)',
+              }}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Period nav (month/week) */}
+        {period !== 'all' && (
+          <div className="inline-flex items-center gap-1">
+            <button onClick={() => shift(-1)} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost" aria-label="السابق"><ChevronRight size={15} /></button>
+            <span className="text-xs font-semibold text-center" style={{ color: 'var(--color-text-primary)', minWidth: 116 }}>{periodLabel}</span>
+            <button onClick={() => shift(1)} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost" aria-label="التالي"><ChevronLeft size={15} /></button>
+          </div>
+        )}
+
+        <span className="axis-num text-xs ms-auto" style={{ color: 'var(--color-text-muted)' }}>
+          {filtered.length} قطعة
+        </span>
+
+        {/* View segmented */}
+        <div className="inline-flex rounded-lg p-0.5" style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)' }}>
+          <button onClick={() => setView('list')} className="w-7 h-7 rounded-md flex items-center justify-center transition-colors" style={{ background: view === 'list' ? accent : 'transparent', color: view === 'list' ? 'white' : 'var(--color-text-muted)' }} aria-label="قائمة"><List size={14} /></button>
+          <button onClick={() => setView('calendar')} className="w-7 h-7 rounded-md flex items-center justify-center transition-colors" style={{ background: view === 'calendar' ? accent : 'transparent', color: view === 'calendar' ? 'white' : 'var(--color-text-muted)' }} aria-label="تقويم"><CalendarDays size={14} /></button>
+        </div>
+      </div>
+
       {/* Filter bar */}
       <div className="flex flex-wrap gap-2 items-center">
         <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>المرحلة:</span>
@@ -424,47 +523,60 @@ function ContentTab({ client, project, accent }: { client: Client; project: Proj
         </button>
       </div>
 
-      {/* Content list */}
-      <div className="space-y-1.5">
-        {filtered.length === 0 ? (
-          <div className="py-8 text-center">
-            <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>لا يوجد محتوى ضمن الفلاتر المحددة</p>
-          </div>
-        ) : (
-          filtered.map((it) => (
-            <button
-              key={it.id}
-              onClick={() => setOpenId(it.id)}
-              className="w-full text-start flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-white/5"
-              style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)' }}
-            >
-              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STAGE_VAR[stageOf(it.status)] }} />
-              <span className="flex-1 min-w-0 text-xs font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{it.title || '(بلا عنوان)'}</span>
-              <span className="text-[10px] shrink-0" style={{ color: 'var(--color-text-muted)' }}>{TYPE_LABEL[it.type]}</span>
-              {it.platform && <PlatformIcon platform={it.platform} size={12} style={{ color: 'var(--color-text-muted)' }} />}
-              <span
-                className="px-1.5 rounded-full text-[10px] font-semibold shrink-0"
-                style={{ background: `color-mix(in oklch, ${STATUS_VAR[it.status]} 15%, transparent)`, color: STATUS_VAR[it.status] }}
+      {/* Body — list or calendar */}
+      {view === 'calendar' ? (
+        <ContentCalendar
+          items={filtered}
+          year={year}
+          month={month}
+          clientColorMap={clientColorMap}
+          clientNameMap={clientNameMap}
+          onOpenItem={(it) => setOpenId(it.id)}
+          onAddOnDay={handleAddOnDay}
+          onReschedule={(id, key) => updateItem(id, { publishDate: key ? keyToISO(key) : undefined })}
+        />
+      ) : (
+        <div className="space-y-1.5">
+          {filtered.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>لا يوجد محتوى ضمن الفترة والفلاتر المحددة</p>
+            </div>
+          ) : (
+            filtered.map((it) => (
+              <button
+                key={it.id}
+                onClick={() => setOpenId(it.id)}
+                className="w-full text-start flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-white/5"
+                style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)' }}
               >
-                {STATUS_LABEL[it.status]}
-              </span>
-              {it.source === 'client-request' && (
+                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STAGE_VAR[stageOf(it.status)] }} />
+                <span className="flex-1 min-w-0 text-xs font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{it.title || '(بلا عنوان)'}</span>
+                <span className="text-[10px] shrink-0" style={{ color: 'var(--color-text-muted)' }}>{TYPE_LABEL[it.type]}</span>
+                {it.platform && <PlatformIcon platform={it.platform} size={12} style={{ color: 'var(--color-text-muted)' }} />}
                 <span
                   className="px-1.5 rounded-full text-[10px] font-semibold shrink-0"
-                  style={{ background: 'color-mix(in oklch, var(--warning-500) 15%, transparent)', color: 'var(--warning-500)' }}
+                  style={{ background: `color-mix(in oklch, ${STATUS_VAR[it.status]} 15%, transparent)`, color: STATUS_VAR[it.status] }}
                 >
-                  {SOURCE_LABEL['client-request']}
+                  {STATUS_LABEL[it.status]}
                 </span>
-              )}
-              {(it.publishDate || it.dueDate) && (
-                <span className="text-[10px] shrink-0" style={{ color: 'var(--color-text-muted)' }}>
-                  {fmtDayMonth(scheduledKey(it))}
-                </span>
-              )}
-            </button>
-          ))
-        )}
-      </div>
+                {it.source === 'client-request' && (
+                  <span
+                    className="px-1.5 rounded-full text-[10px] font-semibold shrink-0"
+                    style={{ background: 'color-mix(in oklch, var(--warning-500) 15%, transparent)', color: 'var(--warning-500)' }}
+                  >
+                    {SOURCE_LABEL['client-request']}
+                  </span>
+                )}
+                {(it.publishDate || it.dueDate) && (
+                  <span className="text-[10px] shrink-0" style={{ color: 'var(--color-text-muted)' }}>
+                    {fmtDayMonth(scheduledKey(it))}
+                  </span>
+                )}
+              </button>
+            ))
+          )}
+        </div>
+      )}
 
       {openItem && (
         <ContentDrawer
@@ -482,8 +594,8 @@ function ContentTab({ client, project, accent }: { client: Client; project: Proj
           items={items}
           clients={allClients.filter((c) => c.id === client.id)}
           clientColorMap={clientColorMap}
-          year={now.getFullYear()}
-          month={now.getMonth()}
+          year={year}
+          month={month}
           onClose={() => setShowExport(false)}
         />
       )}
@@ -493,8 +605,8 @@ function ContentTab({ client, project, accent }: { client: Client; project: Proj
           projectId={client.projectId}
           clients={allClients}
           initialClientId={client.id}
-          year={now.getFullYear()}
-          month={now.getMonth()}
+          year={year}
+          month={month}
           onCreate={(item) => addItem(item as Parameters<typeof addItem>[0])}
           onClose={() => setShowComposer(false)}
         />

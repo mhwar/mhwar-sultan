@@ -46,7 +46,7 @@ const COL_DEFS: ColDef[] = [
 
 export default function ContentExportModal({ items, clients, clientColorMap, year, month, onClose }: Props) {
   const [selectedClientId, setSelectedClientId] = useState<string>(clients[0]?.id ?? '__all')
-  const [includeBody, setIncludeBody] = useState(false)
+  const [includeBody, setIncludeBody] = useState(true)
   const [groupByWeek, setGroupByWeek] = useState(true)
   const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(() => new Set(COL_DEFS.map((c) => c.key)))
   const [agencyName, setAgencyName] = useState('بوصلة الأعمال')
@@ -94,10 +94,14 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
       return `${s} – ${e} ${monthNameOnly}`
     }
 
-    /* Body text inline — appears below title in smaller subdued font */
+    /* Body + notes inline — appears below title in smaller subdued font */
     const bodyInline = (it: ContentItem): string => {
-      if (!includeBody || !it.body?.trim()) return ''
-      return `<div class="body-inline">${esc(it.body.trim())}</div>`
+      if (!includeBody) return ''
+      const segs: string[] = []
+      if (it.body?.trim()) segs.push(esc(it.body.trim()).replace(/\n/g, '<br/>'))
+      if (it.notes?.trim()) segs.push(`<span class="note-tag">ملاحظة:</span> ${esc(it.notes.trim()).replace(/\n/g, '<br/>')}`)
+      if (segs.length === 0) return ''
+      return `<div class="body-inline">${segs.join('<br/>')}</div>`
     }
 
     const itemRow = (it: ContentItem, idx: number) => {
@@ -242,7 +246,8 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
     td.date-cell{color:#4b5563}
 
     /* ─ Body inline ─ */
-    .body-inline{font-size:7.5pt;color:#6b7280;margin-top:3pt;line-height:1.55;font-weight:400;white-space:pre-wrap;word-break:break-word}
+    .body-inline{font-size:7.5pt;color:#6b7280;margin-top:3pt;line-height:1.55;font-weight:400;word-break:break-word}
+    .note-tag{color:#9ca3af;font-weight:600}
 
     /* ─ Week group ─ */
     tbody tr.week-row td{background:#eef0fb;padding:5pt 8pt;border-top:1pt solid #c7d2fe;border-bottom:.5pt solid #c7d2fe}
@@ -348,7 +353,8 @@ ${actionBtnHtml}
     const data = allRows.map((it, idx) => ({
       '#': idx + 1,
       'العنوان': it.title,
-      'النص / الملاحظات': it.body ?? '',
+      'النص': it.body ?? '',
+      'الملاحظات': it.notes ?? '',
       'النوع': TYPE_LABEL[it.type],
       'المنصة': it.platform ? PLATFORM_LABEL[it.platform] : '',
       'المقاس': it.dimensions ?? '',
@@ -357,7 +363,7 @@ ${actionBtnHtml}
     }))
     const ws = XLSX.utils.json_to_sheet(data)
     ws['!cols'] = [
-      { wch: 4 }, { wch: 36 }, { wch: 42 }, { wch: 12 },
+      { wch: 4 }, { wch: 34 }, { wch: 40 }, { wch: 28 }, { wch: 12 },
       { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
     ]
     const wb = XLSX.utils.book_new()
@@ -480,7 +486,7 @@ ${actionBtnHtml}
         <div className="px-5 py-2.5 space-y-2 shrink-0" style={{ borderBottom: '1px solid var(--color-surface-border)' }}>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs shrink-0" style={{ color: 'var(--color-text-muted)' }}>خيارات:</span>
-            <Toggle active={includeBody} onClick={() => setIncludeBody((v) => !v)}>نص المنشور</Toggle>
+            <Toggle active={includeBody} onClick={() => setIncludeBody((v) => !v)}>النص والملاحظات</Toggle>
             <Toggle active={groupByWeek} onClick={() => setGroupByWeek((v) => !v)}>تجميع أسبوعي</Toggle>
             <Toggle active={showMetadata} onClick={() => setShowMetadata((v) => !v)}>بيانات التقرير</Toggle>
           </div>
@@ -562,6 +568,11 @@ ${actionBtnHtml}
                       {includeBody && it.body && (
                         <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 3, lineHeight: 1.5, fontWeight: 400, whiteSpace: 'pre-wrap' }}>
                           {it.body}
+                        </p>
+                      )}
+                      {includeBody && it.notes && (
+                        <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2, lineHeight: 1.5, fontWeight: 400, whiteSpace: 'pre-wrap' }}>
+                          <span style={{ fontWeight: 600 }}>ملاحظة: </span>{it.notes}
                         </p>
                       )}
                     </td>
