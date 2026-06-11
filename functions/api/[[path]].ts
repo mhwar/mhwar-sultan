@@ -172,9 +172,14 @@ async function canAccessProject(db: D1Database, userId: string, projectId: strin
 
 // ── Route handlers ────────────────────────────────────────
 
-// Health check
-async function handleHealth(): Promise<Response> {
-  return json({ ok: true, ts: new Date().toISOString() })
+// Health check — also verifies D1 connectivity
+async function handleHealth(db: D1Database): Promise<Response> {
+  try {
+    await db.prepare('SELECT 1').first()
+    return json({ ok: true, db: true, ts: new Date().toISOString() })
+  } catch {
+    return json({ ok: true, db: false, ts: new Date().toISOString() })
+  }
 }
 
 // ── Users ─────────────────────────────────────────────────
@@ -595,7 +600,7 @@ export async function onRequest(ctx: any): Promise<Response> {
   const segments: string[] = Array.isArray(params?.path) ? params.path : (params?.path ? [params.path] : [])
 
   // Health check — no auth required
-  if (segments[0] === 'health') return handleHealth()
+  if (segments[0] === 'health') return handleHealth(db)
 
   // All other routes require authentication
   const caller = await getAuthUser(request, db)
