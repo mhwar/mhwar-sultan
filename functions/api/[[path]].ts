@@ -46,6 +46,10 @@ interface Env {
   INVITE_FROM?: string
   /** Public site URL used in invitation links (defaults to https://boslaworks.com). */
   SITE_URL?: string
+  /** Cloudflare API token with Access + Account read/write permissions. */
+  CLOUDFLARE_API_TOKEN?: string
+  /** Cloudflare Account ID — auto-discovered when omitted. */
+  CF_ACCOUNT_ID?: string
 }
 
 // ── Helpers ───────────────────────────────────────────────
@@ -359,6 +363,157 @@ async function handleInvite(req: Request, env: Env, caller: UserRow): Promise<Re
   } catch {
     return json({ sent: false, fallback: true })
   }
+}
+
+// ── Cloudflare Access management ─────────────────────────
+//
+// Helpers that call the Cloudflare REST API from inside the Pages Function
+// (runs on CF infra — never blocked by IP allowlist restrictions).
+
+interface CfApp { id: string; domain?: string; name?: string }
+interface CfIdp { id: string; type: string; name: string }
+
+async function cfGet<T>(token: string, path: string): Promise<T | null> {
+  try {
+    const r = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    })
+    if (!r.ok) return null
+    const d = await r.json() as { result: T }
+    return d.result ?? null
+  } catch { return null }
+}
+
+async function cfPost<T>(token: string, path: string, body: unknown): Promise<T | null> {
+  try {
+    const r = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const d = await r.json() as { result: T; success: boolean; errors?: unknown[] }
+    return d.success ? d.result : null
+  } catch { return null }
+}
+
+/** Resolve account ID — uses env var or auto-discovers from token. */
+async function getAccountId(token: string, envId?: string): Promise<string | null> {
+  if (envId) return envId
+  const accounts = await cfGet<Array<{ id: string }>>(token, '/accounts?per_page=1')
+  return accounts?.[0]?.id ?? null
+}
+
+/** Find the Cloudflare Access app for boslaworks.com. */
+async function findAccessApp(token: string, accountId: string): Promise<CfApp | null> {
+  const apps = await cfGet<CfApp[]>(token, `/accounts/${accountId}/access/apps?per_page=50`)
+  return (apps ?? []).find(
+    (a) => a.domain?.includes('boslaworks') || a.name?.toLowerCase().includes('bosla')
+  ) ?? null
+}
+
+/** Add an email-based allow policy to the Access app. Idempotent — skips if already present. */
+async function grantAccessEmail(token: string, accountId: string, email: string, name: string): Promise<boolean> {
+  const app = await findAccessApp(token, accountId)
+  if (!app) return false
+
+  // Check if a policy for this email already exists
+  const policies = await cfGet<Array<{ id: string; name: string }>>(
+    token, `/accounts/${accountId}/access/apps/${app.id}/policies?per_page=100`
+  )
+  const exists = (policies ?? []).some((p) => p.name === `User: ${email}`)
+  if (exists) return true
+
+  const result = await cfPost(token, `/accounts/${accountId}/access/apps/${app.id}/policies`, {
+    name: `User: ${email}`,
+    decision: 'allow',
+    include: [{ email: { email } }],
+    precedence: 10,
+  })
+  return !!result
+}
+
+// POST /api/access/grant  — admin grants CF Access + provisions user in D1
+interface GrantPayload {
+  userId: string
+  name: string
+  email: string
+  systemRole: string
+  isFinance: boolean
+  isContent: boolean
+  createdAt: string
+  permissions: Array<{ userId: string; projectId: string; access: string; deniedTools: string[] }>
+}
+
+async function handleGrantAccess(req: Request, db: D1Database, env: Env, caller: UserRow): Promise<Response> {
+  if (!isAdmin(caller)) return err('غير مصرح', 403)
+
+  const p = await req.json() as GrantPayload
+  if (!p.email || !p.userId) return err('البيانات ناقصة', 400)
+
+  // 1) Upsert user in D1
+  await db.prepare(`
+    INSERT INTO app_users (id, name, email, system_role, is_finance, is_content, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name, email = excluded.email,
+      system_role = excluded.system_role,
+      is_finance = excluded.is_finance,
+      is_content = excluded.is_content
+  `).bind(p.userId, p.name, p.email.toLowerCase(), p.systemRole,
+           p.isFinance ? 1 : 0, p.isContent ? 1 : 0, p.createdAt).run()
+
+  // 2) Upsert permissions in D1
+  for (const perm of (p.permissions ?? [])) {
+    await db.prepare(`
+      INSERT INTO project_permissions (user_id, project_id, access, denied_tools)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(user_id, project_id) DO UPDATE SET
+        access = excluded.access, denied_tools = excluded.denied_tools
+    `).bind(perm.userId, perm.projectId, perm.access, JSON.stringify(perm.deniedTools ?? [])).run()
+  }
+
+  // 3) Add to Cloudflare Access (non-fatal if not configured)
+  let addedToAccess = false
+  const token = env.CLOUDFLARE_API_TOKEN
+  if (token) {
+    const accountId = await getAccountId(token, env.CF_ACCOUNT_ID)
+    if (accountId) addedToAccess = await grantAccessEmail(token, accountId, p.email, p.name)
+  }
+
+  return json({ ok: true, addedToAccess, cfConfigured: !!token })
+}
+
+// POST /api/setup/google-idp — one-time: add Google as CF Access identity provider
+interface GoogleIdpPayload { clientId: string; clientSecret: string }
+
+async function handleSetupGoogleIdp(req: Request, env: Env, caller: UserRow): Promise<Response> {
+  if (!isAdmin(caller)) return err('غير مصرح', 403)
+
+  const token = env.CLOUDFLARE_API_TOKEN
+  if (!token) return err('CLOUDFLARE_API_TOKEN غير مُعدَّ', 400)
+
+  const p = await req.json() as GoogleIdpPayload
+  if (!p.clientId || !p.clientSecret) return err('Client ID و Client Secret مطلوبان', 400)
+
+  const accountId = await getAccountId(token, env.CF_ACCOUNT_ID)
+  if (!accountId) return err('تعذّر تحديد الحساب', 500)
+
+  // Check if Google IDP already exists
+  const existing = await cfGet<CfIdp[]>(token, `/accounts/${accountId}/access/identity_providers?per_page=50`)
+  const hasGoogle = (existing ?? []).some((idp) => idp.type === 'google')
+  if (hasGoogle) return json({ ok: true, alreadyExists: true })
+
+  const result = await cfPost(token, `/accounts/${accountId}/access/identity_providers`, {
+    type: 'google',
+    name: 'Google',
+    config: { client_id: p.clientId, client_secret: p.clientSecret },
+  })
+
+  if (!result) return err('فشل إضافة Google IDP — تحقق من Client ID و Secret', 500)
+
+  // Return the redirect URI the user needs to add in Google Console
+  const redirectUri = `https://${accountId}.cloudflareaccess.com/cdn-cgi/access/callback`
+  return json({ ok: true, redirectUri })
 }
 
 // ── Users ─────────────────────────────────────────────────
@@ -842,6 +997,16 @@ export async function onRequest(ctx: any): Promise<Response> {
   // /api/invite
   if (resource === 'invite') {
     if (method === 'POST') return handleInvite(request, env as Env, caller)
+  }
+
+  // /api/access/grant  — provision user in D1 + Cloudflare Access
+  if (resource === 'access' && idOrSub === 'grant') {
+    if (method === 'POST') return handleGrantAccess(request, db, env as Env, caller)
+  }
+
+  // /api/setup/google-idp  — one-time Google Identity Provider setup
+  if (resource === 'setup' && idOrSub === 'google-idp') {
+    if (method === 'POST') return handleSetupGoogleIdp(request, env as Env, caller)
   }
 
   // /api/sync  (and /api/sync/reset)
