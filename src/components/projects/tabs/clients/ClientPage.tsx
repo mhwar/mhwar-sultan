@@ -458,12 +458,12 @@ function FilterChip({ active, onClick, color, children }: { active: boolean; onC
       onClick={onClick}
       className="px-2.5 h-6 rounded-full text-xs font-medium transition-colors inline-flex items-center gap-1"
       style={{
-        background: active ? color : 'var(--color-surface-overlay)',
-        color: active ? 'white' : 'var(--color-text-secondary)',
-        border: `1px solid ${active ? 'transparent' : 'var(--color-surface-border)'}`,
+        background: active ? `color-mix(in oklch, ${color} 18%, transparent)` : 'var(--color-surface-overlay)',
+        color: active ? color : 'var(--color-text-secondary)',
+        border: `1px solid ${active ? `color-mix(in oklch, ${color} 45%, transparent)` : 'var(--color-surface-border)'}`,
       }}
     >
-      {!active && <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />}
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
       {children}
     </button>
   )
