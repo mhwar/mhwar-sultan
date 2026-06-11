@@ -241,7 +241,25 @@ async function handleHealth(db: D1Database, req: Request): Promise<Response> {
   } catch { /* dbOk stays false */ }
 
   const accessEmail = resolveAccessEmail(req)
-  const hasJwt = !!req.headers.get('Cf-Access-Jwt-Assertion')
+  const jwt = req.headers.get('Cf-Access-Jwt-Assertion')
+  const hasJwt = !!jwt
+
+  // Diagnostic: which claim keys does the JWT carry, and is there an email-like one?
+  let jwtClaimKeys: string[] | null = null
+  let jwtEmailClaim: string | null = null
+  if (jwt) {
+    try {
+      const payload = jwt.split('.')[1]
+      const b64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+      const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4)
+      const data = JSON.parse(atob(padded)) as Record<string, unknown>
+      jwtClaimKeys = Object.keys(data)
+      const e = (data.email ?? (data.identity as Record<string, unknown> | undefined)?.email) as unknown
+      jwtEmailClaim = typeof e === 'string' ? e : null
+    } catch {
+      jwtClaimKeys = ['<decode-error>']
+    }
+  }
 
   let userCount: number | null = null
   try {
@@ -254,6 +272,8 @@ async function handleHealth(db: D1Database, req: Request): Promise<Response> {
     db: dbOk,
     accessEmail,
     hasJwt,
+    jwtClaimKeys,
+    jwtEmailClaim,
     userCount,
     ts: new Date().toISOString(),
   })
