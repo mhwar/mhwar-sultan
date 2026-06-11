@@ -2,16 +2,14 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <title>محور</title>
+  <title>بوصلة الأعمال</title>
   <script>
-    // SPA fallback for GitHub Pages — redirects any unknown path back to the app
-    // so Next.js client-side router can take over.
-    var base = '/mhwar-sultan';
+    // SPA fallback for direct URL access — redirects to root so the client router takes over
     var l = window.location;
-    var path = l.pathname.slice(base.length) || '/';
+    var path = l.pathname || '/';
     l.replace(
       l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-      base + '/?redirect=' + encodeURIComponent(path + l.search) +
+      '/?redirect=' + encodeURIComponent(path + l.search) +
       (l.hash || '')
     );
   </script>
