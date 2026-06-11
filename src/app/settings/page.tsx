@@ -367,16 +367,28 @@ function AboutCard() {
 export default function SettingsPage() {
   return (
     <AppLayout>
-      <div className="p-4 md:p-6 lg:p-8 max-w-2xl animate-fade-up space-y-4">
-        <PageHeader title="الإعدادات" sub="إعدادات المنصة والبيانات" />
+      <div className="p-4 md:p-6 lg:p-8 animate-fade-up">
+        <div className="mx-auto w-full max-w-[1400px] space-y-6">
+          <PageHeader title="الإعدادات" sub="إعدادات المنصة والصلاحيات والبيانات" />
 
-        <PlatformCard />
-        <PermissionsSection />
-        <AppearanceCard />
-        <DataCard />
-        <StorageCard />
-        <ShortcutsCard />
-        <AboutCard />
+          {/* Access control — the featured section, full width */}
+          <PermissionsSection />
+
+          {/* Platform settings — responsive multi-column grid */}
+          <div>
+            <h2 className="text-xs font-bold mb-3 px-1" style={{ color: 'var(--fg-3)', letterSpacing: '0.04em' }}>
+              المنصة
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
+              <PlatformCard />
+              <AppearanceCard />
+              <AboutCard />
+              <DataCard />
+              <StorageCard />
+              <ShortcutsCard />
+            </div>
+          </div>
+        </div>
       </div>
     </AppLayout>
   )

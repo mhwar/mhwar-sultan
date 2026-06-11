@@ -48,11 +48,13 @@ interface Props {
   client: Client
   project: Project
   accent: string
+  /** When false, monetary figures and the billing tab are hidden (non-finance users). */
+  showFinancials?: boolean
   onClose: () => void
   onEdit: () => void
 }
 
-export default function ClientPage({ client, project, accent, onClose, onEdit }: Props) {
+export default function ClientPage({ client, project, accent, showFinancials = true, onClose, onEdit }: Props) {
   const [tab, setTab] = useState<Tab>('overview')
 
   const statusColor = CLIENT_STATUS_VAR[client.status]
@@ -61,7 +63,7 @@ export default function ClientPage({ client, project, accent, onClose, onEdit }:
     { key: 'overview', label: 'نظرة عامة' },
     { key: 'content', label: 'المحتوى' },
     { key: 'agreement', label: 'الاتفاقية' },
-    { key: 'billing', label: 'الفوترة' },
+    ...(showFinancials ? [{ key: 'billing' as Tab, label: 'الفوترة' }] : []),
   ]
 
   return (
@@ -103,10 +105,12 @@ export default function ClientPage({ client, project, accent, onClose, onEdit }:
               {client.phone && <span className="inline-flex items-center gap-1"><Phone size={11} />{client.phone}</span>}
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs">
-              <span className="font-semibold axis-num" style={{ color: 'var(--success-500)' }}>
-                {client.contractValue.toLocaleString('en-US')} {client.contractCurrency}
-                <span className="font-normal ms-1" style={{ color: 'var(--color-text-muted)' }}>/ شهر</span>
-              </span>
+              {showFinancials && (
+                <span className="font-semibold axis-num" style={{ color: 'var(--success-500)' }}>
+                  {client.contractValue.toLocaleString('en-US')} {client.contractCurrency}
+                  <span className="font-normal ms-1" style={{ color: 'var(--color-text-muted)' }}>/ شهر</span>
+                </span>
+              )}
               {client.deliverableCount !== undefined && client.deliverableCount > 0 && (
                 <span style={{ color: 'var(--color-text-muted)' }}>
                   <span className="axis-num">{client.deliverableCount}</span> قطعة / شهر
@@ -153,8 +157,8 @@ export default function ClientPage({ client, project, accent, onClose, onEdit }:
       {/* Tab content */}
       {tab === 'overview' && <OverviewTab client={client} accent={accent} />}
       {tab === 'content' && <ContentTab client={client} project={project} accent={accent} />}
-      {tab === 'agreement' && <AgreementTab client={client} />}
-      {tab === 'billing' && <BillingTab client={client} project={project} />}
+      {tab === 'agreement' && <AgreementTab client={client} showFinancials={showFinancials} />}
+      {tab === 'billing' && showFinancials && <BillingTab client={client} project={project} />}
     </div>
   )
 }
@@ -645,7 +649,7 @@ function FilterChip({ active, onClick, color, children }: { active: boolean; onC
 
 type ClientFormData = Omit<Client, 'id' | 'order' | 'createdAt' | 'updatedAt' | 'projectId'>
 
-function AgreementTab({ client }: { client: Client }) {
+function AgreementTab({ client, showFinancials = true }: { client: Client; showFinancials?: boolean }) {
   const { updateClient } = useClientStore()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(client.name)
@@ -736,15 +740,19 @@ function AgreementTab({ client }: { client: Client }) {
               <input className={inputCls} style={inputStyle} dir="ltr" value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="axis-label mb-1 block">قيمة العقد الشهرية</label>
-              <input type="number" className={inputCls} style={inputStyle} value={contractValue} onChange={(e) => setContractValue(e.target.value)} />
-            </div>
-            <div>
-              <label className="axis-label mb-1 block">العملة</label>
-              <input className={inputCls} style={inputStyle} value={contractCurrency} onChange={(e) => setContractCurrency(e.target.value)} />
-            </div>
+          <div className={`grid gap-2 ${showFinancials ? 'grid-cols-3' : 'grid-cols-1'}`}>
+            {showFinancials && (
+              <>
+                <div>
+                  <label className="axis-label mb-1 block">قيمة العقد الشهرية</label>
+                  <input type="number" className={inputCls} style={inputStyle} value={contractValue} onChange={(e) => setContractValue(e.target.value)} />
+                </div>
+                <div>
+                  <label className="axis-label mb-1 block">العملة</label>
+                  <input className={inputCls} style={inputStyle} value={contractCurrency} onChange={(e) => setContractCurrency(e.target.value)} />
+                </div>
+              </>
+            )}
             <div>
               <label className="axis-label mb-1 block">قطع / شهر</label>
               <input type="number" className={inputCls} style={inputStyle} value={deliverableCount} onChange={(e) => setDeliverableCount(e.target.value)} />
@@ -791,7 +799,9 @@ function AgreementTab({ client }: { client: Client }) {
           {client.contactName && <InfoRow label="جهة التواصل" value={client.contactName} />}
           {client.email && <InfoRow label="البريد الإلكتروني" value={client.email} ltr />}
           {client.phone && <InfoRow label="الجوال" value={client.phone} ltr />}
-          <InfoRow label="قيمة العقد الشهرية" value={`${client.contractValue.toLocaleString('en-US')} ${client.contractCurrency}`} />
+          {showFinancials && (
+            <InfoRow label="قيمة العقد الشهرية" value={`${client.contractValue.toLocaleString('en-US')} ${client.contractCurrency}`} />
+          )}
           {client.deliverableCount !== undefined && (
             <InfoRow label="قطع / شهر" value={String(client.deliverableCount)} />
           )}

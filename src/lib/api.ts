@@ -89,6 +89,70 @@ export async function apiSyncPush(snapshot: Partial<SyncSnapshot>): Promise<bool
   return result?.ok === true
 }
 
+// ── Invitations ───────────────────────────────────────────
+
+export interface InvitePayload {
+  email: string
+  name?: string
+  projectName?: string
+  toolLabels?: string[]
+  inviterName?: string
+}
+
+export interface InviteResult {
+  sent: boolean
+  fallback?: boolean
+  error?: string
+}
+
+/**
+ * Ask the backend to email an access invitation. Returns { sent:true } when
+ * delivered via Resend, or { fallback:true } when no provider is configured
+ * (caller should open a mailto draft). Returns null when the API is unreachable
+ * (local dev) — caller should also fall back to mailto.
+ */
+export async function apiInvite(payload: InvitePayload): Promise<InviteResult | null> {
+  return apiFetch<InviteResult>('invite', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+/**
+ * Send an invitation, transparently falling back to a mailto draft when the
+ * backend has no email provider (or is unreachable in local dev). Returns how
+ * the invite was delivered so the UI can show the right confirmation.
+ */
+export async function sendInvite(payload: InvitePayload): Promise<'sent' | 'mailto' | 'failed'> {
+  const result = await apiInvite(payload)
+  if (result?.sent) return 'sent'
+  if (typeof window !== 'undefined') {
+    window.location.href = buildInviteMailto(payload)
+    return 'mailto'
+  }
+  return 'failed'
+}
+
+/** Build a mailto: URL with a pre-filled Arabic invitation draft. */
+export function buildInviteMailto(payload: InvitePayload): string {
+  const tools = (payload.toolLabels ?? []).filter(Boolean)
+  const subject = payload.projectName
+    ? `دعوة للوصول إلى مشروع ${payload.projectName} — بوصلة الأعمال`
+    : 'دعوة للوصول إلى بوصلة الأعمال'
+  const lines = [
+    `مرحباً ${payload.name ?? ''}`.trim(),
+    '',
+    payload.projectName
+      ? `تم منحك صلاحية الوصول إلى مشروع "${payload.projectName}" على منصة بوصلة الأعمال.`
+      : 'تم منحك صلاحية الوصول إلى منصة بوصلة الأعمال.',
+    tools.length ? `الأقسام المتاحة لك: ${tools.join(' · ')}` : '',
+    '',
+    'افتح المنصة وسجّل دخولك عبر: https://boslaworks.com',
+    payload.inviterName ? `\nالدعوة من ${payload.inviterName}` : '',
+  ].filter((l) => l !== '')
+  return `mailto:${encodeURIComponent(payload.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(lines.join('\n'))}`
+}
+
 // ── Users ─────────────────────────────────────────────────
 
 export const apiUsers = {

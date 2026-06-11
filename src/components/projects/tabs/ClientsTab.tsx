@@ -4,6 +4,7 @@ import { Plus, Trash2, Check, X, Building2, Mail, Phone, FileText, ChevronLeft, 
 import { useShallow } from 'zustand/shallow'
 import type { Project, Client, ClientStatus } from '@/types'
 import { useClientStore } from '@/store/store'
+import { useCanSeeFinancials } from '@/store/permissionStore'
 import { formatDateShort } from '@/lib/utils'
 import ClientPage from './clients/ClientPage'
 import { buildClientColorMap } from './content/contentMeta'
@@ -32,6 +33,7 @@ export default function ClientsTab({ project }: Props) {
     s.clients.filter((c) => c.projectId === pid).sort((a, b) => a.order - b.order)
   ))
   const { addClient, updateClient, deleteClient } = useClientStore()
+  const showFinancials = useCanSeeFinancials()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
@@ -49,6 +51,7 @@ export default function ClientsTab({ project }: Props) {
         client={openClient}
         project={project}
         accent={clientColorMap[openClient.id] ?? 'var(--iris-500)'}
+        showFinancials={showFinancials}
         onClose={() => setOpenId(null)}
         onEdit={() => { setOpenId(null); setEditingId(openClient.id) }}
       />
@@ -59,10 +62,12 @@ export default function ClientsTab({ project }: Props) {
     <div className="space-y-5">
       {/* Summary */}
       {clients.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className={`grid grid-cols-1 gap-3 ${showFinancials ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
           <SummaryCard label="إجمالي العملاء" value={String(clients.length)} sub="عميل" color="var(--iris-500)" />
           <SummaryCard label="عملاء نشطون" value={String(active.length)} sub="عميل" color="var(--success-500)" />
-          <SummaryCard label="قيمة العقود الشهرية" value={fmt(totalValue)} sub={currency} color="var(--warning-500)" />
+          {showFinancials && (
+            <SummaryCard label="قيمة العقود الشهرية" value={fmt(totalValue)} sub={currency} color="var(--warning-500)" />
+          )}
         </div>
       )}
 
@@ -81,11 +86,12 @@ export default function ClientsTab({ project }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {clients.map((c) =>
             editingId === c.id
-              ? <ClientForm key={c.id} initial={c} onSave={(d) => { updateClient(c.id, d); setEditingId(null) }} onCancel={() => setEditingId(null)} />
+              ? <ClientForm key={c.id} initial={c} showFinancials={showFinancials} onSave={(d) => { updateClient(c.id, d); setEditingId(null) }} onCancel={() => setEditingId(null)} />
               : (
                 <ClientCard
                   key={c.id}
                   client={c}
+                  showFinancials={showFinancials}
                   deleteConfirm={deleteConfirmId === c.id}
                   onOpen={() => setOpenId(c.id)}
                   onEdit={() => setEditingId(c.id)}
@@ -97,6 +103,7 @@ export default function ClientsTab({ project }: Props) {
           )}
           {adding && (
             <ClientForm
+              showFinancials={showFinancials}
               onSave={(d) => { addClient({ ...d, projectId: pid }); setAdding(false) }}
               onCancel={() => setAdding(false)}
             />
@@ -157,6 +164,7 @@ export function ClientAvatar({ client, size = 40 }: { client: { name: string; lo
 
 interface ClientCardProps {
   client: Client
+  showFinancials: boolean
   deleteConfirm: boolean
   onOpen: () => void
   onEdit: () => void
@@ -165,7 +173,7 @@ interface ClientCardProps {
   onDeleteCancel: () => void
 }
 
-function ClientCard({ client: c, deleteConfirm, onOpen, onEdit, onDeleteRequest, onDeleteConfirm, onDeleteCancel }: ClientCardProps) {
+function ClientCard({ client: c, showFinancials, deleteConfirm, onOpen, onEdit, onDeleteRequest, onDeleteConfirm, onDeleteCancel }: ClientCardProps) {
   const statusColor = STATUS_VAR[c.status]
   return (
     <div
@@ -194,10 +202,12 @@ function ClientCard({ client: c, deleteConfirm, onOpen, onEdit, onDeleteRequest,
             {c.phone && <span className="inline-flex items-center gap-1 num-tabular"><Phone size={11} />{c.phone}</span>}
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs">
-            <span className="font-semibold axis-num" style={{ color: 'var(--success-500)' }}>
-              {c.contractValue.toLocaleString('en-US')} {c.contractCurrency}
-              <span className="font-normal ms-1" style={{ color: 'var(--color-text-muted)' }}>/ شهر</span>
-            </span>
+            {showFinancials && (
+              <span className="font-semibold axis-num" style={{ color: 'var(--success-500)' }}>
+                {c.contractValue.toLocaleString('en-US')} {c.contractCurrency}
+                <span className="font-normal ms-1" style={{ color: 'var(--color-text-muted)' }}>/ شهر</span>
+              </span>
+            )}
             {c.deliverableCount !== undefined && c.deliverableCount > 0 && (
               <span style={{ color: 'var(--color-text-muted)' }}>
                 <span className="axis-num">{c.deliverableCount}</span> قطعة / شهر
@@ -263,7 +273,7 @@ const inputStyle = { background: 'var(--color-surface-muted)', border: '1px soli
 
 type ClientFormData = Omit<Client, 'id' | 'order' | 'createdAt' | 'updatedAt' | 'projectId'>
 
-function ClientForm({ initial, onSave, onCancel }: { initial?: Client; onSave: (d: ClientFormData) => void; onCancel: () => void }) {
+function ClientForm({ initial, showFinancials = true, onSave, onCancel }: { initial?: Client; showFinancials?: boolean; onSave: (d: ClientFormData) => void; onCancel: () => void }) {
   const [name, setName] = useState(initial?.name ?? '')
   const [logo, setLogo] = useState(initial?.logo ?? '')
   const [contactName, setContactName] = useState(initial?.contactName ?? '')
@@ -379,15 +389,19 @@ function ClientForm({ initial, onSave, onCancel }: { initial?: Client; onSave: (
           <input className={inputCls} style={inputStyle} dir="ltr" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="05xxxxxxxx" />
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        <div>
-          <label className="axis-label mb-1 block">قيمة العقد / شهر</label>
-          <input type="number" className={inputCls} style={inputStyle} value={contractValue} onChange={(e) => setContractValue(e.target.value)} placeholder="0" />
-        </div>
-        <div>
-          <label className="axis-label mb-1 block">العملة</label>
-          <input className={inputCls} style={inputStyle} value={contractCurrency} onChange={(e) => setContractCurrency(e.target.value)} />
-        </div>
+      <div className={`grid gap-2 ${showFinancials ? 'grid-cols-3' : 'grid-cols-1'}`}>
+        {showFinancials && (
+          <>
+            <div>
+              <label className="axis-label mb-1 block">قيمة العقد / شهر</label>
+              <input type="number" className={inputCls} style={inputStyle} value={contractValue} onChange={(e) => setContractValue(e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <label className="axis-label mb-1 block">العملة</label>
+              <input className={inputCls} style={inputStyle} value={contractCurrency} onChange={(e) => setContractCurrency(e.target.value)} />
+            </div>
+          </>
+        )}
         <div>
           <label className="axis-label mb-1 block">قطع / شهر</label>
           <input type="number" className={inputCls} style={inputStyle} value={deliverableCount} onChange={(e) => setDeliverableCount(e.target.value)} placeholder="0" />
