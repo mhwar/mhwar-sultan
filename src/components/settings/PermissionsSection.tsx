@@ -3,12 +3,13 @@ import { useState, useEffect } from 'react'
 import {
   UserCog, ChevronDown, Plus, Pencil, Trash2, Check, X,
   ShieldCheck, ShieldOff, Eye, EyeOff, Settings2, BadgeCheck, LogOut, Send, Mail, Link2,
+  UserCheck, Globe,
 } from 'lucide-react'
 import { usePermissionStore } from '@/store/permissionStore'
 import { useProjectStore } from '@/store/store'
 import { TOOLS } from '@/lib/tool-registry'
 import { CF_LOGOUT_URL } from '@/lib/cfAccess'
-import { sendInvite } from '@/lib/api'
+import { sendInvite, apiAccess } from '@/lib/api'
 import { buildInviteUrl } from '@/lib/invite-token'
 import type { AppUser, ProjectPermission } from '@/types'
 
@@ -323,6 +324,148 @@ function CopyInviteButton({ user }: { user: AppUser }) {
   )
 }
 
+// ── Grant Cloudflare Access button ───────────────────────
+
+function GrantAccessButton({ user }: { user: AppUser }) {
+  const permissions = usePermissionStore((s) => s.permissions.filter((p) => p.userId === user.id))
+  const [state, setState] = useState<'idle' | 'loading' | 'ok' | 'noApi' | 'err'>('idle')
+
+  const grant = async () => {
+    if (!user.email) return
+    setState('loading')
+    const result = await apiAccess.grant({
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      systemRole: user.systemRole,
+      isFinance: user.isFinance,
+      isContent: user.isContent,
+      createdAt: user.createdAt,
+      permissions: permissions.map((p) => ({
+        userId: p.userId,
+        projectId: p.projectId,
+        access: p.access,
+        deniedTools: p.deniedTools,
+      })),
+    })
+    if (!result) { setState('err'); setTimeout(() => setState('idle'), 3000); return }
+    if (!result.cfConfigured) { setState('noApi'); setTimeout(() => setState('idle'), 4000); return }
+    setState('ok')
+    setTimeout(() => setState('idle'), 3000)
+  }
+
+  const label =
+    state === 'loading' ? '...' :
+    state === 'ok'      ? 'تم الإضافة' :
+    state === 'noApi'   ? 'تم (بدون CF)' :
+    state === 'err'     ? 'فشل' : 'منح الوصول'
+
+  const tint =
+    state === 'ok'    ? 'var(--success-500)' :
+    state === 'err'   ? 'var(--danger-500)'  :
+    state === 'noApi' ? 'var(--warning-500)' : 'var(--iris-500)'
+
+  return (
+    <button
+      type="button"
+      onClick={grant}
+      disabled={state === 'loading' || !user.email}
+      title={!user.email ? 'أضف البريد أولاً' : 'منح صلاحية الوصول وإضافة لـ Cloudflare Access'}
+      className="flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-colors disabled:opacity-40"
+      style={{ color: tint, border: `1px solid color-mix(in srgb, ${tint} 30%, transparent)` }}
+    >
+      <UserCheck size={12} />
+      {label}
+    </button>
+  )
+}
+
+// ── Google SSO setup card ─────────────────────────────────
+
+function GoogleSsoCard() {
+  const signedInEmail = usePermissionStore((s) => s.signedInEmail)
+  const isAdmin = usePermissionStore((s) => {
+    const u = s.signedInEmail ? s.users.find((x) => x.email?.toLowerCase() === s.signedInEmail) : null
+    return !u || u.systemRole === 'admin'
+  })
+  const [clientId, setClientId] = useState('')
+  const [clientSecret, setClientSecret] = useState('')
+  const [state, setState] = useState<'idle' | 'loading' | 'ok' | 'err'>('idle')
+  const [redirectUri, setRedirectUri] = useState('')
+
+  if (!isAdmin) return null
+
+  const setup = async () => {
+    if (!clientId.trim() || !clientSecret.trim()) return
+    setState('loading')
+    const result = await apiAccess.setupGoogleIdp(clientId.trim(), clientSecret.trim())
+    if (!result) { setState('err'); return }
+    if (result.alreadyExists) { setState('ok'); setRedirectUri(''); return }
+    if (result.redirectUri) setRedirectUri(result.redirectUri)
+    setState('ok')
+  }
+
+  return (
+    <div className="axis-card p-6">
+      <SectionHeader icon={<Globe size={15} strokeWidth={1.5} />} title="تسجيل الدخول بـ Google" tint="#4285F4" />
+
+      {state === 'ok' ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--success-500)' }}>
+            <Check size={15} />
+            تم إعداد Google كمزوّد هوية في Cloudflare Access
+          </div>
+          {redirectUri && (
+            <div className="rounded-lg p-3 text-xs" style={{ background: 'var(--color-surface-base)', border: '1px solid var(--border-subtle)' }}>
+              <p className="font-medium mb-1" style={{ color: 'var(--fg-2)' }}>Authorized redirect URI (أضفه في Google Console):</p>
+              <p className="font-mono break-all" style={{ color: 'var(--iris-500)' }} dir="ltr">{redirectUri}</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs" style={{ color: 'var(--fg-3)' }}>
+            أنشئ OAuth 2.0 Client ID من Google Cloud Console ثم الصق البيانات هنا.
+          </p>
+          <div className="space-y-2">
+            <input
+              className="axis-input w-full text-sm font-mono"
+              placeholder="Client ID"
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              dir="ltr"
+            />
+            <input
+              className="axis-input w-full text-sm font-mono"
+              placeholder="Client Secret"
+              type="password"
+              value={clientSecret}
+              onChange={(e) => setClientSecret(e.target.value)}
+              dir="ltr"
+            />
+          </div>
+          {state === 'err' && (
+            <p className="text-xs" style={{ color: 'var(--danger-500)' }}>
+              فشل الإعداد — تحقق من Client ID و Secret أو تأكد من إعداد CLOUDFLARE_API_TOKEN
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={setup}
+            disabled={state === 'loading' || !clientId.trim() || !clientSecret.trim()}
+            className="axis-btn axis-btn--primary axis-btn--sm"
+          >
+            {state === 'loading' ? 'جارٍ الإعداد...' : 'إعداد Google SSO'}
+          </button>
+          <p className="text-[11px]" style={{ color: 'var(--fg-3)' }}>
+            يتطلب إعداد env var: <span className="font-mono" dir="ltr">CLOUDFLARE_API_TOKEN</span> في Cloudflare Pages.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── User list card ────────────────────────────────────────
 
 function UserListCard() {
@@ -414,6 +557,7 @@ function UserListCard() {
                   )}
                 </div>
                 <div className="flex items-center gap-1">
+                  {!!u.email && <GrantAccessButton user={u} />}
                   <CopyInviteButton user={u} />
                   {u.systemRole === 'member' && !!u.email && <InviteButton user={u} />}
                   <button
@@ -708,6 +852,7 @@ export default function PermissionsSection() {
         <UserListCard />
       </div>
       <ProjectPermissionsCard hydrated={hydrated} />
+      <GoogleSsoCard />
     </div>
   )
 }

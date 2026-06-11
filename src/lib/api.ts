@@ -198,6 +198,31 @@ export const apiPermissions = {
     }),
 }
 
+// ── Access management ────────────────────────────────────
+
+export interface GrantAccessPayload {
+  userId: string
+  name: string
+  email: string
+  systemRole: string
+  isFinance: boolean
+  isContent: boolean
+  createdAt: string
+  permissions: Array<{ userId: string; projectId: string; access: string; deniedTools: string[] }>
+}
+
+export interface GrantAccessResult { ok: boolean; addedToAccess: boolean; cfConfigured: boolean }
+
+export const apiAccess = {
+  grant: (payload: GrantAccessPayload) =>
+    apiFetch<GrantAccessResult>('access/grant', { method: 'POST', body: JSON.stringify(payload) }),
+
+  setupGoogleIdp: (clientId: string, clientSecret: string) =>
+    apiFetch<{ ok: boolean; redirectUri?: string; alreadyExists?: boolean }>(
+      'setup/google-idp', { method: 'POST', body: JSON.stringify({ clientId, clientSecret }) }
+    ),
+}
+
 // ── Projects ──────────────────────────────────────────────
 
 export const apiProjects = {
