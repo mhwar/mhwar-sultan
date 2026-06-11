@@ -2,11 +2,12 @@
 import { useState, useEffect } from 'react'
 import {
   UserCog, ChevronDown, Plus, Pencil, Trash2, Check, X,
-  ShieldCheck, ShieldOff, Eye, EyeOff, Settings2,
+  ShieldCheck, ShieldOff, Eye, EyeOff, Settings2, BadgeCheck, LogOut,
 } from 'lucide-react'
 import { usePermissionStore } from '@/store/permissionStore'
 import { useProjectStore } from '@/store/store'
 import { TOOLS } from '@/lib/tool-registry'
+import { CF_LOGOUT_URL } from '@/lib/cfAccess'
 import type { AppUser, ProjectPermission } from '@/types'
 
 // ── Helpers ───────────────────────────────────────────────
@@ -65,52 +66,100 @@ const BLANK: Omit<AppUser, 'id' | 'createdAt'> = {
 // ── Sub-components ────────────────────────────────────────
 
 function ActiveUserPicker({ hydrated }: { hydrated: boolean }) {
-  const { users, activeUserId, setActiveUser } = usePermissionStore()
+  const { users, activeUserId, setActiveUser, signedInEmail } = usePermissionStore()
   const activeUser = users.find((u) => u.id === activeUserId) ?? null
+  const signedInUser = signedInEmail
+    ? users.find((u) => u.email?.toLowerCase() === signedInEmail) ?? null
+    : null
+  const isAdmin = signedInUser?.systemRole === 'admin'
 
   return (
     <div className="axis-card p-6">
       <SectionHeader icon={<UserCog size={15} strokeWidth={1.5} />} title="الجلسة النشطة" tint="var(--iris-500)" />
-      <div className="flex items-center justify-between py-2 gap-4">
-        <div>
-          <p className="text-sm font-medium" style={{ color: 'var(--fg-1)' }}>تصفح كـ</p>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--fg-3)' }}>
-            حدد هوية المستخدم النشط — الصلاحيات تُطبَّق فوراً
-          </p>
-        </div>
-        <div className="relative">
-          <select
-            className="text-sm rounded-lg border px-3 py-2 pe-8 appearance-none cursor-pointer"
-            style={{
-              background: 'var(--color-surface-raised)',
-              border: '1px solid var(--border-subtle)',
-              color: 'var(--fg-1)',
-              minWidth: 160,
-            }}
-            value={activeUserId ?? ''}
-            onChange={(e) => setActiveUser(e.target.value || null)}
-            disabled={!hydrated}
+
+      {/* Cloudflare Access — verified identity */}
+      {signedInEmail ? (
+        <div
+          className="flex items-center gap-3 rounded-xl px-4 py-3"
+          style={{ background: 'color-mix(in srgb, var(--success-500) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--success-500) 25%, transparent)' }}
+        >
+          {signedInUser ? <Avatar user={signedInUser} /> : (
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: 'var(--iris-500)' }}>
+              {signedInEmail.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-semibold truncate" style={{ color: 'var(--fg-1)' }}>
+                {signedInUser?.name ?? 'مستخدم غير مُسنَد'}
+              </p>
+              <BadgeCheck size={14} style={{ color: 'var(--success-500)' }} />
+            </div>
+            <p className="text-xs truncate" style={{ color: 'var(--fg-3)' }} dir="ltr">{signedInEmail}</p>
+          </div>
+          <a
+            href={CF_LOGOUT_URL}
+            className="axis-btn axis-btn--ghost axis-btn--sm shrink-0"
+            title="تسجيل الخروج"
           >
-            <option value="">بدون تقييد (وصول كامل)</option>
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name} {u.systemRole === 'admin' ? '(مدير)' : ''}
-              </option>
-            ))}
-          </select>
-          <ChevronDown size={14} className="absolute top-1/2 -translate-y-1/2 end-2.5 pointer-events-none" style={{ color: 'var(--fg-3)' }} />
+            <LogOut size={13} />
+            خروج
+          </a>
         </div>
-      </div>
-      {activeUser && (
+      ) : (
+        <div
+          className="rounded-xl px-4 py-3 text-xs"
+          style={{ background: 'var(--color-surface-raised)', border: '1px solid var(--border-subtle)', color: 'var(--fg-3)' }}
+        >
+          لا توجد جلسة موثّقة عبر Cloudflare Access — يعمل الوضع المحلي دون قيود. عند
+          النشر خلف Cloudflare، يُربط المستخدم تلقائياً ببريده.
+        </div>
+      )}
+
+      {/* Admin-only impersonation: preview the app as any user. */}
+      {(isAdmin || !signedInEmail) && (
+        <div className="flex items-center justify-between gap-4 mt-4 pt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          <div>
+            <p className="text-sm font-medium" style={{ color: 'var(--fg-1)' }}>معاينة كمستخدم</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--fg-3)' }}>
+              للمسؤول — جرّب واجهة أي مستخدم وصلاحياته
+            </p>
+          </div>
+          <div className="relative">
+            <select
+              className="text-sm rounded-lg border px-3 py-2 pe-8 appearance-none cursor-pointer"
+              style={{
+                background: 'var(--color-surface-raised)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--fg-1)',
+                minWidth: 160,
+              }}
+              value={activeUserId ?? ''}
+              onChange={(e) => setActiveUser(e.target.value || null)}
+              disabled={!hydrated}
+            >
+              <option value="">بدون تقييد (وصول كامل)</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name} {u.systemRole === 'admin' ? '(مدير)' : ''}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={14} className="absolute top-1/2 -translate-y-1/2 end-2.5 pointer-events-none" style={{ color: 'var(--fg-3)' }} />
+          </div>
+        </div>
+      )}
+
+      {activeUser && activeUser.id !== signedInUser?.id && (
         <div
           className="mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
-          style={{ background: activeUser.systemRole === 'admin' ? 'color-mix(in srgb, var(--success-500) 10%, transparent)' : 'color-mix(in srgb, var(--warning-500) 10%, transparent)' }}
+          style={{ background: 'color-mix(in srgb, var(--warning-500) 10%, transparent)' }}
         >
           <Avatar user={activeUser} />
           <span style={{ color: 'var(--fg-2)' }}>
-            {activeUser.name} —{' '}
+            تعاين الآن كـ {activeUser.name} —{' '}
             {activeUser.systemRole === 'admin'
-              ? 'مدير (وصول كامل لكل شيء)'
+              ? 'مدير (وصول كامل)'
               : `عضو · المالية: ${activeUser.isFinance ? 'مسموح' : 'محجوب'} · المحتوى: ${activeUser.isContent ? 'مسموح' : 'محجوب'}`}
           </span>
         </div>
@@ -155,6 +204,9 @@ function UserForm({ initial, onSave, onCancel }: UserFormProps) {
             placeholder="email@example.com"
             dir="ltr"
           />
+          <p className="text-[11px] mt-1" style={{ color: 'var(--fg-3)' }}>
+            يُربط به الدخول عبر Cloudflare — استخدم نفس بريد دعوة العضو
+          </p>
         </div>
       </div>
       <div className="flex items-center gap-6">
@@ -215,7 +267,7 @@ function UserForm({ initial, onSave, onCancel }: UserFormProps) {
 // ── User list card ────────────────────────────────────────
 
 function UserListCard() {
-  const { users, addUser, updateUser, deleteUser } = usePermissionStore()
+  const { users, addUser, updateUser, deleteUser, signedInEmail } = usePermissionStore()
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
 
@@ -265,7 +317,17 @@ function UserListCard() {
               >
                 <Avatar user={u} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate" style={{ color: 'var(--fg-1)' }}>{u.name}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium truncate" style={{ color: 'var(--fg-1)' }}>{u.name}</p>
+                    {!!u.email && u.email.toLowerCase() === signedInEmail && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0"
+                        style={{ background: 'color-mix(in srgb, var(--success-500) 16%, transparent)', color: 'var(--success-500)' }}
+                      >
+                        أنت
+                      </span>
+                    )}
+                  </div>
                   {u.email && (
                     <p className="text-xs truncate" style={{ color: 'var(--fg-3)' }} dir="ltr">{u.email}</p>
                   )}

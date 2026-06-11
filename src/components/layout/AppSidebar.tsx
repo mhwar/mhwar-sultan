@@ -2,8 +2,10 @@
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
-import { LayoutDashboard, FolderKanban, BarChart3, Settings, Plus, X, Search, CheckSquare } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, BarChart3, Settings, Plus, X, Search, CheckSquare, LogOut } from 'lucide-react'
 import { useProjectStore } from '@/store/store'
+import { usePermissionStore } from '@/store/permissionStore'
+import { CF_LOGOUT_URL } from '@/lib/cfAccess'
 import ThemeToggle from '@/components/shared/ThemeToggle'
 
 const navItems = [
@@ -23,6 +25,9 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
   const searchParams = useSearchParams()
   const activeProjectId = pathname === '/project' ? searchParams.get('id') : null
   const projects = useProjectStore((s) => s.projects)
+  const signedInEmail = usePermissionStore((s) => s.signedInEmail)
+  const users = usePermissionStore((s) => s.users)
+  const me = signedInEmail ? users.find((u) => u.email?.toLowerCase() === signedInEmail) : null
 
   // Auto-close on navigation (mobile only — md:hidden backdrop handles visual)
   useEffect(() => {
@@ -167,8 +172,37 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
             </div>
           </div>
 
-          {/* Footer — settings */}
+          {/* Footer — signed-in identity + settings */}
           <div className="pt-2 mt-2 space-y-0.5" style={{ borderTop: '1px solid var(--color-surface-border)' }}>
+            {signedInEmail && (
+              <div
+                className="flex items-center gap-2.5 px-2.5 py-2 rounded-md mb-1"
+                style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)' }}
+              >
+                <div
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                  style={{ background: 'var(--color-iris-500)' }}
+                >
+                  {(me?.name ?? signedInEmail).charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
+                    {me?.name ?? 'مستخدم'}
+                  </div>
+                  <div className="text-[10px] truncate" style={{ color: 'var(--color-text-muted)' }} dir="ltr">
+                    {signedInEmail}
+                  </div>
+                </div>
+                <a
+                  href={CF_LOGOUT_URL}
+                  title="تسجيل الخروج"
+                  className="w-7 h-7 rounded-md flex items-center justify-center transition-colors hover:bg-white/10 shrink-0"
+                  style={{ color: 'var(--color-text-muted)' }}
+                >
+                  <LogOut size={14} />
+                </a>
+              </div>
+            )}
             <Link
               href="/settings"
               className={`sidebar-nav-item${pathname === '/settings' ? ' active' : ''}`}

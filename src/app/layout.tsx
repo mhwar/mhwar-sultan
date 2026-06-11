@@ -3,6 +3,7 @@ import { Cairo, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import SpaRedirect from '@/components/shared/SpaRedirect'
 import StoreHydration from '@/components/shared/StoreHydration'
+import IdentityGate from '@/components/shared/IdentityGate'
 
 const cairo = Cairo({
   subsets: ['arabic', 'latin'],
@@ -29,7 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-sans">
         <SpaRedirect />
         <StoreHydration />
-        {children}
+        <IdentityGate>{children}</IdentityGate>
       </body>
     </html>
   )
