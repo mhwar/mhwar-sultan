@@ -145,10 +145,38 @@ interface UserRow {
   created_at: string
 }
 
+/** Decode the `email` claim from a Cloudflare Access JWT payload (no signature
+ * check needed — Access already verified it at the edge before forwarding, and
+ * clients can't spoof Cf-Access-* headers on a protected app). */
+function decodeJwtEmail(jwt: string): string | null {
+  try {
+    const payload = jwt.split('.')[1]
+    if (!payload) return null
+    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4)
+    const data = JSON.parse(atob(padded)) as Record<string, unknown>
+    const email = (data.email ?? (data.identity as Record<string, unknown> | undefined)?.email) as unknown
+    return typeof email === 'string' && email ? email.toLowerCase() : null
+  } catch {
+    return null
+  }
+}
+
+/** Resolve the authenticated visitor's email from Access headers, falling back
+ * to the JWT when the dedicated email header isn't forwarded (some Access
+ * configurations only send Cf-Access-Jwt-Assertion). */
+function resolveAccessEmail(req: Request): string | null {
+  const header =
+    req.headers.get('Cf-Access-Authenticated-User-Email') ||
+    req.headers.get('CF-Access-Authenticated-User-Email')
+  if (header) return header.toLowerCase()
+  const jwt = req.headers.get('Cf-Access-Jwt-Assertion')
+  return jwt ? decodeJwtEmail(jwt) : null
+}
+
 async function getAuthUser(req: Request, db: D1Database): Promise<UserRow | null> {
-  const email = req.headers.get('CF-Access-Authenticated-User-Email')
-  if (!email) return null
-  const normalized = email.toLowerCase()
+  const normalized = resolveAccessEmail(req)
+  if (!normalized) return null
 
   const existing = await db
     .prepare('SELECT * FROM app_users WHERE lower(email) = ?')
@@ -212,9 +240,7 @@ async function handleHealth(db: D1Database, req: Request): Promise<Response> {
     dbOk = true
   } catch { /* dbOk stays false */ }
 
-  const accessEmail =
-    req.headers.get('Cf-Access-Authenticated-User-Email') ||
-    req.headers.get('CF-Access-Authenticated-User-Email') || null
+  const accessEmail = resolveAccessEmail(req)
   const hasJwt = !!req.headers.get('Cf-Access-Jwt-Assertion')
 
   let userCount: number | null = null
