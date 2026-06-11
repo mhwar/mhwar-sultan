@@ -5,12 +5,11 @@ import { useThemeStore } from '@/store/themeStore'
 import { SEED_PROJECTS, SEED_CLIENTS, SEED_CONTENT } from '@/lib/seed-data'
 
 /**
- * After rehydrating all stores, merge any seed records whose IDs are missing
- * from the live stores. This is idempotent: items already present are untouched.
- * New seed items (e.g. a new demo project added in a release) appear automatically
- * without requiring the user to clear localStorage.
+ * Merge any seed records whose IDs are missing from the live stores.
+ * Called only when the API is unreachable (local-only mode) so cloud users
+ * never see a flash of deleted seed items on page refresh.
  */
-function syncMissingSeeds() {
+export function syncMissingSeeds() {
   // Projects
   const liveProjects = useProjectStore.getState().projects
   const liveProjectIds = new Set(liveProjects.map((p) => p.id))
@@ -65,8 +64,6 @@ export default function StoreHydration() {
     // After every store is hydrated (synchronous, localStorage-backed), run the
     // one-time legacy `agile` plan → sprint migration. Guarded internally.
     bootstrapSprints()
-    // Merge any seed records missing from live stores (idempotent).
-    syncMissingSeeds()
   }, [])
 
   return null

@@ -33,6 +33,7 @@ import { usePackageStore }    from '@/store/store'
 import { useClientStore }     from '@/store/store'
 import { useContentStore }    from '@/store/store'
 import { usePortfolioStore }  from '@/store/store'
+import { syncMissingSeeds } from '@/components/shared/StoreHydration'
 import {
   apiAvailable, apiSyncPull, apiSyncPush,
   apiProjects, apiTasks, apiPlans, apiPhases, apiSprints, apiNotes,
@@ -169,7 +170,12 @@ export default function ApiSync() {
 
     ;(async () => {
       const available = await apiAvailable()
-      if (!available || cancelled) return
+      if (!available) {
+        // No cloud API — apply demo seeds so the app has content to show.
+        syncMissingSeeds()
+        return
+      }
+      if (cancelled) return
 
       await pullAndHydrate()
       if (cancelled) return
