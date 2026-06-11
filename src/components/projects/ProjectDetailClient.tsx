@@ -1,19 +1,20 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, Edit2, Trash2, Plus, Shield } from 'lucide-react'
+import { ArrowRight, MoreVertical, Edit2, Trash2, Plus, Shield, FileDown } from 'lucide-react'
 import Link from 'next/link'
 import StatusBadge from '@/components/shared/StatusBadge'
 import ProjectForm from '@/components/projects/ProjectForm'
 import ToolsLibrarySheet from '@/components/projects/ToolsLibrarySheet'
 import ProjectAccessSheet from '@/components/projects/ProjectAccessSheet'
-import { useProjectStore, useTaskStore, useNavStore } from '@/store/store'
+import { useProjectStore, useTaskStore, useNavStore, usePlanStore, useDocumentStore, useTeamStore, useKpiStore } from '@/store/store'
 import { useShallow } from 'zustand/shallow'
 import { getTool } from '@/lib/tool-registry'
 import { FALLBACK_TOOL_IDS } from '@/lib/project-types'
 import ProjectIcon from '@/lib/icons'
 import { hexToRgba } from '@/lib/utils'
 import { usePermissionStore } from '@/store/permissionStore'
+import { buildProductReportHTML } from '@/components/projects/tabs/OverviewTab'
 
 interface Props {
   id: string
@@ -28,8 +29,14 @@ export default function ProjectDetailClient({ id }: Props) {
   const [showEdit, setShowEdit] = useState(false)
   const [showTools, setShowTools] = useState(false)
   const [showAccess, setShowAccess] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [hydrated, setHydrated] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
   const { targetTab, clearTab } = useNavStore()
+  const phases      = usePlanStore(useShallow((s) => s.phases.filter((ph) => ph.projectId === id).sort((a, b) => a.order - b.order)))
+  const docs        = useDocumentStore(useShallow((s) => s.docs.filter((d) => d.projectId === id).sort((a, b) => a.order - b.order)))
+  const team        = useTeamStore(useShallow((s) => s.members.filter((m) => m.projectId === id).sort((a, b) => a.order - b.order)))
+  const kpis        = useKpiStore(useShallow((s) => s.kpis.filter((k) => k.projectId === id).sort((a, b) => a.order - b.order)))
   const { getEffectiveTools, canAccessProject } = usePermissionStore()
   // Admin (or unrestricted local) sees the project-access control. Member preview hides it.
   const isAdminView = usePermissionStore((s) => {
@@ -41,6 +48,15 @@ export default function ProjectDetailClient({ id }: Props) {
     usePermissionStore.persist.rehydrate()
     setHydrated(true)
   }, [])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [menuOpen])
 
   // Tools enabled for this project (with legacy fallback), resolved via the registry,
   // then filtered by active user's permissions.
@@ -104,10 +120,24 @@ export default function ProjectDetailClient({ id }: Props) {
   }
 
   const handleDelete = () => {
+    setMenuOpen(false)
     if (confirm(`هل تريد حذف مشروع "${project.name}"؟`)) {
       deleteProject(id)
       router.push('/projects')
     }
+  }
+
+  const handleExport = () => {
+    setMenuOpen(false)
+    const doneTasks = tasks.filter((t) => t.status === 'done').length
+    const html = buildProductReportHTML({ project, phases, docs, team, kpis, tasks, doneTasks })
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `تقرير-${project.name}-${new Date().toISOString().slice(0, 10)}.html`
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
   }
 
   return (
@@ -192,49 +222,80 @@ export default function ProjectDetailClient({ id }: Props) {
               </div>
             </div>
 
-            {/* Edit / access / delete */}
-            <div className="flex items-center gap-2 shrink-0">
-              {isAdminView && (
-                <button
-                  onClick={() => setShowAccess(true)}
-                  className="flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-semibold transition-colors"
-                  style={{
-                    background: 'var(--color-surface-overlay)',
-                    color: 'var(--color-text-secondary)',
-                    border: '1px solid var(--color-surface-border)',
-                    boxShadow: 'var(--shadow-xs)',
-                  }}
-                  title="صلاحيات المشروع"
-                >
-                  <Shield size={12} />
-                  <span className="hidden sm:inline">الصلاحيات</span>
-                </button>
-              )}
+            {/* Actions kebab menu */}
+            <div ref={menuRef} className="relative shrink-0">
               <button
-                onClick={() => setShowEdit(true)}
-                className="flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-semibold transition-colors"
+                onClick={() => setMenuOpen((o) => !o)}
+                className="w-8 h-8 rounded-md flex items-center justify-center transition-colors"
                 style={{
-                  background: 'var(--color-surface-overlay)',
-                  color: 'var(--color-text-secondary)',
-                  border: '1px solid var(--color-surface-border)',
-                  boxShadow: 'var(--shadow-xs)',
-                }}
-              >
-                <Edit2 size={12} />
-                تعديل
-              </button>
-              <button
-                onClick={handleDelete}
-                className="w-8 h-8 rounded-md flex items-center justify-center transition-colors hover:bg-red-500/15"
-                style={{
-                  background: 'var(--color-surface-overlay)',
+                  background: menuOpen ? 'var(--color-surface-overlay)' : 'transparent',
                   color: 'var(--color-text-muted)',
                   border: '1px solid var(--color-surface-border)',
                   boxShadow: 'var(--shadow-xs)',
                 }}
+                title="إجراءات المشروع"
               >
-                <Trash2 size={12} />
+                <MoreVertical size={14} />
               </button>
+
+              {menuOpen && (
+                <div
+                  className="absolute end-0 top-full mt-1.5 w-52 rounded-xl py-1 z-50"
+                  style={{
+                    background: 'var(--color-surface-overlay)',
+                    border: '1px solid var(--color-surface-border)',
+                    boxShadow: 'var(--shadow-lg)',
+                  }}
+                >
+                  <button
+                    onClick={() => { setShowEdit(true); setMenuOpen(false) }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors text-start"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-surface-raised)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <Edit2 size={13} />
+                    تعديل المشروع
+                  </button>
+
+                  {isAdminView && (
+                    <button
+                      onClick={() => { setShowAccess(true); setMenuOpen(false) }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors text-start"
+                      style={{ color: 'var(--color-text-secondary)' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-surface-raised)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <Shield size={13} />
+                      صلاحيات المشروع
+                    </button>
+                  )}
+
+                  <button
+                    onClick={handleExport}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors text-start"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-surface-raised)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <FileDown size={13} />
+                    تصدير التقرير
+                  </button>
+
+                  <div style={{ height: '1px', background: 'var(--color-surface-border)', margin: '4px 12px' }} />
+
+                  <button
+                    onClick={handleDelete}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors text-start"
+                    style={{ color: 'var(--danger-500)' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'color-mix(in srgb, var(--danger-500) 10%, transparent)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <Trash2 size={13} />
+                    حذف المشروع
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

@@ -1,5 +1,5 @@
 'use client'
-import { ExternalLink, Tag, Calendar, Layers, FileDown } from 'lucide-react'
+import { ExternalLink, Tag, Calendar, Layers } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import type { Project } from '@/types'
 import { useTaskStore, usePlanStore, useSprintStore, useNoteStore, useDocumentStore, useTeamStore, useKpiStore } from '@/store/store'
@@ -26,7 +26,7 @@ function esc(s: string) {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildProductReportHTML({ project, phases, docs, team, kpis, tasks, doneTasks }: {
+export function buildProductReportHTML({ project, phases, docs, team, kpis, tasks, doneTasks }: {
   project: Project
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   phases: any[]
@@ -190,44 +190,18 @@ export default function OverviewTab({ project }: OverviewTabProps) {
     { label: 'الملاحظات', value: `${notes.length}` },
   ]
 
-  const exportReport = () => {
-    const html = buildProductReportHTML({ project, phases, docs, team, kpis, tasks, doneTasks })
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `تقرير-${project.name}-${new Date().toISOString().slice(0, 10)}.html`
-    document.body.appendChild(a); a.click(); document.body.removeChild(a)
-    setTimeout(() => URL.revokeObjectURL(url), 5000)
-  }
-
   return (
     <div className="space-y-5">
-      {/* Stats strip + export button */}
-      <div className="flex items-center gap-3">
-        <div className="axis-stats flex-1">
-          {stats.map((s) => (
-            <div key={s.label} className="axis-stat">
-              <span className="axis-label">{s.label}</span>
-              <span className="axis-num text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                {s.value}
-              </span>
-            </div>
-          ))}
-        </div>
-        <button
-          onClick={exportReport}
-          className="flex items-center gap-1.5 px-3 h-9 rounded-md text-xs font-semibold shrink-0 transition-colors"
-          style={{
-            background: 'var(--color-surface-raised)',
-            color: 'var(--color-text-secondary)',
-            border: '1px solid var(--color-surface-border)',
-          }}
-          title="تصدير تقرير شامل عن المنتج"
-        >
-          <FileDown size={13} />
-          تصدير تقرير
-        </button>
+      {/* Stats strip */}
+      <div className="axis-stats">
+        {stats.map((s) => (
+          <div key={s.label} className="axis-stat">
+            <span className="axis-label">{s.label}</span>
+            <span className="axis-num text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+              {s.value}
+            </span>
+          </div>
+        ))}
       </div>
 
       <div className="grid lg:grid-cols-3 gap-5">
