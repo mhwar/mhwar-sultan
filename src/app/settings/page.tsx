@@ -11,6 +11,7 @@ import Tag from '@/components/ui/Tag'
 import { useThemeStore } from '@/store/themeStore'
 import { cn } from '@/lib/utils'
 import PermissionsSection from '@/components/settings/PermissionsSection'
+import CloudSyncCard from '@/components/settings/CloudSyncCard'
 
 // ── Shared primitives ─────────────────────────────────────
 
@@ -373,6 +374,9 @@ export default function SettingsPage() {
 
           {/* Access control — the featured section, full width */}
           <PermissionsSection />
+
+          {/* Cloud sync status + admin recovery */}
+          <CloudSyncCard />
 
           {/* Platform settings — responsive multi-column grid */}
           <div>

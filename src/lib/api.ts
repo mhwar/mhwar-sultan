@@ -91,6 +91,19 @@ export async function apiSyncPush(snapshot: Partial<SyncSnapshot>): Promise<bool
   return result?.ok === true
 }
 
+/**
+ * Admin recovery: wipe all shared content in D1 and re-seed it from this
+ * browser's snapshot, making it the single source of truth. Users & permissions
+ * are preserved. Returns true on success.
+ */
+export async function apiSyncReset(snapshot: Partial<SyncSnapshot>): Promise<boolean> {
+  const result = await apiFetch<{ ok: boolean }>('sync/reset', {
+    method: 'POST',
+    body: JSON.stringify(snapshot),
+  })
+  return result?.ok === true
+}
+
 // ── Invitations ───────────────────────────────────────────
 
 export interface InvitePayload {
