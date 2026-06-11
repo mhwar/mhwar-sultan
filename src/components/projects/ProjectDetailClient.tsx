@@ -14,7 +14,7 @@ import { FALLBACK_TOOL_IDS } from '@/lib/project-types'
 import ProjectIcon from '@/lib/icons'
 import { hexToRgba } from '@/lib/utils'
 import { usePermissionStore } from '@/store/permissionStore'
-import { buildProductReportHTML } from '@/components/projects/tabs/OverviewTab'
+import { buildProductReportHTML } from '@/lib/report-builder'
 
 interface Props {
   id: string
