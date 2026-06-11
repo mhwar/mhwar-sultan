@@ -518,7 +518,7 @@ async function handleSetupGoogleIdp(req: Request, env: Env, caller: UserRow): Pr
 
   // Verify token has Zero Trust access by listing identity providers
   const existing = await cfGetWithError<CfIdp[]>(token, `/accounts/${accountId}/access/identity_providers?per_page=50`)
-  if (existing.error) return err(`صلاحية Cloudflare API: ${existing.error}`, 502)
+  if (existing.error) return err(`صلاحية Cloudflare API: ${existing.error}`, 400)
   const hasGoogle = (existing.result ?? []).some((idp) => idp.type === 'google')
   if (hasGoogle) return json({ ok: true, alreadyExists: true })
 
