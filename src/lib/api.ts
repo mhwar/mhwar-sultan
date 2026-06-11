@@ -35,6 +35,25 @@ async function apiFetch<T>(
   }
 }
 
+/** Like apiFetch but surfaces error messages from the response body. */
+async function apiFetchDetailed<T>(
+  path: string,
+  options?: RequestInit
+): Promise<{ data: T | null; error: string | null }> {
+  try {
+    const res = await fetch(`/api/${path}`, {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      ...options,
+    })
+    const body = await res.json() as T & { error?: string }
+    if (!res.ok) return { data: null, error: (body as { error?: string }).error ?? `HTTP ${res.status}` }
+    return { data: body, error: null }
+  } catch (e) {
+    return { data: null, error: String(e) }
+  }
+}
+
 // ── Health check ──────────────────────────────────────────
 
 /** Returns true when the Pages Function API is reachable (i.e. in production). */
@@ -218,7 +237,7 @@ export const apiAccess = {
     apiFetch<GrantAccessResult>('access/grant', { method: 'POST', body: JSON.stringify(payload) }),
 
   setupGoogleIdp: (clientId: string, clientSecret: string) =>
-    apiFetch<{ ok: boolean; redirectUri?: string; alreadyExists?: boolean }>(
+    apiFetchDetailed<{ ok: boolean; redirectUri?: string; alreadyExists?: boolean }>(
       'setup/google-idp', { method: 'POST', body: JSON.stringify({ clientId, clientSecret }) }
     ),
 }
