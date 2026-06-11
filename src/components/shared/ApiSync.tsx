@@ -15,7 +15,7 @@
  * component exits silently — stores keep using localStorage as before.
  */
 
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, type MutableRefObject } from 'react'
 import { usePermissionStore } from '@/store/permissionStore'
 import { useProjectStore }    from '@/store/store'
 import { useTaskStore }       from '@/store/store'
@@ -80,72 +80,103 @@ function diffAndSync<T extends HasId>(
   }
 }
 
+export function localSnapshot(): Partial<SyncSnapshot> {
+  return {
+    projects:    useProjectStore.getState().projects,
+    tasks:       useTaskStore.getState().tasks,
+    plans:       usePlanStore.getState().plans,
+    phases:      usePlanStore.getState().phases,
+    sprints:     useSprintStore.getState().sprints,
+    notes:       useNoteStore.getState().notes,
+    docs:        useDocumentStore.getState().docs,
+    team:        useTeamStore.getState().members,
+    schedule:    useScheduleStore.getState().events,
+    meetings:    useMeetingStore.getState().meetings,
+    finance:     useFinanceStore.getState().entries,
+    packages:    usePackageStore.getState().packages,
+    kpis:        useKpiStore.getState().kpis,
+    clients:     useClientStore.getState().clients,
+    metrics:     useGrowthStore.getState().metrics,
+    experiments: useGrowthStore.getState().experiments,
+    channels:    useGrowthStore.getState().channels,
+    content:     useContentStore.getState().items,
+    portfolios:  usePortfolioStore.getState().portfolios,
+    users:       usePermissionStore.getState().users,
+    permissions: usePermissionStore.getState().permissions,
+  }
+}
+
 export default function ApiSync() {
   const signedInEmail   = usePermissionStore((s) => s.signedInEmail)
   const hydrating       = useRef(false)
   const watchersStarted = useRef(false)
+  const migratedRef     = useRef(false)
+
+  // Pull D1 and reconcile local stores. D1 is authoritative: on success we
+  // replace local data with it. We only ever push the full local snapshot once,
+  // when D1 is genuinely empty and the caller may seed it — never on a failed
+  // pull, which previously resurrected deleted records.
+  const pullAndHydrate = useCallback(async (): Promise<void> => {
+    const snap = await apiSyncPull()
+    if (!snap) return // pull failed/unauthorised — keep local, never push
+
+    if (!snap.seeded) {
+      // D1 holds no projects yet. Seed it once from local data — but only the
+      // owner/admin may, so a member's browser never repopulates a shared DB.
+      if (migratedRef.current) return
+      const me = usePermissionStore.getState().getSignedInUser()
+      const mayMigrate = !me || me.systemRole === 'admin'
+      if (!mayMigrate) return
+      migratedRef.current = true
+      hydrating.current = true
+      await apiSyncPush(localSnapshot())
+      hydrating.current = false
+      return
+    }
+
+    // Authoritative replace. Guarded so the watchers treat it as a baseline
+    // update, not a user mutation to push back.
+    hydrating.current = true
+    hydrateStores(snap)
+    hydrating.current = false
+  }, [])
 
   useEffect(() => {
     if (!signedInEmail) return
-
     let cancelled = false
 
     ;(async () => {
       const available = await apiAvailable()
       if (!available || cancelled) return
 
-      // ── Pull all data from D1 ────────────────────────────
-      hydrating.current = true
-      const snap = await apiSyncPull()
-      if (cancelled) { hydrating.current = false; return }
+      await pullAndHydrate()
+      if (cancelled) return
 
-      // `seeded` tells first-time migration (push local) apart from a member
-      // who legitimately sees no projects (hydrate/replace, clearing stale data).
-      const isEmpty = !snap || !snap.seeded
-
-      if (isEmpty) {
-        // First time: push local data to D1 so all users can share it
-        const localSnap: Partial<SyncSnapshot> = {
-          projects:    useProjectStore.getState().projects,
-          tasks:       useTaskStore.getState().tasks,
-          plans:       usePlanStore.getState().plans,
-          phases:      usePlanStore.getState().phases,
-          sprints:     useSprintStore.getState().sprints,
-          notes:       useNoteStore.getState().notes,
-          docs:        useDocumentStore.getState().docs,
-          team:        useTeamStore.getState().members,
-          schedule:    useScheduleStore.getState().events,
-          meetings:    useMeetingStore.getState().meetings,
-          finance:     useFinanceStore.getState().entries,
-          packages:    usePackageStore.getState().packages,
-          kpis:        useKpiStore.getState().kpis,
-          clients:     useClientStore.getState().clients,
-          metrics:     useGrowthStore.getState().metrics,
-          experiments: useGrowthStore.getState().experiments,
-          channels:    useGrowthStore.getState().channels,
-          content:     useContentStore.getState().items,
-          portfolios:  usePortfolioStore.getState().portfolios,
-          users:       usePermissionStore.getState().users,
-          permissions: usePermissionStore.getState().permissions,
-        }
-        await apiSyncPush(localSnap)
-      } else {
-        // Hydrate stores from API data (overrides localStorage)
-        hydrateStores(snap)
-      }
-
-      hydrating.current = false
-
-      // ── Start mutation watchers (once per session) ───────
       if (!watchersStarted.current) {
         watchersStarted.current = true
-        startWatchers()
+        startWatchers(hydrating)
       }
     })()
 
     return () => { cancelled = true }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signedInEmail])
+  }, [signedInEmail, pullAndHydrate])
+
+  // Refresh when the tab regains focus, so a browser left open converges on the
+  // latest shared state (deletes/edits made elsewhere) without a manual reload.
+  useEffect(() => {
+    if (!signedInEmail) return
+    const refresh = () => {
+      if (document.visibilityState === 'visible' && !hydrating.current) {
+        pullAndHydrate().catch(() => {})
+      }
+    }
+    window.addEventListener('visibilitychange', refresh)
+    window.addEventListener('focus', refresh)
+    return () => {
+      window.removeEventListener('visibilitychange', refresh)
+      window.removeEventListener('focus', refresh)
+    }
+  }, [signedInEmail, pullAndHydrate])
 
   return null
 }
@@ -182,9 +213,7 @@ function hydrateStores(snap: SyncSnapshot): void {
 
 // ── Mutation watchers ─────────────────────────────────────
 
-function startWatchers(): void {
-  const hydrating = { current: false } // local flag shared with watcher closures
-
+function startWatchers(hydrating: MutableRefObject<boolean>): void {
   // Track baselines (current store state at the time watchers start)
   let prevProjects:    Project[]           = useProjectStore.getState().projects.slice()
   let prevTasks:       Task[]              = useTaskStore.getState().tasks.slice()
@@ -208,14 +237,17 @@ function startWatchers(): void {
   let prevUsers:       AppUser[]           = usePermissionStore.getState().users.slice()
   let prevPermissions: ProjectPermission[] = usePermissionStore.getState().permissions.slice()
 
-  // Wrap diff+sync with hydration guard
+  // Wrap diff+sync with hydration guard. During an authoritative hydrate we only
+  // advance the baseline to the incoming state — never push it back — so a pull
+  // that replaced local data is not mistaken for user edits (which previously
+  // resurrected records deleted elsewhere).
   function watch<T extends HasId>(
     current: T[],
     prev: T[],
     api: ApiMethods<T>,
     setPrev: (v: T[]) => void
   ): void {
-    if (hydrating.current) return
+    if (hydrating.current) { setPrev(current.slice()); return }
     diffAndSync(current, prev, api)
     setPrev(current.slice())
   }
@@ -292,8 +324,8 @@ function startWatchers(): void {
 
     // ProjectPermission uses a composite key (userId+projectId), not a single id.
     // Sync by detecting added or removed entries via JSON comparison of the composite key.
+    const current = s.permissions
     if (!hydrating.current) {
-      const current = s.permissions
       for (const perm of current) {
         const key = `${perm.userId}:${perm.projectId}`
         const old = prevPermissions.find((p) => `${p.userId}:${p.projectId}` === key)
@@ -309,7 +341,9 @@ function startWatchers(): void {
           apiPermissions.remove(old.userId, old.projectId).catch(console.error)
         }
       }
-      prevPermissions = current.slice()
     }
+    // Always advance the baseline (even during hydration) so a replaced list is
+    // not later diffed as user edits.
+    prevPermissions = current.slice()
   })
 }

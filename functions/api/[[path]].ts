@@ -675,6 +675,52 @@ async function handleSyncPush(req: Request, db: D1Database, caller: UserRow): Pr
   return json({ ok: true })
 }
 
+// Data tables wiped by a force-reset (everything except users & permissions,
+// which manage access and must survive a content reset).
+const DATA_TABLES = [
+  'tasks', 'plan_phases', 'plans', 'sprints', 'notes', 'product_docs',
+  'team_members', 'schedule_events', 'meetings', 'finance_entries',
+  'finance_packages', 'kpis', 'clients', 'growth_metrics', 'growth_experiments',
+  'growth_channels', 'content_items', 'portfolios', 'projects',
+]
+
+/**
+ * POST /api/sync/reset — admin recovery. Clears all shared content from D1 and
+ * re-seeds it from the caller's snapshot, making this browser the single source
+ * of truth. Users & permissions are preserved. Use to recover from a divergent
+ * state where stale browsers had resurrected deleted records.
+ */
+async function handleSyncReset(req: Request, db: D1Database, caller: UserRow): Promise<Response> {
+  if (!isAdmin(caller)) return err('غير مصرح — المزامنة القسرية للمسؤول فقط', 403)
+
+  for (const t of DATA_TABLES) {
+    await db.prepare(`DELETE FROM ${t}`).run()
+  }
+
+  const body = await req.json() as Record<string, AnyObj[]>
+  await upsertBatch(db, 'projects',           body.projects    ?? [])
+  await upsertBatch(db, 'tasks',              body.tasks       ?? [])
+  await upsertBatch(db, 'plans',              body.plans       ?? [])
+  await upsertBatch(db, 'plan_phases',        body.phases      ?? [])
+  await upsertBatch(db, 'sprints',            body.sprints     ?? [])
+  await upsertBatch(db, 'notes',              body.notes       ?? [])
+  await upsertBatch(db, 'product_docs',       body.docs        ?? [])
+  await upsertBatch(db, 'team_members',       body.team        ?? [])
+  await upsertBatch(db, 'schedule_events',    body.schedule    ?? [])
+  await upsertBatch(db, 'meetings',           body.meetings    ?? [])
+  await upsertBatch(db, 'finance_entries',    body.finance     ?? [])
+  await upsertBatch(db, 'finance_packages',   body.packages    ?? [])
+  await upsertBatch(db, 'kpis',              body.kpis        ?? [])
+  await upsertBatch(db, 'clients',            body.clients     ?? [])
+  await upsertBatch(db, 'growth_metrics',     body.metrics     ?? [])
+  await upsertBatch(db, 'growth_experiments', body.experiments ?? [])
+  await upsertBatch(db, 'growth_channels',    body.channels    ?? [])
+  await upsertBatch(db, 'content_items',      body.content     ?? [])
+  await upsertBatch(db, 'portfolios',         body.portfolios  ?? [])
+
+  return json({ ok: true })
+}
+
 // ── Main router ───────────────────────────────────────────
 
 const RESOURCE_TABLE: Record<string, Table> = {
@@ -732,8 +778,9 @@ export async function onRequest(ctx: any): Promise<Response> {
     if (method === 'POST') return handleInvite(request, env as Env, caller)
   }
 
-  // /api/sync
+  // /api/sync  (and /api/sync/reset)
   if (resource === 'sync') {
+    if (idOrSub === 'reset' && method === 'POST') return handleSyncReset(request, db, caller)
     if (method === 'GET')  return handleSyncPull(db, caller)
     if (method === 'POST') return handleSyncPush(request, db, caller)
   }
