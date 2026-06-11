@@ -34,9 +34,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
               className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-sm"
               style={{ background: 'var(--color-brand)' }}
             >
-              م
+              ب
             </div>
-            <span className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>محور</span>
+            <span className="text-sm font-bold" style={{ color: 'var(--color-text-primary)' }}>بوصلة الأعمال</span>
           </div>
           <div className="flex items-center gap-2">
             <button

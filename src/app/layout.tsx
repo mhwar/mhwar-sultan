@@ -19,8 +19,8 @@ const jetbrains = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'محور — إدارة المشاريع',
-  description: 'منصة إدارة المشاريع التقنية الشخصية',
+  title: 'بوصلة الأعمال',
+  description: 'منصة بوصلة الأعمال — حلول أعمال متكاملة، إدارة حسابات التواصل الاجتماعي وصناعة المحتوى',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
