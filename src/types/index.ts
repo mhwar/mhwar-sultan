@@ -411,6 +411,26 @@ export interface Portfolio {
   updatedAt: string
 }
 
+// ── App Users & Permissions ───────────────────────────────
+export interface AppUser {
+  id: string
+  name: string
+  email?: string
+  avatar?: string
+  systemRole: 'admin' | 'member'
+  isFinance: boolean
+  isContent: boolean
+  createdAt: string
+}
+
+export interface ProjectPermission {
+  userId: string
+  projectId: string
+  /** 'all' = full access | 'custom' = use deniedTools | 'none' = project hidden */
+  access: 'all' | 'custom' | 'none'
+  deniedTools: string[]
+}
+
 // ── Content Production ────────────────────────────────────
 export type ContentType = 'post' | 'design' | 'video' | 'story' | 'reel' | 'article' | 'other'
 export type ContentPlatform = 'twitter' | 'instagram' | 'linkedin' | 'tiktok' | 'youtube' | 'snapchat' | 'facebook' | 'other'

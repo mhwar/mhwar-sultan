@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Search, LayoutGrid, List, Table2 } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import PageHeader from '@/components/shared/PageHeader'
@@ -10,6 +10,7 @@ import EmptyState from '@/components/shared/EmptyState'
 import Button from '@/components/ui/Button'
 import Segmented from '@/components/ui/Segmented'
 import { useProjectStore, useTaskStore } from '@/store/store'
+import { usePermissionStore } from '@/store/permissionStore'
 import type { ProjectStatus } from '@/types'
 
 const STATUS_FILTERS: { value: ProjectStatus | 'all'; label: string }[] = [
@@ -23,14 +24,23 @@ const STATUS_FILTERS: { value: ProjectStatus | 'all'; label: string }[] = [
 type View = 'grid' | 'list' | 'table'
 
 export default function ProjectsPage() {
+  const [hydrated, setHydrated] = useState(false)
   const projects = useProjectStore((s) => s.projects)
   const tasks = useTaskStore((s) => s.tasks)
+  const { canAccessProject } = usePermissionStore()
   const [showForm, setShowForm] = useState(false)
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'all'>('all')
   const [search, setSearch] = useState('')
   const [view, setView] = useState<View>('grid')
 
-  const filtered = projects.filter((p) => {
+  useEffect(() => {
+    usePermissionStore.persist.rehydrate()
+    setHydrated(true)
+  }, [])
+
+  const visibleProjects = hydrated ? projects.filter((p) => canAccessProject(p.id)) : projects
+
+  const filtered = visibleProjects.filter((p) => {
     const matchesStatus = statusFilter === 'all' || p.status === statusFilter
     const matchesSearch = !search || p.name.includes(search) || p.nameEn?.toLowerCase().includes(search.toLowerCase())
     return matchesStatus && matchesSearch
@@ -46,7 +56,7 @@ export default function ProjectsPage() {
       <div className="p-4 md:p-6 lg:p-8 animate-fade-up">
         <PageHeader
           title="المشاريع"
-          sub={`${projects.length} مشروع`}
+          sub={`${visibleProjects.length} مشروع`}
           actions={
             <Button variant="primary" size="md" onClick={() => setShowForm(true)}>
               <Plus size={16} />

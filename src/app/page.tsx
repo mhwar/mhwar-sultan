@@ -1,4 +1,5 @@
 'use client'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Plus, AlertCircle, Clock, Wallet } from 'lucide-react'
 import Link from 'next/link'
 import AppLayout from '@/components/layout/AppLayout'
@@ -6,16 +7,26 @@ import StatsGrid from '@/components/dashboard/StatsGrid'
 import ProjectCard from '@/components/projects/ProjectCard'
 import { useProjectStore, useTaskStore, useFinanceStore, useContentStore } from '@/store/store'
 import { formatDateAr } from '@/lib/utils'
+import { usePermissionStore } from '@/store/permissionStore'
 
 export default function DashboardPage() {
+  const [hydrated, setHydrated] = useState(false)
   const projects = useProjectStore((s) => s.projects)
   const tasks = useTaskStore((s) => s.tasks)
   const financeEntries = useFinanceStore((s) => s.entries)
   const contentItems = useContentStore((s) => s.items)
+  const { canAccessProject } = usePermissionStore()
+
+  useEffect(() => {
+    usePermissionStore.persist.rehydrate()
+    setHydrated(true)
+  }, [])
 
   const todayStr = new Date().toISOString().slice(0, 10)
 
-  const recentProjects = [...projects]
+  const visibleProjects = hydrated ? projects.filter((p) => canAccessProject(p.id)) : projects
+
+  const recentProjects = [...visibleProjects]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 3)
 

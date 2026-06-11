@@ -12,6 +12,7 @@ import { getTool } from '@/lib/tool-registry'
 import { FALLBACK_TOOL_IDS } from '@/lib/project-types'
 import ProjectIcon from '@/lib/icons'
 import { hexToRgba } from '@/lib/utils'
+import { usePermissionStore } from '@/store/permissionStore'
 
 interface Props {
   id: string
@@ -27,11 +28,17 @@ export default function ProjectDetailClient({ id }: Props) {
   const [showTools, setShowTools] = useState(false)
   const [hydrated, setHydrated] = useState(false)
   const { targetTab, clearTab } = useNavStore()
+  const { getEffectiveTools, canAccessProject } = usePermissionStore()
 
-  useEffect(() => { setHydrated(true) }, [])
+  useEffect(() => {
+    usePermissionStore.persist.rehydrate()
+    setHydrated(true)
+  }, [])
 
-  // Tools enabled for this project (with legacy fallback), resolved via the registry.
-  const toolIds = (project?.tools?.length ? project.tools : FALLBACK_TOOL_IDS).filter((t) => getTool(t))
+  // Tools enabled for this project (with legacy fallback), resolved via the registry,
+  // then filtered by active user's permissions.
+  const rawToolIds = (project?.tools?.length ? project.tools : FALLBACK_TOOL_IDS).filter((t) => getTool(t))
+  const toolIds = hydrated ? getEffectiveTools(id, rawToolIds) : rawToolIds
 
   // Keep the active tab valid: default to the first tool, and recover if the
   // current tab gets removed from the library.
@@ -68,6 +75,19 @@ export default function ProjectDetailClient({ id }: Props) {
       <div className="flex flex-col items-center justify-center py-24 text-center gap-4 p-6">
         <p className="text-lg font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
           المشروع غير موجود
+        </p>
+        <Link href="/projects" className="text-sm" style={{ color: 'var(--color-brand)' }}>
+          العودة للمشاريع
+        </Link>
+      </div>
+    )
+  }
+
+  if (hydrated && !canAccessProject(id)) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center gap-4 p-6">
+        <p className="text-lg font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+          ليس لديك صلاحية الوصول لهذا المشروع
         </p>
         <Link href="/projects" className="text-sm" style={{ color: 'var(--color-brand)' }}>
           العودة للمشاريع
