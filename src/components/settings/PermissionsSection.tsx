@@ -2,13 +2,14 @@
 import { useState, useEffect } from 'react'
 import {
   UserCog, ChevronDown, Plus, Pencil, Trash2, Check, X,
-  ShieldCheck, ShieldOff, Eye, EyeOff, Settings2, BadgeCheck, LogOut, Send, Mail,
+  ShieldCheck, ShieldOff, Eye, EyeOff, Settings2, BadgeCheck, LogOut, Send, Mail, Link2,
 } from 'lucide-react'
 import { usePermissionStore } from '@/store/permissionStore'
 import { useProjectStore } from '@/store/store'
 import { TOOLS } from '@/lib/tool-registry'
 import { CF_LOGOUT_URL } from '@/lib/cfAccess'
 import { sendInvite } from '@/lib/api'
+import { buildInviteUrl } from '@/lib/invite-token'
 import type { AppUser, ProjectPermission } from '@/types'
 
 // ── Helpers ───────────────────────────────────────────────
@@ -294,6 +295,34 @@ function InviteButton({ user }: { user: AppUser }) {
   )
 }
 
+// ── Copy invite link button ───────────────────────────────
+
+function CopyInviteButton({ user }: { user: AppUser }) {
+  const permissions = usePermissionStore((s) => s.permissions.filter((p) => p.userId === user.id))
+  const [copied, setCopied] = useState(false)
+
+  const copy = () => {
+    const url = buildInviteUrl({ user, perms: permissions })
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-white/10 transition-colors"
+      title="نسخ رابط الدعوة"
+    >
+      {copied
+        ? <Check size={13} style={{ color: 'var(--success-500)' }} />
+        : <Link2 size={13} style={{ color: 'var(--iris-500)' }} />}
+    </button>
+  )
+}
+
 // ── User list card ────────────────────────────────────────
 
 function UserListCard() {
@@ -385,6 +414,7 @@ function UserListCard() {
                   )}
                 </div>
                 <div className="flex items-center gap-1">
+                  <CopyInviteButton user={u} />
                   {u.systemRole === 'member' && !!u.email && <InviteButton user={u} />}
                   <button
                     type="button"
