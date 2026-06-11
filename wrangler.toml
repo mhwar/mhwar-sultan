@@ -19,4 +19,4 @@ pages_build_output_dir  = "out"
 [[d1_databases]]
 binding      = "DB"
 database_name = "bosla-db"
-database_id  = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id  = "acc951cf-7287-42e0-a316-507a70cf6719"
