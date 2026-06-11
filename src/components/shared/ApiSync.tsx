@@ -48,6 +48,26 @@ import type {
   ContentItem, Portfolio, AppUser, ProjectPermission,
 } from '@/types'
 
+// ── Pending-op tracking ───────────────────────────────────
+//
+// Counts in-flight API mutations. pullAndHydrate waits for the count to reach
+// zero before pulling from D1, so a deleted item that's still being removed on
+// the server is never resurrected by a concurrent pull.
+
+let pendingOps = 0
+
+function track(p: Promise<unknown>): void {
+  pendingOps++
+  p.catch(console.error).finally(() => { pendingOps-- })
+}
+
+async function waitIdle(maxMs = 8000): Promise<void> {
+  const deadline = Date.now() + maxMs
+  while (pendingOps > 0 && Date.now() < deadline) {
+    await new Promise<void>((r) => setTimeout(r, 100))
+  }
+}
+
 // ── Generic array-diffing watcher ─────────────────────────
 
 type HasId = { id: string }
@@ -63,19 +83,17 @@ function diffAndSync<T extends HasId>(
   prev: T[],
   api: ApiMethods<T>
 ): void {
-  // Detect new or changed items
   for (const item of current) {
     const old = prev.find((o) => o.id === item.id)
     if (!old) {
-      api.create(item).catch(console.error)
+      track(api.create(item))
     } else if (JSON.stringify(old) !== JSON.stringify(item)) {
-      api.update(item.id, item).catch(console.error)
+      track(api.update(item.id, item))
     }
   }
-  // Detect deletions
   for (const old of prev) {
     if (!current.find((c) => c.id === old.id)) {
-      api.delete(old.id).catch(console.error)
+      track(api.delete(old.id))
     }
   }
 }
@@ -117,6 +135,10 @@ export default function ApiSync() {
   // when D1 is genuinely empty and the caller may seed it — never on a failed
   // pull, which previously resurrected deleted records.
   const pullAndHydrate = useCallback(async (): Promise<void> => {
+    // Wait for any in-flight mutations (creates/updates/deletes) to settle
+    // before pulling authoritative data from D1. Without this guard, a delete
+    // that races a focus event brings the deleted item back from D1.
+    await waitIdle()
     const snap = await apiSyncPull()
     if (!snap) return // pull failed/unauthorised — keep local, never push
 
@@ -330,15 +352,15 @@ function startWatchers(hydrating: MutableRefObject<boolean>): void {
         const key = `${perm.userId}:${perm.projectId}`
         const old = prevPermissions.find((p) => `${p.userId}:${p.projectId}` === key)
         if (!old) {
-          apiPermissions.set(perm).catch(console.error)
+          track(apiPermissions.set(perm))
         } else if (JSON.stringify(old) !== JSON.stringify(perm)) {
-          apiPermissions.set(perm).catch(console.error)
+          track(apiPermissions.set(perm))
         }
       }
       for (const old of prevPermissions) {
         const key = `${old.userId}:${old.projectId}`
         if (!current.find((p) => `${p.userId}:${p.projectId}` === key)) {
-          apiPermissions.remove(old.userId, old.projectId).catch(console.error)
+          track(apiPermissions.remove(old.userId, old.projectId))
         }
       }
     }
