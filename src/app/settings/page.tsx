@@ -1,8 +1,8 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Component, type ErrorInfo, type ReactNode } from 'react'
 import {
   Download, Upload, RefreshCw, Info, Shield, Palette,
-  Keyboard, Database, Compass, Sun, Moon,
+  Keyboard, Database, Compass, Sun, Moon, AlertTriangle,
 } from 'lucide-react'
 import AppLayout from '@/components/layout/AppLayout'
 import PageHeader from '@/components/shared/PageHeader'
@@ -12,6 +12,48 @@ import { useThemeStore } from '@/store/themeStore'
 import { cn } from '@/lib/utils'
 import PermissionsSection from '@/components/settings/PermissionsSection'
 import CloudSyncCard from '@/components/settings/CloudSyncCard'
+
+// ── Section error boundary ────────────────────────────────
+
+interface EBState { error: Error | null }
+
+class SectionErrorBoundary extends Component<{ children: ReactNode; label: string }, EBState> {
+  constructor(props: { children: ReactNode; label: string }) {
+    super(props)
+    this.state = { error: null }
+  }
+  static getDerivedStateFromError(error: Error): EBState { return { error } }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error(`[Settings:${this.props.label}]`, error, info)
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div
+          className="axis-card p-6 flex items-start gap-3"
+          style={{ borderColor: 'color-mix(in srgb, var(--danger-500) 30%, transparent)' }}
+        >
+          <AlertTriangle size={18} style={{ color: 'var(--danger-500)', flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--fg-1)' }}>
+              تعذّر تحميل قسم {this.props.label}
+            </p>
+            <p className="text-xs mt-1 font-mono break-all" style={{ color: 'var(--fg-3)' }} dir="ltr">
+              {this.state.error.message}
+            </p>
+            <button
+              className="axis-btn axis-btn--sm axis-btn--ghost mt-3"
+              onClick={() => this.setState({ error: null })}
+            >
+              <RefreshCw size={12} /> إعادة المحاولة
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 // ── Shared primitives ─────────────────────────────────────
 
@@ -373,10 +415,14 @@ export default function SettingsPage() {
           <PageHeader title="الإعدادات" sub="إعدادات المنصة والصلاحيات والبيانات" />
 
           {/* Access control — the featured section, full width */}
-          <PermissionsSection />
+          <SectionErrorBoundary label="الصلاحيات">
+            <PermissionsSection />
+          </SectionErrorBoundary>
 
           {/* Cloud sync status + admin recovery */}
-          <CloudSyncCard />
+          <SectionErrorBoundary label="المزامنة السحابية">
+            <CloudSyncCard />
+          </SectionErrorBoundary>
 
           {/* Platform settings — responsive multi-column grid */}
           <div>
