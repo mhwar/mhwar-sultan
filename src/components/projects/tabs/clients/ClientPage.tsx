@@ -2,13 +2,15 @@
 import { useState, useMemo } from 'react'
 import {
   ArrowRight, Edit2, Mail, Phone, FileText, CheckCircle2, Inbox, Send, Plus,
-  Check, X, Package,
+  Check, X, Package, Printer, CalendarRange,
 } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import type { Client, ClientStatus, ContentItem, ContentStatus, ContentSource, FinanceEntry, FinanceKind, FinanceStatus, Project } from '@/types'
 import { useContentStore, useClientStore, useFinanceStore, usePackageStore } from '@/store/store'
 import { ClientAvatar } from '../ClientsTab'
 import ContentDrawer from '../content/ContentDrawer'
+import ContentExportModal from '../content/ContentExportModal'
+import ContentMonthComposer from '../content/ContentMonthComposer'
 import { PlatformIcon } from '../content/PlatformIcon'
 import {
   STATUS_LABEL, STATUS_VAR, SOURCE_LABEL, DONE_STATUSES,
@@ -332,12 +334,15 @@ function ContentTab({ client, project, accent }: { client: Client; project: Proj
   const [filterStage, setFilterStage] = useState<ContentStage | 'all'>('all')
   const [filterSource, setFilterSource] = useState<ContentSource | 'all'>('all')
   const [openId, setOpenId] = useState<string | null>(null)
+  const [showExport, setShowExport] = useState(false)
+  const [showComposer, setShowComposer] = useState(false)
   const { addItem, updateItem, deleteItem } = useContentStore()
   const items = useContentStore(useShallow((s) =>
     s.items.filter((i) => i.projectId === client.projectId && i.clientId === client.id)
   ))
   const allClients = useClientStore(useShallow((s) => s.clients.filter((c) => c.projectId === project.id)))
   const clientColorMap = useMemo(() => buildClientColorMap(allClients.map((c) => c.id)), [allClients])
+  const now = new Date()
 
   const filtered = useMemo(() => items.filter((i) => {
     if (filterStage !== 'all' && stageOf(i.status) !== filterStage) return false
@@ -385,11 +390,25 @@ function ContentTab({ client, project, accent }: { client: Client; project: Proj
         </FilterChip>
       </div>
 
-      {/* Add button */}
-      <div className="flex justify-end">
+      {/* Actions */}
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={() => setShowExport(true)}
+          className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-medium transition-colors hover:bg-white/5"
+          style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
+        >
+          <Printer size={13} /> تصدير
+        </button>
+        <button
+          onClick={() => setShowComposer(true)}
+          className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-medium transition-colors hover:bg-white/5"
+          style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
+        >
+          <CalendarRange size={13} /> تخطيط الشهر
+        </button>
         <button
           onClick={handleAdd}
-          className="flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-semibold"
+          className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-semibold"
           style={{ background: accent, color: 'white' }}
         >
           <Plus size={13} /> إضافة محتوى
@@ -446,6 +465,29 @@ function ContentTab({ client, project, accent }: { client: Client; project: Proj
           onUpdate={(data) => updateItem(openItem.id, data)}
           onDelete={() => deleteItem(openItem.id)}
           onClose={closeDrawer}
+        />
+      )}
+
+      {showExport && (
+        <ContentExportModal
+          items={items}
+          clients={allClients.filter((c) => c.id === client.id)}
+          clientColorMap={clientColorMap}
+          year={now.getFullYear()}
+          month={now.getMonth()}
+          onClose={() => setShowExport(false)}
+        />
+      )}
+
+      {showComposer && (
+        <ContentMonthComposer
+          projectId={client.projectId}
+          clients={allClients}
+          initialClientId={client.id}
+          year={now.getFullYear()}
+          month={now.getMonth()}
+          onCreate={(item) => addItem(item as Parameters<typeof addItem>[0])}
+          onClose={() => setShowComposer(false)}
         />
       )}
     </div>
