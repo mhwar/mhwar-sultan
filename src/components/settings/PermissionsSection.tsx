@@ -298,12 +298,11 @@ function InviteButton({ user }: { user: AppUser }) {
 
 // ── Copy invite link button ───────────────────────────────
 
-function CopyInviteButton({ user }: { user: AppUser }) {
-  const permissions = usePermissionStore((s) => s.permissions.filter((p) => p.userId === user.id))
+function CopyInviteButton({ user, userPermissions }: { user: AppUser; userPermissions: ProjectPermission[] }) {
   const [copied, setCopied] = useState(false)
 
   const copy = () => {
-    const url = buildInviteUrl({ user, perms: permissions })
+    const url = buildInviteUrl({ user, perms: userPermissions })
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
@@ -326,8 +325,7 @@ function CopyInviteButton({ user }: { user: AppUser }) {
 
 // ── Grant Cloudflare Access button ───────────────────────
 
-function GrantAccessButton({ user }: { user: AppUser }) {
-  const permissions = usePermissionStore((s) => s.permissions.filter((p) => p.userId === user.id))
+function GrantAccessButton({ user, userPermissions }: { user: AppUser; userPermissions: ProjectPermission[] }) {
   const [state, setState] = useState<'idle' | 'loading' | 'ok' | 'noApi' | 'err'>('idle')
 
   const grant = async () => {
@@ -341,7 +339,7 @@ function GrantAccessButton({ user }: { user: AppUser }) {
       isFinance: user.isFinance,
       isContent: user.isContent,
       createdAt: user.createdAt,
-      permissions: permissions.map((p) => ({
+      permissions: userPermissions.map((p) => ({
         userId: p.userId,
         projectId: p.projectId,
         access: p.access,
@@ -469,7 +467,7 @@ function GoogleSsoCard() {
 // ── User list card ────────────────────────────────────────
 
 function UserListCard() {
-  const { users, addUser, updateUser, deleteUser, signedInEmail } = usePermissionStore()
+  const { users, permissions, addUser, updateUser, deleteUser, signedInEmail } = usePermissionStore()
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
 
@@ -557,8 +555,8 @@ function UserListCard() {
                   )}
                 </div>
                 <div className="flex items-center gap-1">
-                  {!!u.email && <GrantAccessButton user={u} />}
-                  <CopyInviteButton user={u} />
+                  {!!u.email && <GrantAccessButton user={u} userPermissions={permissions.filter((p) => p.userId === u.id)} />}
+                  <CopyInviteButton user={u} userPermissions={permissions.filter((p) => p.userId === u.id)} />
                   {u.systemRole === 'member' && !!u.email && <InviteButton user={u} />}
                   <button
                     type="button"
