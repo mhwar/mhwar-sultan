@@ -31,6 +31,8 @@ interface PermissionStore {
   getSignedInUser(): AppUser | null
   canAccessProject(projectId: string): boolean
   getEffectiveTools(projectId: string, allTools: string[]): string[]
+  /** Whether the active user may see monetary figures (contract values, finance). */
+  canSeeFinancials(): boolean
 }
 
 export const usePermissionStore = create<PermissionStore>()(
@@ -185,6 +187,13 @@ export const usePermissionStore = create<PermissionStore>()(
 
         return tools
       },
+
+      canSeeFinancials() {
+        const user = get().getActiveUser()
+        if (!user) return true // unrestricted local mode / admin preview off
+        if (user.systemRole === 'admin') return true
+        return user.isFinance
+      },
     }),
     {
       name: 'mhwar-permissions',
@@ -199,3 +208,18 @@ export const usePermissionStore = create<PermissionStore>()(
     }
   )
 )
+
+/**
+ * Reactive hook: whether the active user may see monetary figures
+ * (client contract values, the billing tab, finance entries). Re-renders the
+ * caller when the active user or their finance flag changes. Unrestricted local
+ * mode (no active user) and admins always see financials.
+ */
+export function useCanSeeFinancials(): boolean {
+  return usePermissionStore((s) => {
+    const user = s.activeUserId ? s.users.find((u) => u.id === s.activeUserId) : null
+    if (!user) return true
+    if (user.systemRole === 'admin') return true
+    return user.isFinance
+  })
+}

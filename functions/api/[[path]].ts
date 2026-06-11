@@ -40,6 +40,12 @@ interface D1Database {
 
 interface Env {
   DB: D1Database
+  /** Optional Resend API key — when present, invitations are emailed automatically. */
+  RESEND_API_KEY?: string
+  /** Optional verified sender, e.g. "بوصلة الأعمال <no-reply@boslaworks.com>". */
+  INVITE_FROM?: string
+  /** Public site URL used in invitation links (defaults to https://boslaworks.com). */
+  SITE_URL?: string
 }
 
 // ── Helpers ───────────────────────────────────────────────
@@ -154,13 +160,6 @@ function isAdmin(u: UserRow): boolean {
 
 // ── Permission helpers ────────────────────────────────────
 
-interface PermRow {
-  user_id: string
-  project_id: string
-  access: 'all' | 'custom' | 'none'
-  denied_tools: string // JSON string
-}
-
 async function canAccessProject(db: D1Database, userId: string, projectId: string): Promise<boolean> {
   const perm = await db
     .prepare('SELECT access FROM project_permissions WHERE user_id = ? AND project_id = ?')
@@ -182,10 +181,92 @@ async function handleHealth(db: D1Database): Promise<Response> {
   }
 }
 
+// ── Invitations ───────────────────────────────────────────
+//
+// POST /api/invite — notify a granted user by email. Sends automatically via
+// Resend when RESEND_API_KEY is configured; otherwise responds with
+// { sent: false, fallback: true } so the client can open a mailto draft.
+
+interface InvitePayload {
+  email: string
+  name?: string
+  projectName?: string
+  toolLabels?: string[]
+  inviterName?: string
+}
+
+function inviteSubject(p: InvitePayload): string {
+  return p.projectName
+    ? `دعوة للوصول إلى مشروع ${p.projectName} — بوصلة الأعمال`
+    : 'دعوة للوصول إلى بوصلة الأعمال'
+}
+
+function inviteHtml(p: InvitePayload, siteUrl: string): string {
+  const tools = (p.toolLabels ?? []).filter(Boolean)
+  const toolsBlock = tools.length
+    ? `<p style="margin:16px 0 8px;color:#475569;font-size:14px">الأقسام المتاحة لك:</p>
+       <p style="margin:0;color:#0f172a;font-size:14px;font-weight:600">${tools.join(' · ')}</p>`
+    : ''
+  const projectLine = p.projectName
+    ? `تم منحك صلاحية الوصول إلى مشروع <strong>${p.projectName}</strong> على منصة بوصلة الأعمال.`
+    : 'تم منحك صلاحية الوصول إلى منصة بوصلة الأعمال.'
+  return `<!doctype html>
+<html dir="rtl" lang="ar"><body style="margin:0;background:#f1f5f9;font-family:-apple-system,Segoe UI,Tahoma,sans-serif">
+  <div style="max-width:520px;margin:0 auto;padding:32px 20px">
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:28px">
+      <div style="width:48px;height:48px;border-radius:12px;background:#6366F1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800">ب</div>
+      <h1 style="margin:20px 0 8px;color:#0f172a;font-size:18px">مرحباً ${p.name ?? ''}</h1>
+      <p style="margin:0;color:#475569;font-size:14px;line-height:1.7">${projectLine}</p>
+      ${toolsBlock}
+      <a href="${siteUrl}" style="display:inline-block;margin-top:24px;background:#6366F1;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 22px;border-radius:10px">فتح المنصة وتسجيل الدخول</a>
+      <p style="margin:20px 0 0;color:#94a3b8;font-size:12px;line-height:1.7">
+        سجّل الدخول باستخدام بريدك (${p.email}) عبر بوابة الدخول الموحّدة.${p.inviterName ? ` الدعوة من ${p.inviterName}.` : ''}
+      </p>
+    </div>
+  </div>
+</body></html>`
+}
+
+async function handleInvite(req: Request, env: Env, caller: UserRow): Promise<Response> {
+  if (!isAdmin(caller)) return err('غير مصرح', 403)
+  const p = await req.json() as InvitePayload
+  if (!p.email) return err('البريد مطلوب', 400)
+
+  const siteUrl = env.SITE_URL ?? 'https://boslaworks.com'
+
+  // No provider configured → let the client fall back to a mailto draft.
+  if (!env.RESEND_API_KEY) {
+    return json({ sent: false, fallback: true })
+  }
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: env.INVITE_FROM ?? 'بوصلة الأعمال <onboarding@resend.dev>',
+        to: [p.email],
+        subject: inviteSubject(p),
+        html: inviteHtml(p, siteUrl),
+      }),
+    })
+    if (!res.ok) {
+      const detail = await res.text()
+      return json({ sent: false, fallback: true, error: detail }, 200)
+    }
+    return json({ sent: true })
+  } catch {
+    return json({ sent: false, fallback: true })
+  }
+}
+
 // ── Users ─────────────────────────────────────────────────
 
 async function handleGetUsers(db: D1Database): Promise<Response> {
-  const { results } = await db.prepare('SELECT * FROM app_users ORDER BY created_at ASC').all<UserRow>()
+  const { results } = await db.prepare('SELECT * FROM app_users ORDER BY created_at ASC').all()
   return json(results.map(rowToCamel))
 }
 
@@ -216,7 +297,7 @@ async function handleDeleteUser(db: D1Database, caller: UserRow, id: string): Pr
 
 async function handleGetPermissions(db: D1Database, caller: UserRow): Promise<Response> {
   if (!isAdmin(caller)) return err('غير مصرح', 403)
-  const { results } = await db.prepare('SELECT * FROM project_permissions').all<PermRow>()
+  const { results } = await db.prepare('SELECT * FROM project_permissions').all()
   return json(results.map(rowToCamel))
 }
 
@@ -607,6 +688,11 @@ export async function onRequest(ctx: any): Promise<Response> {
   if (!caller) return err('غير مصرح — تسجيل الدخول مطلوب', 401)
 
   const [resource, idOrSub] = segments
+
+  // /api/invite
+  if (resource === 'invite') {
+    if (method === 'POST') return handleInvite(request, env as Env, caller)
+  }
 
   // /api/sync
   if (resource === 'sync') {

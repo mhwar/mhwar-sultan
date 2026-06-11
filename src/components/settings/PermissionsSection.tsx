@@ -2,12 +2,13 @@
 import { useState, useEffect } from 'react'
 import {
   UserCog, ChevronDown, Plus, Pencil, Trash2, Check, X,
-  ShieldCheck, ShieldOff, Eye, EyeOff, Settings2, BadgeCheck, LogOut,
+  ShieldCheck, ShieldOff, Eye, EyeOff, Settings2, BadgeCheck, LogOut, Send, Mail,
 } from 'lucide-react'
 import { usePermissionStore } from '@/store/permissionStore'
 import { useProjectStore } from '@/store/store'
 import { TOOLS } from '@/lib/tool-registry'
 import { CF_LOGOUT_URL } from '@/lib/cfAccess'
+import { sendInvite } from '@/lib/api'
 import type { AppUser, ProjectPermission } from '@/types'
 
 // ── Helpers ───────────────────────────────────────────────
@@ -264,6 +265,35 @@ function UserForm({ initial, onSave, onCancel }: UserFormProps) {
   )
 }
 
+// ── Invite button (emails the user their access) ──────────
+
+function InviteButton({ user }: { user: AppUser }) {
+  const inviterName = usePermissionStore((s) => s.getSignedInUser()?.name)
+  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'mailto'>('idle')
+
+  const invite = async () => {
+    if (!user.email) return
+    setState('sending')
+    const result = await sendInvite({ email: user.email, name: user.name, inviterName })
+    setState(result === 'sent' ? 'sent' : result === 'mailto' ? 'mailto' : 'idle')
+    if (result !== 'failed') setTimeout(() => setState('idle'), 3000)
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={invite}
+      disabled={state === 'sending'}
+      className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-white/10 transition-colors disabled:opacity-50"
+      title="إرسال دعوة بالبريد"
+    >
+      {state === 'sent' ? <Check size={13} style={{ color: 'var(--success-500)' }} />
+        : state === 'mailto' ? <Mail size={13} style={{ color: 'var(--iris-500)' }} />
+        : <Send size={13} style={{ color: 'var(--iris-500)' }} />}
+    </button>
+  )
+}
+
 // ── User list card ────────────────────────────────────────
 
 function UserListCard() {
@@ -355,6 +385,7 @@ function UserListCard() {
                   )}
                 </div>
                 <div className="flex items-center gap-1">
+                  {u.systemRole === 'member' && !!u.email && <InviteButton user={u} />}
                   <button
                     type="button"
                     onClick={() => { setEditingId(u.id); setAdding(false) }}
@@ -642,8 +673,10 @@ export default function PermissionsSection() {
 
   return (
     <div className="space-y-4">
-      <ActiveUserPicker hydrated={hydrated} />
-      <UserListCard />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <ActiveUserPicker hydrated={hydrated} />
+        <UserListCard />
+      </div>
       <ProjectPermissionsCard hydrated={hydrated} />
     </div>
   )

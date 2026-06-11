@@ -1,11 +1,12 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, Edit2, Trash2, Plus } from 'lucide-react'
+import { ArrowRight, Edit2, Trash2, Plus, Shield } from 'lucide-react'
 import Link from 'next/link'
 import StatusBadge from '@/components/shared/StatusBadge'
 import ProjectForm from '@/components/projects/ProjectForm'
 import ToolsLibrarySheet from '@/components/projects/ToolsLibrarySheet'
+import ProjectAccessSheet from '@/components/projects/ProjectAccessSheet'
 import { useProjectStore, useTaskStore, useNavStore } from '@/store/store'
 import { useShallow } from 'zustand/shallow'
 import { getTool } from '@/lib/tool-registry'
@@ -26,9 +27,15 @@ export default function ProjectDetailClient({ id }: Props) {
   const [activeTab, setActiveTab] = useState<string>('')
   const [showEdit, setShowEdit] = useState(false)
   const [showTools, setShowTools] = useState(false)
+  const [showAccess, setShowAccess] = useState(false)
   const [hydrated, setHydrated] = useState(false)
   const { targetTab, clearTab } = useNavStore()
   const { getEffectiveTools, canAccessProject } = usePermissionStore()
+  // Admin (or unrestricted local) sees the project-access control. Member preview hides it.
+  const isAdminView = usePermissionStore((s) => {
+    const u = s.activeUserId ? s.users.find((x) => x.id === s.activeUserId) : null
+    return !u || u.systemRole === 'admin'
+  })
 
   useEffect(() => {
     usePermissionStore.persist.rehydrate()
@@ -185,8 +192,24 @@ export default function ProjectDetailClient({ id }: Props) {
               </div>
             </div>
 
-            {/* Edit / delete */}
+            {/* Edit / access / delete */}
             <div className="flex items-center gap-2 shrink-0">
+              {isAdminView && (
+                <button
+                  onClick={() => setShowAccess(true)}
+                  className="flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-semibold transition-colors"
+                  style={{
+                    background: 'var(--color-surface-overlay)',
+                    color: 'var(--color-text-secondary)',
+                    border: '1px solid var(--color-surface-border)',
+                    boxShadow: 'var(--shadow-xs)',
+                  }}
+                  title="صلاحيات المشروع"
+                >
+                  <Shield size={12} />
+                  <span className="hidden sm:inline">الصلاحيات</span>
+                </button>
+              )}
               <button
                 onClick={() => setShowEdit(true)}
                 className="flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-semibold transition-colors"
@@ -270,6 +293,7 @@ export default function ProjectDetailClient({ id }: Props) {
 
       {showEdit && <ProjectForm onClose={() => setShowEdit(false)} initialData={project} />}
       {showTools && <ToolsLibrarySheet project={project} onClose={() => setShowTools(false)} />}
+      {showAccess && <ProjectAccessSheet project={project} onClose={() => setShowAccess(false)} />}
     </div>
   )
 }
