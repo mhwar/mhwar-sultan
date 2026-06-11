@@ -1,0 +1,38 @@
+# Apply the D1 database schema to Cloudflare's servers.
+#
+# Run this ONCE after you create the D1 database in the Cloudflare dashboard.
+# Trigger it manually from the GitHub Actions tab (works from mobile).
+#
+# Required secrets (set in GitHub → Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN   — from dash.cloudflare.com → My Profile → API Tokens
+#   CLOUDFLARE_ACCOUNT_ID  — shown in the right sidebar of any Cloudflare page
+
+name: Apply D1 schema
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'اكتب "apply" للتأكيد'
+        required: true
+        default: ''
+
+jobs:
+  apply-schema:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'apply'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Apply schema to D1
+        run: npx wrangler@latest d1 execute bosla-db --file=db/schema.sql --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Done
+        run: echo "✓ Schema applied to bosla-db"
