@@ -1,6 +1,6 @@
 'use client'
 import { useState, useMemo, Fragment } from 'react'
-import { X, Printer, ChevronDown, Share2, Link } from 'lucide-react'
+import { X, Printer, ChevronDown, Share2, Link, FileSpreadsheet } from 'lucide-react'
 import type { Client, ContentItem } from '@/types'
 import { TYPE_LABEL, PLATFORM_LABEL, STATUS_LABEL, STATUS_VAR, scheduledKey, keyInMonth, monthLabel, fmtDayMonth } from './contentMeta'
 import { PlatformIcon, platformCellHtml } from './PlatformIcon'
@@ -33,13 +33,14 @@ function esc(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
 }
 
+/* Compact columns — title column fills remaining space */
 type ColKey = 'type' | 'platform' | 'dimensions' | 'date' | 'status'
 interface ColDef { key: ColKey; label: string; printWidth: string; center?: boolean }
 const COL_DEFS: ColDef[] = [
-  { key: 'type',       label: 'النوع',   printWidth: '38pt' },
-  { key: 'platform',   label: 'المنصة',  printWidth: '62pt' },
-  { key: 'dimensions', label: 'المقاس',  printWidth: '50pt', center: true },
-  { key: 'date',       label: 'التاريخ', printWidth: '46pt' },
+  { key: 'type',       label: 'النوع',   printWidth: '40pt' },
+  { key: 'platform',   label: 'المنصة',  printWidth: '56pt' },
+  { key: 'dimensions', label: 'المقاس',  printWidth: '52pt', center: true },
+  { key: 'date',       label: 'التاريخ', printWidth: '48pt' },
   { key: 'status',     label: 'الحالة',  printWidth: '58pt' },
 ]
 
@@ -93,23 +94,25 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
       return `${s} – ${e} ${monthNameOnly}`
     }
 
+    /* Body text inline — appears below title in smaller subdued font */
+    const bodyInline = (it: ContentItem): string => {
+      if (!includeBody || !it.body?.trim()) return ''
+      return `<div class="body-inline">${esc(it.body.trim())}</div>`
+    }
+
     const itemRow = (it: ContentItem, idx: number) => {
       const sKey = scheduledKey(it)
       const sc = PRINT_STATUS_COLOR[it.status] ?? '#6b7280'
       const sb = PRINT_STATUS_BG[it.status] ?? '#f3f4f6'
       const cells = activeCols.map((c) => {
-        if (c.key === 'type')       return `<td>${TYPE_LABEL[it.type]}</td>`
-        if (c.key === 'platform')   return `<td>${platformCellHtml(it.platform, 12, '#4b5563')}</td>`
-        if (c.key === 'dimensions') return `<td class="center num">${it.dimensions ? esc(it.dimensions) : '—'}</td>`
-        if (c.key === 'date')       return `<td class="date-cell">${fmtDayMonth(sKey)}</td>`
-        if (c.key === 'status')     return `<td><span class="badge" style="color:${sc};background:${sb}"><span class="dot" style="background:${sc}"></span>${STATUS_LABEL[it.status]}</span></td>`
+        if (c.key === 'type')       return `<td class="compact">${TYPE_LABEL[it.type]}</td>`
+        if (c.key === 'platform')   return `<td class="compact">${platformCellHtml(it.platform, 12, '#4b5563')}</td>`
+        if (c.key === 'dimensions') return `<td class="compact center num">${it.dimensions ? esc(it.dimensions) : '—'}</td>`
+        if (c.key === 'date')       return `<td class="compact date-cell">${fmtDayMonth(sKey)}</td>`
+        if (c.key === 'status')     return `<td class="compact"><span class="badge" style="color:${sc};background:${sb}"><span class="dot" style="background:${sc}"></span>${STATUS_LABEL[it.status]}</span></td>`
         return ''
       }).join('')
-      const main = `<tr><td class="idx">${idx + 1}</td><td class="title">${esc(it.title)}</td>${cells}</tr>`
-      const bodyRow = includeBody && it.body
-        ? `<tr class="body-row"><td></td><td colspan="${NCOLS - 1}" class="body-text">${esc(it.body).replace(/\n/g, '<br/>')}</td></tr>`
-        : ''
-      return main + bodyRow
+      return `<tr><td class="idx">${idx + 1}</td><td class="title">${esc(it.title)}${bodyInline(it)}</td>${cells}</tr>`
     }
 
     let rowsHtml = ''
@@ -132,7 +135,7 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
 
     const theadCells = [
       `<th class="center" style="width:18pt">#</th>`,
-      `<th>العنوان</th>`,
+      `<th>العنوان${includeBody ? ' والنص' : ''}</th>`,
       ...activeCols.map((c) => `<th${c.center ? ' class="center"' : ''} style="width:${c.printWidth}">${c.label}</th>`),
     ].join('')
 
@@ -142,10 +145,10 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
         const sc = PRINT_STATUS_COLOR[it.status] ?? '#6b7280'
         const sb = PRINT_STATUS_BG[it.status] ?? '#f3f4f6'
         return `<tr>
-          <td class="title">${esc(it.title)}</td>
-          ${visibleCols.has('type') ? `<td>${TYPE_LABEL[it.type]}</td>` : ''}
-          ${visibleCols.has('platform') ? `<td>${platformCellHtml(it.platform, 12, '#4b5563')}</td>` : ''}
-          <td><span class="badge" style="color:${sc};background:${sb}"><span class="dot" style="background:${sc}"></span>${STATUS_LABEL[it.status]}</span></td>
+          <td class="title">${esc(it.title)}${bodyInline(it)}</td>
+          ${visibleCols.has('type') ? `<td class="compact">${TYPE_LABEL[it.type]}</td>` : ''}
+          ${visibleCols.has('platform') ? `<td class="compact">${platformCellHtml(it.platform, 12, '#4b5563')}</td>` : ''}
+          <td class="compact"><span class="badge" style="color:${sc};background:${sb}"><span class="dot" style="background:${sc}"></span>${STATUS_LABEL[it.status]}</span></td>
         </tr>`
       }).join('')}</tbody></table>` : ''
 
@@ -182,9 +185,7 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
     </div>` : ''
 
     const shareBannerHtml = mode === 'share' ? `
-    <div class="share-banner">
-      <span>📋 هذه نسخة استعراض للعميل — للمراجعة فقط</span>
-    </div>` : ''
+    <div class="share-banner">هذه نسخة استعراض للعميل — للمراجعة فقط</div>` : ''
 
     const actionBtnHtml = mode === 'print'
       ? `<div class="pbw"><button class="pbtn" onclick="window.print()">طباعة / حفظ كـ PDF</button></div>`
@@ -201,10 +202,10 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
     @page { size:A4 portrait; margin:18mm 20mm 24mm 20mm; }
     @page :first { margin-top:14mm; }
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Cairo','Segoe UI',Tahoma,Arial,sans-serif;direction:rtl;background:#fff;color:#1e1b4b;font-size:10pt;line-height:1.6}
+    body{font-family:'Cairo','Segoe UI',Tahoma,Arial,sans-serif;direction:rtl;background:#fff;color:#1e1b4b;font-size:10pt;line-height:1.5}
 
     /* ─ Share banner ─ */
-    .share-banner{background:#f0f4ff;border:1pt solid #c7d2fe;border-radius:6pt;padding:8pt 14pt;margin-bottom:14pt;font-size:9pt;color:#4338ca;text-align:center}
+    .share-banner{background:#f0f4ff;border:1pt solid #c7d2fe;border-radius:6pt;padding:7pt 14pt;margin-bottom:14pt;font-size:9pt;color:#4338ca;text-align:center}
 
     /* ─ Header ─ */
     .ph{display:flex;align-items:center;justify-content:space-between;padding-bottom:10pt;border-bottom:3pt solid #6366f1;margin-bottom:14pt}
@@ -223,28 +224,30 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
     .sl{font-size:6.5pt;color:#6b7280;margin-top:2pt;text-align:center}
 
     /* ─ Table ─ */
-    table{width:100%;border-collapse:collapse;margin-bottom:14pt}
+    table{width:100%;border-collapse:collapse;margin-bottom:14pt;table-layout:fixed}
     thead tr{background:linear-gradient(135deg,#4f46e5,#818cf8)}
-    thead th{color:white;font-weight:600;font-size:8.5pt;padding:7pt 9pt;text-align:right;letter-spacing:.01em}
+    thead th{color:white;font-weight:600;font-size:8.5pt;padding:7pt 8pt;text-align:right;letter-spacing:.01em}
     thead th.center{text-align:center}
     tbody tr{border-bottom:.4pt solid #ede9fe}
-    tbody tr:nth-child(odd):not(.week-row):not(.body-row){background:#fafbff}
+    tbody tr:nth-child(odd):not(.week-row){background:#fafbff}
     tbody tr:last-child{border-bottom:none}
-    td{padding:5.5pt 9pt;font-size:9.5pt;vertical-align:middle}
-    td.idx{font-size:7.5pt;color:#c4c9e0;text-align:center;font-variant-numeric:tabular-nums;width:18pt}
-    td.num{font-variant-numeric:tabular-nums;direction:ltr;text-align:center}
+
+    /* ─ Cells ─ */
+    td{padding:5pt 8pt;font-size:9.5pt;vertical-align:top}
+    td.idx{font-size:7.5pt;color:#c4c9e0;text-align:center;font-variant-numeric:tabular-nums;width:18pt;vertical-align:middle;padding-top:7pt}
+    td.compact{white-space:nowrap;vertical-align:middle;font-size:9pt}
+    td.num{font-variant-numeric:tabular-nums;direction:ltr}
     td.center{text-align:center}
-    td.title{font-weight:500;max-width:180pt;word-break:break-word}
-    td.date-cell{white-space:nowrap;font-size:8.5pt;color:#4b5563}
+    td.title{font-weight:500;word-break:break-word;width:auto}
+    td.date-cell{color:#4b5563}
+
+    /* ─ Body inline ─ */
+    .body-inline{font-size:7.5pt;color:#6b7280;margin-top:3pt;line-height:1.55;font-weight:400;white-space:pre-wrap;word-break:break-word}
 
     /* ─ Week group ─ */
-    tbody tr.week-row td{background:#eef0fb;padding:5pt 9pt;border-top:1pt solid #c7d2fe;border-bottom:.5pt solid #c7d2fe}
+    tbody tr.week-row td{background:#eef0fb;padding:5pt 8pt;border-top:1pt solid #c7d2fe;border-bottom:.5pt solid #c7d2fe}
     .wk-name{font-weight:700;font-size:8.5pt;color:#4338ca}
     .wk-range{font-size:7.5pt;color:#818cf8;margin-right:8pt}
-
-    /* ─ Body sub-row ─ */
-    tbody tr.body-row td.body-text{color:#374151;font-size:8pt;line-height:1.65;padding:3pt 9pt 9pt;white-space:pre-wrap;background:#fdfcff;border-right:3pt solid #c7d2fe}
-    tbody tr.body-row{border-bottom:.5pt solid #ede9fe}
 
     /* ─ Badge ─ */
     .badge{display:inline-flex;align-items:center;gap:4pt;padding:2pt 7pt;border-radius:99pt;font-size:8pt;font-weight:600;white-space:nowrap}
@@ -339,26 +342,51 @@ ${actionBtnHtml}
     setTimeout(() => URL.revokeObjectURL(url), 60000)
   }
 
+  const handleExcelExport = async () => {
+    const XLSX = await import('xlsx')
+    const allRows = [...monthItems, ...unscheduled]
+    const data = allRows.map((it, idx) => ({
+      '#': idx + 1,
+      'العنوان': it.title,
+      'النص / الملاحظات': it.body ?? '',
+      'النوع': TYPE_LABEL[it.type],
+      'المنصة': it.platform ? PLATFORM_LABEL[it.platform] : '',
+      'المقاس': it.dimensions ?? '',
+      'تاريخ النشر': fmtDayMonth(scheduledKey(it)),
+      'الحالة': STATUS_LABEL[it.status],
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    ws['!cols'] = [
+      { wch: 4 }, { wch: 36 }, { wch: 42 }, { wch: 12 },
+      { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
+    ]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'المحتوى')
+    const clientName = selectedClient?.name ?? 'المحتوى'
+    XLSX.writeFile(wb, `جدول-${clientName}-${monthLabel(year, month)}.xlsx`)
+  }
+
   // ── Preview helpers ────────────────────────────────────
-  const pcell: React.CSSProperties = { padding: '7px 10px', borderBottom: '1px solid var(--color-surface-border)' }
+  const pcell: React.CSSProperties = { padding: '7px 10px', borderBottom: '1px solid var(--color-surface-border)', verticalAlign: 'top' }
+  const pcellMid: React.CSSProperties = { ...pcell, verticalAlign: 'middle', whiteSpace: 'nowrap' }
 
   const previewCell = (it: ContentItem, key: ColKey): React.ReactNode => {
     const statusColor = STATUS_VAR[it.status]
     const sKey = scheduledKey(it)
-    if (key === 'type') return <td key="type" style={{ ...pcell, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{TYPE_LABEL[it.type]}</td>
+    if (key === 'type') return <td key="type" style={{ ...pcellMid, color: 'var(--color-text-muted)', fontSize: 12 }}>{TYPE_LABEL[it.type]}</td>
     if (key === 'platform') return (
-      <td key="platform" style={{ ...pcell, whiteSpace: 'nowrap' }}>
+      <td key="platform" style={pcellMid}>
         {it.platform
-          ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--color-text-muted)' }}>
+          ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--color-text-muted)', fontSize: 12 }}>
               <PlatformIcon platform={it.platform} size={12} />{PLATFORM_LABEL[it.platform]}
             </span>
           : <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
       </td>
     )
-    if (key === 'dimensions') return <td key="dimensions" style={{ ...pcell, color: 'var(--color-text-muted)', fontVariantNumeric: 'tabular-nums' }}>{it.dimensions ?? '—'}</td>
-    if (key === 'date') return <td key="date" style={{ ...pcell, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{fmtDayMonth(sKey)}</td>
+    if (key === 'dimensions') return <td key="dimensions" style={{ ...pcellMid, color: 'var(--color-text-muted)', fontVariantNumeric: 'tabular-nums', fontSize: 11 }}>{it.dimensions ?? '—'}</td>
+    if (key === 'date') return <td key="date" style={{ ...pcellMid, color: 'var(--color-text-muted)', fontSize: 12 }}>{fmtDayMonth(sKey)}</td>
     if (key === 'status') return (
-      <td key="status" style={pcell}>
+      <td key="status" style={pcellMid}>
         <span style={{
           display: 'inline-flex', alignItems: 'center', gap: 4,
           padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap',
@@ -404,6 +432,13 @@ ${actionBtnHtml}
             >
               {shareOpened ? <Link size={14} /> : <Share2 size={14} />}
               {shareOpened ? 'فُتح الرابط' : 'رابط العميل'}
+            </button>
+            <button
+              onClick={handleExcelExport}
+              className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-sm font-medium transition-colors hover:bg-white/5"
+              style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
+            >
+              <FileSpreadsheet size={14} /> تنزيل Excel
             </button>
             <button
               onClick={handlePrint}
@@ -504,36 +539,34 @@ ${actionBtnHtml}
           )}
 
           {monthItems.length > 0 ? (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
               <thead>
                 <tr>
-                  {['#', 'العنوان', ...previewCols.map((c) => c.label)].map((h) => (
-                    <th key={h} style={{
-                      textAlign: 'right', padding: '7px 10px', fontSize: 11, fontWeight: 600,
-                      color: 'var(--color-text-muted)',
-                      borderBottom: '2px solid var(--color-surface-border)',
-                      background: 'var(--color-surface-overlay)',
-                    }}>{h}</th>
+                  <th style={{ textAlign: 'center', padding: '7px 10px', fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', borderBottom: '2px solid var(--color-surface-border)', background: 'var(--color-surface-overlay)', width: 28 }}>#</th>
+                  <th style={{ textAlign: 'right', padding: '7px 10px', fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', borderBottom: '2px solid var(--color-surface-border)', background: 'var(--color-surface-overlay)' }}>
+                    {includeBody ? 'العنوان والنص' : 'العنوان'}
+                  </th>
+                  {previewCols.map((c) => (
+                    <th key={c.key} style={{ textAlign: c.center ? 'center' : 'right', padding: '7px 10px', fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', borderBottom: '2px solid var(--color-surface-border)', background: 'var(--color-surface-overlay)', whiteSpace: 'nowrap' }}>
+                      {c.label}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {monthItems.map((it, idx) => (
-                  <Fragment key={it.id}>
-                    <tr>
-                      <td style={{ ...pcell, color: 'var(--color-text-muted)', fontSize: 11, width: 28 }}>{idx + 1}</td>
-                      <td style={{ ...pcell, color: 'var(--color-text-primary)', fontWeight: 500 }}>{it.title}</td>
-                      {previewCols.map((c) => previewCell(it, c.key))}
-                    </tr>
-                    {includeBody && it.body && (
-                      <tr>
-                        <td />
-                        <td colSpan={1 + previewCols.length} style={{ padding: '0 10px 8px', color: 'var(--color-text-muted)', fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap', borderBottom: '1px solid var(--color-surface-border)' }}>
+                  <tr key={it.id}>
+                    <td style={{ ...pcell, color: 'var(--color-text-muted)', fontSize: 11, width: 28, textAlign: 'center', verticalAlign: 'middle' }}>{idx + 1}</td>
+                    <td style={{ ...pcell, color: 'var(--color-text-primary)', fontWeight: 500 }}>
+                      {it.title}
+                      {includeBody && it.body && (
+                        <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 3, lineHeight: 1.5, fontWeight: 400, whiteSpace: 'pre-wrap' }}>
                           {it.body}
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
+                        </p>
+                      )}
+                    </td>
+                    {previewCols.map((c) => previewCell(it, c.key))}
+                  </tr>
                 ))}
               </tbody>
             </table>
@@ -568,8 +601,8 @@ ${actionBtnHtml}
           )}
         </div>
 
-        <div className="px-5 py-3 shrink-0 text-xs flex items-center gap-2" style={{ borderTop: '1px solid var(--color-surface-border)', color: 'var(--color-text-muted)' }}>
-          <span className="flex-1">طباعة: يُفتح ملف في نافذة جديدة — اختر «حفظ كـ PDF» · رابط العميل: صفحة استعراض مستقلة تُفتح في المتصفح</span>
+        <div className="px-5 py-3 shrink-0 text-xs" style={{ borderTop: '1px solid var(--color-surface-border)', color: 'var(--color-text-muted)' }}>
+          طباعة: نافذة جديدة ← حفظ كـ PDF · رابط العميل: صفحة استعراض مستقلة · Excel: ملف جداول بكل الحقول
         </div>
       </div>
     </div>
