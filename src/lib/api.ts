@@ -52,6 +52,8 @@ export async function apiGetMe(): Promise<AppUser | null> {
 // ── Bulk sync ─────────────────────────────────────────────
 
 export interface SyncSnapshot {
+  /** True when D1 already holds project data (distinguishes first-time migration). */
+  seeded:      boolean
   projects:    Project[]
   tasks:       Task[]
   plans:       Plan[]
