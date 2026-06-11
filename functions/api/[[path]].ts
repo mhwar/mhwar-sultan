@@ -203,14 +203,34 @@ async function canAccessProject(db: D1Database, userId: string, projectId: strin
 
 // ── Route handlers ────────────────────────────────────────
 
-// Health check — also verifies D1 connectivity
-async function handleHealth(db: D1Database): Promise<Response> {
+// Health check — verifies D1 connectivity and surfaces the Cloudflare Access
+// identity headers actually received, so we can diagnose auth wiring.
+async function handleHealth(db: D1Database, req: Request): Promise<Response> {
+  let dbOk = false
   try {
     await db.prepare('SELECT 1').first()
-    return json({ ok: true, db: true, ts: new Date().toISOString() })
-  } catch {
-    return json({ ok: true, db: false, ts: new Date().toISOString() })
-  }
+    dbOk = true
+  } catch { /* dbOk stays false */ }
+
+  const accessEmail =
+    req.headers.get('Cf-Access-Authenticated-User-Email') ||
+    req.headers.get('CF-Access-Authenticated-User-Email') || null
+  const hasJwt = !!req.headers.get('Cf-Access-Jwt-Assertion')
+
+  let userCount: number | null = null
+  try {
+    const row = await db.prepare('SELECT COUNT(*) AS n FROM app_users').first<{ n: number }>()
+    userCount = row?.n ?? 0
+  } catch { /* leave null */ }
+
+  return json({
+    ok: true,
+    db: dbOk,
+    accessEmail,
+    hasJwt,
+    userCount,
+    ts: new Date().toISOString(),
+  })
 }
 
 // ── Invitations ───────────────────────────────────────────
@@ -765,7 +785,7 @@ export async function onRequest(ctx: any): Promise<Response> {
   const segments: string[] = Array.isArray(params?.path) ? params.path : (params?.path ? [params.path] : [])
 
   // Health check — no auth required
-  if (segments[0] === 'health') return handleHealth(db)
+  if (segments[0] === 'health') return handleHealth(db, request)
 
   // All other routes require authentication
   const caller = await getAuthUser(request, db)
