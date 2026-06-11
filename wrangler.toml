@@ -7,7 +7,7 @@
 #   3. Edit this file: replace REPLACE_WITH_YOUR_D1_DATABASE_ID
 #   4. npx wrangler d1 execute bosla-db --file=db/schema.sql --remote
 #   5. In Cloudflare Pages dashboard:
-#      Settings → Functions → D1 database bindings → Add:
+#      Settings → Bindings → D1 database bindings → Add:
 #        Variable name: DB
 #        D1 database:   bosla-db
 #   6. Redeploy (or push to GitHub — Pages CI handles it)
