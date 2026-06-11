@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react'
 import {
   ArrowRight, Edit2, Mail, Phone, FileText, CheckCircle2, Inbox, Send, Plus,
-  Check, X, Package, Printer, CalendarRange,
+  Check, X, Package, Printer, CalendarRange, FileSpreadsheet,
 } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import type { Client, ClientStatus, ContentItem, ContentStatus, ContentSource, FinanceEntry, FinanceKind, FinanceStatus, Project } from '@/types'
@@ -11,6 +11,7 @@ import { ClientAvatar } from '../ClientsTab'
 import ContentDrawer from '../content/ContentDrawer'
 import ContentExportModal from '../content/ContentExportModal'
 import ContentMonthComposer from '../content/ContentMonthComposer'
+import ContentImportModal from '../content/ContentImportModal'
 import { PlatformIcon } from '../content/PlatformIcon'
 import {
   STATUS_LABEL, STATUS_VAR, SOURCE_LABEL, DONE_STATUSES,
@@ -336,6 +337,7 @@ function ContentTab({ client, project, accent }: { client: Client; project: Proj
   const [openId, setOpenId] = useState<string | null>(null)
   const [showExport, setShowExport] = useState(false)
   const [showComposer, setShowComposer] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const { addItem, updateItem, deleteItem } = useContentStore()
   const items = useContentStore(useShallow((s) =>
     s.items.filter((i) => i.projectId === client.projectId && i.clientId === client.id)
@@ -392,6 +394,13 @@ function ContentTab({ client, project, accent }: { client: Client; project: Proj
 
       {/* Actions */}
       <div className="flex justify-end gap-2">
+        <button
+          onClick={() => setShowImport(true)}
+          className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-medium transition-colors hover:bg-white/5"
+          style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
+        >
+          <FileSpreadsheet size={13} /> استيراد Excel
+        </button>
         <button
           onClick={() => setShowExport(true)}
           className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-medium transition-colors hover:bg-white/5"
@@ -488,6 +497,15 @@ function ContentTab({ client, project, accent }: { client: Client; project: Proj
           month={now.getMonth()}
           onCreate={(item) => addItem(item as Parameters<typeof addItem>[0])}
           onClose={() => setShowComposer(false)}
+        />
+      )}
+
+      {showImport && (
+        <ContentImportModal
+          projectId={client.projectId}
+          clientId={client.id}
+          onCreate={(item) => addItem(item)}
+          onClose={() => setShowImport(false)}
         />
       )}
     </div>

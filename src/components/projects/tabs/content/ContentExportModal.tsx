@@ -1,6 +1,6 @@
 'use client'
 import { useState, useMemo, Fragment } from 'react'
-import { X, Printer, ChevronDown } from 'lucide-react'
+import { X, Printer, ChevronDown, Share2, Link } from 'lucide-react'
 import type { Client, ContentItem } from '@/types'
 import { TYPE_LABEL, PLATFORM_LABEL, STATUS_LABEL, STATUS_VAR, scheduledKey, keyInMonth, monthLabel, fmtDayMonth } from './contentMeta'
 import { PlatformIcon, platformCellHtml } from './PlatformIcon'
@@ -33,7 +33,6 @@ function esc(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
 }
 
-// ── Column definitions ────────────────────────────────────
 type ColKey = 'type' | 'platform' | 'dimensions' | 'date' | 'status'
 interface ColDef { key: ColKey; label: string; printWidth: string; center?: boolean }
 const COL_DEFS: ColDef[] = [
@@ -49,6 +48,10 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
   const [includeBody, setIncludeBody] = useState(false)
   const [groupByWeek, setGroupByWeek] = useState(true)
   const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(() => new Set(COL_DEFS.map((c) => c.key)))
+  const [agencyName, setAgencyName] = useState('بوصلة الأعمال')
+  const [reportNotes, setReportNotes] = useState('')
+  const [shareOpened, setShareOpened] = useState(false)
+  const [showMetadata, setShowMetadata] = useState(false)
 
   const toggleCol = (key: ColKey) =>
     setVisibleCols((prev) => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n })
@@ -70,9 +73,8 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
     return !scheduledKey(i)
   }), [items, selectedClientId])
 
-  const handlePrint = () => {
-    const win = window.open('', '_blank', 'width=940,height=760')
-    if (!win) return
+  /* ── HTML builder (shared by print and share) ───────── */
+  const buildHtml = (mode: 'print' | 'share'): string => {
     const clientName = selectedClient?.name ?? 'كل العملاء'
     const printedAt = new Date().toLocaleDateString('ar-SA-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' })
     const quota = selectedClient?.deliverableCount ?? 0
@@ -163,7 +165,32 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
       ? `<img style="height:44pt;object-fit:contain;max-width:110pt" src="${selectedClient.logo}" alt="${esc(clientName)}" />`
       : `<div style="width:44pt;height:44pt;background:linear-gradient(135deg,#6366f1,#818cf8);border-radius:8pt;color:white;font-size:17pt;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${esc(clientName.charAt(0))}</div>`
 
-    win.document.write(`<!DOCTYPE html>
+    const notesHtml = reportNotes.trim()
+      ? `<div class="notes-box">
+           <div class="notes-title">ملاحظات التقرير</div>
+           <div class="notes-body">${esc(reportNotes).replace(/\n/g, '<br/>')}</div>
+         </div>` : ''
+
+    const approvalHtml = mode === 'print' ? `
+    <div class="approval">
+      <div class="approval-title">اعتماد العميل على خطة المحتوى</div>
+      <div class="approval-row">
+        <div class="approval-field"><div class="approval-line"></div><div class="approval-label">الاسم والتوقيع</div></div>
+        <div class="approval-field"><div class="approval-line"></div><div class="approval-label">التاريخ</div></div>
+        <div class="approval-field"><div class="approval-line"></div><div class="approval-label">الختم</div></div>
+      </div>
+    </div>` : ''
+
+    const shareBannerHtml = mode === 'share' ? `
+    <div class="share-banner">
+      <span>📋 هذه نسخة استعراض للعميل — للمراجعة فقط</span>
+    </div>` : ''
+
+    const actionBtnHtml = mode === 'print'
+      ? `<div class="pbw"><button class="pbtn" onclick="window.print()">طباعة / حفظ كـ PDF</button></div>`
+      : ''
+
+    return `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
   <meta charset="UTF-8"/>
@@ -171,21 +198,25 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    @page { size:A4 portrait; margin:14mm 13mm 20mm 13mm; }
-    @page :first { margin-top:11mm; }
+    @page { size:A4 portrait; margin:18mm 20mm 24mm 20mm; }
+    @page :first { margin-top:14mm; }
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Cairo','Segoe UI',Tahoma,Arial,sans-serif;direction:rtl;background:#fff;color:#1e1b4b;font-size:10pt;line-height:1.55}
+    body{font-family:'Cairo','Segoe UI',Tahoma,Arial,sans-serif;direction:rtl;background:#fff;color:#1e1b4b;font-size:10pt;line-height:1.6}
+
+    /* ─ Share banner ─ */
+    .share-banner{background:#f0f4ff;border:1pt solid #c7d2fe;border-radius:6pt;padding:8pt 14pt;margin-bottom:14pt;font-size:9pt;color:#4338ca;text-align:center}
 
     /* ─ Header ─ */
-    .ph{display:flex;align-items:center;justify-content:space-between;padding-bottom:10pt;border-bottom:3pt solid #6366f1;margin-bottom:13pt}
+    .ph{display:flex;align-items:center;justify-content:space-between;padding-bottom:10pt;border-bottom:3pt solid #6366f1;margin-bottom:14pt}
     .ph-l{display:flex;align-items:center;gap:10pt}
+    .ph-info .agency{font-size:8pt;color:#6366f1;font-weight:600;margin-bottom:2pt}
     .ph-info .title{font-size:14pt;font-weight:700;color:#1e1b4b;line-height:1.2}
     .ph-info .sub{font-size:8pt;color:#6b7280;margin-top:2pt}
-    .ph-r{text-align:left;font-size:8pt;color:#6b7280;line-height:1.85}
+    .ph-r{text-align:left;font-size:8pt;color:#6b7280;line-height:2}
     .ph-month{font-size:13pt;font-weight:700;color:#6366f1}
 
     /* ─ Summary ─ */
-    .summary-row{display:flex;gap:0;border-radius:8pt;margin-bottom:13pt;border:0.5pt solid #e0e7ff;overflow:hidden}
+    .summary-row{display:flex;gap:0;border-radius:8pt;margin-bottom:14pt;border:0.5pt solid #e0e7ff;overflow:hidden}
     .si{display:flex;flex-direction:column;align-items:center;flex:1;padding:8pt 6pt;background:linear-gradient(180deg,#f5f3ff,#eef2ff);border-left:0.5pt solid #e0e7ff}
     .si:last-child{border-left:none}
     .sn{font-size:16pt;font-weight:700;color:#6366f1;font-variant-numeric:tabular-nums;line-height:1}
@@ -194,12 +225,12 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
     /* ─ Table ─ */
     table{width:100%;border-collapse:collapse;margin-bottom:14pt}
     thead tr{background:linear-gradient(135deg,#4f46e5,#818cf8)}
-    thead th{color:white;font-weight:600;font-size:8.5pt;padding:7pt 8pt;text-align:right;letter-spacing:.01em}
+    thead th{color:white;font-weight:600;font-size:8.5pt;padding:7pt 9pt;text-align:right;letter-spacing:.01em}
     thead th.center{text-align:center}
     tbody tr{border-bottom:.4pt solid #ede9fe}
     tbody tr:nth-child(odd):not(.week-row):not(.body-row){background:#fafbff}
     tbody tr:last-child{border-bottom:none}
-    td{padding:5.5pt 8pt;font-size:9.5pt;vertical-align:middle}
+    td{padding:5.5pt 9pt;font-size:9.5pt;vertical-align:middle}
     td.idx{font-size:7.5pt;color:#c4c9e0;text-align:center;font-variant-numeric:tabular-nums;width:18pt}
     td.num{font-variant-numeric:tabular-nums;direction:ltr;text-align:center}
     td.center{text-align:center}
@@ -207,17 +238,22 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
     td.date-cell{white-space:nowrap;font-size:8.5pt;color:#4b5563}
 
     /* ─ Week group ─ */
-    tbody tr.week-row td{background:#eef0fb;padding:5pt 8pt;border-top:1pt solid #c7d2fe;border-bottom:.5pt solid #c7d2fe}
+    tbody tr.week-row td{background:#eef0fb;padding:5pt 9pt;border-top:1pt solid #c7d2fe;border-bottom:.5pt solid #c7d2fe}
     .wk-name{font-weight:700;font-size:8.5pt;color:#4338ca}
     .wk-range{font-size:7.5pt;color:#818cf8;margin-right:8pt}
 
     /* ─ Body sub-row ─ */
-    tbody tr.body-row td.body-text{color:#374151;font-size:8pt;line-height:1.65;padding:3pt 8pt 9pt;white-space:pre-wrap;background:#fdfcff;border-right:3pt solid #c7d2fe}
+    tbody tr.body-row td.body-text{color:#374151;font-size:8pt;line-height:1.65;padding:3pt 9pt 9pt;white-space:pre-wrap;background:#fdfcff;border-right:3pt solid #c7d2fe}
     tbody tr.body-row{border-bottom:.5pt solid #ede9fe}
 
     /* ─ Badge ─ */
     .badge{display:inline-flex;align-items:center;gap:4pt;padding:2pt 7pt;border-radius:99pt;font-size:8pt;font-weight:600;white-space:nowrap}
     .dot{display:inline-block;width:5pt;height:5pt;border-radius:50%;flex-shrink:0}
+
+    /* ─ Notes box ─ */
+    .notes-box{margin:14pt 0;padding:10pt 14pt;border:0.5pt solid #d1d5db;border-radius:7pt;border-right:3pt solid #6366f1}
+    .notes-title{font-size:8.5pt;font-weight:700;color:#374151;margin-bottom:6pt}
+    .notes-body{font-size:9pt;color:#4b5563;line-height:1.7;white-space:pre-wrap}
 
     /* ─ Unscheduled section ─ */
     .section-title{font-size:9.5pt;font-weight:700;color:#374151;margin:14pt 0 6pt;padding-bottom:4pt;border-bottom:1pt dashed #d1d5db}
@@ -238,15 +274,18 @@ export default function ContentExportModal({ items, clients, clientColorMap, yea
     .pbw{text-align:center;margin-top:24pt;padding-bottom:12pt}
     .pbtn{padding:9pt 32pt;font-size:11pt;cursor:pointer;border-radius:7pt;background:#6366f1;color:white;border:none;font-family:inherit;font-weight:600;letter-spacing:.02em}
 
-    @media print{.pbw{display:none}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+    @media print{.pbw{display:none}.share-banner{display:none}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
   </style>
 </head>
 <body>
+
+${shareBannerHtml}
 
 <div class="ph">
   <div class="ph-l">
     ${initialsHtml}
     <div class="ph-info">
+      ${agencyName.trim() ? `<div class="agency">${esc(agencyName.trim())}</div>` : ''}
       <div class="title">جدول المحتوى الشهري</div>
       <div class="sub">${esc(clientName)}</div>
     </div>
@@ -269,27 +308,35 @@ ${monthItems.length > 0 ? `
 
 ${unschHtml}
 
-<div class="approval">
-  <div class="approval-title">اعتماد العميل على خطة المحتوى</div>
-  <div class="approval-row">
-    <div class="approval-field"><div class="approval-line"></div><div class="approval-label">الاسم والتوقيع</div></div>
-    <div class="approval-field"><div class="approval-line"></div><div class="approval-label">التاريخ</div></div>
-    <div class="approval-field"><div class="approval-line"></div><div class="approval-label">الختم</div></div>
-  </div>
-</div>
+${notesHtml}
+
+${approvalHtml}
 
 <div class="page-footer">
-  <span>محور — نظام إدارة المحتوى</span>
+  <span>${agencyName.trim() ? esc(agencyName.trim()) : 'نظام إدارة المحتوى'}</span>
   <span>${esc(clientName)} · ${monthLabel(year, month)}</span>
 </div>
 
-<div class="pbw">
-  <button class="pbtn" onclick="window.print()">طباعة / حفظ كـ PDF</button>
-</div>
+${actionBtnHtml}
 
-</body></html>`)
+</body></html>`
+  }
+
+  const handlePrint = () => {
+    const win = window.open('', '_blank', 'width=940,height=760')
+    if (!win) return
+    win.document.write(buildHtml('print'))
     win.document.close()
     win.focus()
+  }
+
+  const handleShare = () => {
+    const html = buildHtml('share')
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank')
+    setShareOpened(true)
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
   }
 
   // ── Preview helpers ────────────────────────────────────
@@ -336,25 +383,45 @@ ${unschHtml}
       <div
         className="w-full max-w-4xl flex flex-col animate-fade-up"
         style={{
-          background: 'var(--surface-1)', border: '1px solid var(--border-subtle)',
+          background: 'var(--color-surface-raised)', border: '1px solid var(--color-surface-border)',
           borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-xl)', maxHeight: '90vh',
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+        <div className="flex items-center justify-between px-5 py-4 shrink-0" style={{ borderBottom: '1px solid var(--color-surface-border)' }}>
           <div className="flex items-center gap-3">
             <Printer size={18} style={{ color: 'var(--iris-500)' }} />
-            <h2 className="text-base font-bold" style={{ color: 'var(--fg-1)' }}>تصدير جدول المحتوى</h2>
+            <h2 className="text-base font-bold" style={{ color: 'var(--color-text-primary)' }}>تصدير جدول المحتوى</h2>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-md flex items-center justify-center transition-colors hover:bg-white/5" style={{ color: 'var(--color-text-muted)' }}>
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleShare}
+              className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-sm font-medium transition-colors hover:bg-white/5"
+              style={{
+                color: shareOpened ? 'var(--success-500)' : 'var(--color-text-secondary)',
+                border: `1px solid ${shareOpened ? 'var(--success-500)' : 'var(--color-surface-border)'}`,
+              }}
+            >
+              {shareOpened ? <Link size={14} /> : <Share2 size={14} />}
+              {shareOpened ? 'فُتح الرابط' : 'رابط العميل'}
+            </button>
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 px-4 h-8 rounded-md text-sm font-semibold"
+              style={{ background: 'var(--iris-500)', color: 'white' }}
+            >
+              <Printer size={14} /> طباعة / PDF
+            </button>
+            <button onClick={onClose} className="w-8 h-8 rounded-md flex items-center justify-center transition-colors hover:bg-white/5" style={{ color: 'var(--color-text-muted)' }}>
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         {/* Controls */}
-        <div className="px-5 py-3 flex items-center gap-3 flex-wrap shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+        <div className="px-5 py-3 flex items-center gap-3 flex-wrap shrink-0" style={{ borderBottom: '1px solid var(--color-surface-border)' }}>
           <div className="flex items-center gap-2">
-            <label className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>العميل</label>
+            <label className="text-sm shrink-0" style={{ color: 'var(--color-text-secondary)' }}>العميل</label>
             <div className="relative">
               <select
                 value={selectedClientId}
@@ -372,21 +439,15 @@ ${unschHtml}
           <span className="axis-num text-sm ms-auto" style={{ color: 'var(--color-text-secondary)' }}>
             {monthItems.length} قطعة
           </span>
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 px-4 h-8 rounded-md text-sm font-semibold"
-            style={{ background: 'var(--iris-500)', color: 'white' }}
-          >
-            <Printer size={14} /> طباعة / PDF
-          </button>
         </div>
 
         {/* Options + column picker */}
-        <div className="px-5 py-2.5 space-y-2 shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+        <div className="px-5 py-2.5 space-y-2 shrink-0" style={{ borderBottom: '1px solid var(--color-surface-border)' }}>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs shrink-0" style={{ color: 'var(--color-text-muted)' }}>خيارات:</span>
             <Toggle active={includeBody} onClick={() => setIncludeBody((v) => !v)}>نص المنشور</Toggle>
             <Toggle active={groupByWeek} onClick={() => setGroupByWeek((v) => !v)}>تجميع أسبوعي</Toggle>
+            <Toggle active={showMetadata} onClick={() => setShowMetadata((v) => !v)}>بيانات التقرير</Toggle>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs shrink-0" style={{ color: 'var(--color-text-muted)' }}>الأعمدة:</span>
@@ -396,6 +457,34 @@ ${unschHtml}
               </Toggle>
             ))}
           </div>
+
+          {/* Metadata fields */}
+          {showMetadata && (
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="axis-label block mb-1">اسم الوكالة / الجهة المُصدِرة</label>
+                <input
+                  type="text"
+                  value={agencyName}
+                  onChange={(e) => setAgencyName(e.target.value)}
+                  placeholder="بوصلة الأعمال"
+                  className="w-full h-8 rounded-md px-2.5 text-sm outline-none"
+                  style={{ background: 'var(--color-surface-muted)', border: '1px solid var(--color-surface-border)', color: 'var(--color-text-primary)' }}
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="axis-label block mb-1">ملاحظات تظهر في التقرير</label>
+                <textarea
+                  value={reportNotes}
+                  onChange={(e) => setReportNotes(e.target.value)}
+                  placeholder="ملاحظات للعميل، تعليمات خاصة، أهداف الشهر..."
+                  rows={2}
+                  className="w-full rounded-md px-2.5 py-1.5 text-sm outline-none resize-none"
+                  style={{ background: 'var(--color-surface-muted)', border: '1px solid var(--color-surface-border)', color: 'var(--color-text-primary)' }}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Preview */}
@@ -479,8 +568,8 @@ ${unschHtml}
           )}
         </div>
 
-        <div className="px-5 py-3 shrink-0 text-xs" style={{ borderTop: '1px solid var(--border-subtle)', color: 'var(--color-text-muted)' }}>
-          سيُفتح ملف طباعة في نافذة جديدة — اختر «حفظ كـ PDF» لمشاركته مع العميل
+        <div className="px-5 py-3 shrink-0 text-xs flex items-center gap-2" style={{ borderTop: '1px solid var(--color-surface-border)', color: 'var(--color-text-muted)' }}>
+          <span className="flex-1">طباعة: يُفتح ملف في نافذة جديدة — اختر «حفظ كـ PDF» · رابط العميل: صفحة استعراض مستقلة تُفتح في المتصفح</span>
         </div>
       </div>
     </div>
