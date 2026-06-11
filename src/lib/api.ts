@@ -21,7 +21,7 @@ async function apiFetch<T>(
   try {
     const res = await fetch(`/api/${path}`, {
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...options?.headers },
       ...options,
     })
     if (!res.ok) {
@@ -43,11 +43,19 @@ async function apiFetchDetailed<T>(
   try {
     const res = await fetch(`/api/${path}`, {
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...options?.headers },
       ...options,
     })
-    const body = await res.json() as T & { error?: string }
-    if (!res.ok) return { data: null, error: (body as { error?: string }).error ?? `HTTP ${res.status}` }
+    if (!res.ok) {
+      // Try to parse JSON error body; fall back to status text
+      try {
+        const body = await res.json() as { error?: string }
+        return { data: null, error: body.error ?? `HTTP ${res.status}` }
+      } catch {
+        return { data: null, error: `HTTP ${res.status} — الجلسة منتهية أو غير مُصرَّح` }
+      }
+    }
+    const body = await res.json() as T
     return { data: body, error: null }
   } catch (e) {
     return { data: null, error: String(e) }
