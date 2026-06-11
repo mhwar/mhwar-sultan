@@ -1,5 +1,6 @@
 'use client'
-import { Trash2, Check } from 'lucide-react'
+import { useState } from 'react'
+import { MoreVertical, Trash2, Check } from 'lucide-react'
 import type { ContentItem, ContentStatus } from '@/types'
 import {
   STAGE_ORDER, STAGE_LABEL, STAGE_VAR, STAGE_STATUSES, STAGE_PRIMARY, stageOf,
@@ -20,8 +21,6 @@ interface Props {
   onReorder?: (draggedId: string, targetId: string) => void
 }
 
-/** Grouped task-list mirroring the Execution tab (axis-tasklist), folded into the
- *  three production stages. The checkbox marks a piece published / reverts it. */
 export default function ContentList({
   items, clientColorMap, clientNameMap, assigneeNameMap, onOpenItem, onSetStatus, onDelete,
 }: Props) {
@@ -48,7 +47,7 @@ export default function ContentList({
                 const color = item.clientId ? (clientColorMap[item.clientId] ?? 'var(--fg-3)') : 'var(--fg-3)'
                 const sched = scheduledKey(item)
                 return (
-                  <li key={item.id} className={`axis-tasklist__item ${isDone ? 'is-done' : ''}`} style={{ borderInlineStart: `2px solid ${color}` }}>
+                  <li key={item.id} className={`axis-tasklist__item ${isDone ? 'is-done' : ''}`} style={{ borderLeft: `2px solid ${color}` }}>
                     <span
                       className={`axis-tasklist__check ${isDone ? 'is-on' : ''}`}
                       onClick={() => onSetStatus(item.id, isDone ? STAGE_PRIMARY.production : 'published')}
@@ -84,7 +83,7 @@ export default function ContentList({
                         {sched && <span className="axis-tasklist__meta-item num-tabular">{formatDateShort(item.publishDate ?? item.dueDate)}</span>}
                       </span>
                     </div>
-                    <button onClick={() => onDelete(item.id)} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost" aria-label="حذف"><Trash2 size={13} /></button>
+                    <ItemMenu onDelete={() => onDelete(item.id)} />
                   </li>
                 )
               })}
@@ -92,6 +91,35 @@ export default function ContentList({
           </div>
         )
       })}
+    </div>
+  )
+}
+
+function ItemMenu({ onDelete }: { onDelete: () => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="relative shrink-0">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost"
+        aria-label="خيارات"
+      >
+        <MoreVertical size={13} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute end-0 top-7 z-20 axis-menu" style={{ minWidth: 120 }}>
+            <button
+              onClick={() => { onDelete(); setOpen(false) }}
+              className="axis-menu__item"
+              style={{ color: 'var(--danger-500)' }}
+            >
+              <Trash2 size={13} /> حذف
+            </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }

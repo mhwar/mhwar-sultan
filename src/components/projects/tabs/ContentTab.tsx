@@ -1,13 +1,12 @@
 'use client'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Plus, Layers, ChevronLeft, ChevronRight, CalendarDays, LayoutGrid, List, Search, CheckCircle2,
-  Globe, Printer, AlertCircle, SlidersHorizontal, Save, X, Bookmark,
+  Globe, Printer, AlertCircle, X, CalendarPlus,
 } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import type { Project, ContentItem, ContentStatus, ContentPlatform, ContentSource } from '@/types'
 import { useContentStore, useClientStore, useTeamStore } from '@/store/store'
-import { useContentFilterStore, type PresetValues } from '@/store/contentFilterStore'
 import Segmented from '@/components/ui/Segmented'
 import ContentDrawer from './content/ContentDrawer'
 import ContentCalendar from './content/ContentCalendar'
@@ -18,8 +17,7 @@ import ContentExportModal from './content/ContentExportModal'
 import { PlatformIcon } from './content/PlatformIcon'
 import {
   scheduledKey, keyInMonth, keyToISO, monthLabel, DONE_STATUSES, buildClientColorMap, CLIENT_COLORS,
-  SOURCE_LABEL, todayKey,
-  STAGE_ORDER, STAGE_LABEL, STAGE_VAR, stageOf, type ContentStage,
+  STATUS_ORDER, STATUS_LABEL, STATUS_VAR, SOURCE_LABEL, todayKey,
 } from './content/contentMeta'
 
 type View = 'calendar' | 'board' | 'list'
@@ -35,6 +33,7 @@ export default function ContentTab({ project }: Props) {
   const clients = useClientStore(useShallow((s) =>
     s.clients.filter((c) => c.projectId === pid).sort((a, b) => a.order - b.order)
   ))
+  const { addClient } = useClientStore()
   const team = useTeamStore(useShallow((s) => s.members.filter((m) => m.projectId === pid)))
 
   const today = new Date()
@@ -42,39 +41,17 @@ export default function ContentTab({ project }: Props) {
   const [cursor, setCursor] = useState({ year: today.getFullYear(), month: today.getMonth() })
   const [monthScoped, setMonthScoped] = useState(true)
   const [filterClient, setFilterClient] = useState<string>('all')
-  const [filterStage, setFilterStage] = useState<ContentStage | 'all'>('all')
+  const [filterStatus, setFilterStatus] = useState<ContentStatus | 'all'>('all')
   const [filterPlatform, setFilterPlatform] = useState<ContentPlatform | 'all'>('all')
   const [filterSource, setFilterSource] = useState<ContentSource | 'all'>('all')
   const [search, setSearch] = useState('')
-  const [showFilters, setShowFilters] = useState(false)
-  const [presetName, setPresetName] = useState('')
   const [quickTitle, setQuickTitle] = useState('')
   const [quickClient, setQuickClient] = useState<string>('')
   const [openId, setOpenId] = useState<string | null>(null)
   const [showGlobalEvents, setShowGlobalEvents] = useState(false)
   const [showExport, setShowExport] = useState(false)
-
-  // Saved filter presets (persisted in their own store; hydrate on mount).
-  const presets = useContentFilterStore(useShallow((s) => s.presets.filter((p) => p.projectId === pid)))
-  const { addPreset, deletePreset } = useContentFilterStore()
-  useEffect(() => { useContentFilterStore.persist.rehydrate() }, [])
-
-  const activeFilterCount =
-    (filterClient !== 'all' ? 1 : 0) + (filterStage !== 'all' ? 1 : 0) +
-    (filterPlatform !== 'all' ? 1 : 0) + (filterSource !== 'all' ? 1 : 0)
-
-  const resetFilters = () => {
-    setFilterClient('all'); setFilterStage('all'); setFilterPlatform('all'); setFilterSource('all')
-  }
-  const applyPreset = (v: PresetValues) => {
-    setFilterClient(v.client); setFilterStage(v.stage); setFilterPlatform(v.platform); setFilterSource(v.source)
-  }
-  const saveCurrentPreset = () => {
-    const name = presetName.trim()
-    if (!name) return
-    addPreset(pid, name, { client: filterClient, stage: filterStage, platform: filterPlatform, source: filterSource })
-    setPresetName('')
-  }
+  const [showAddClient, setShowAddClient] = useState(false)
+  const [addClientName, setAddClientName] = useState('')
 
   const clientColorMap = useMemo(() => buildClientColorMap(clients.map((c) => c.id)), [clients])
   const clientNameMap = useMemo(() => Object.fromEntries(clients.map((c) => [c.id, c.name])), [clients])
@@ -86,18 +63,18 @@ export default function ContentTab({ project }: Props) {
     return k === null || keyInMonth(k, year, month)
   }
 
-  // client + stage + platform + source + search filter
+  // client + status + platform + search filter
   const base = useMemo(() => {
     const q = search.trim().toLowerCase()
     return items.filter((i) => {
       if (filterClient !== 'all' && i.clientId !== filterClient) return false
-      if (filterStage !== 'all' && stageOf(i.status) !== filterStage) return false
+      if (filterStatus !== 'all' && i.status !== filterStatus) return false
       if (filterPlatform !== 'all' && i.platform !== filterPlatform) return false
       if (filterSource !== 'all' && (i.source ?? 'internal') !== filterSource) return false
       if (q && !i.title.toLowerCase().includes(q)) return false
       return true
     })
-  }, [items, filterClient, filterStage, filterPlatform, filterSource, search])
+  }, [items, filterClient, filterStatus, filterPlatform, filterSource, search])
 
   const availablePlatforms = useMemo(() => {
     const seen = new Set<ContentPlatform>()
@@ -144,6 +121,15 @@ export default function ContentTab({ project }: Props) {
   const goToday = () => setCursor({ year: today.getFullYear(), month: today.getMonth() })
   const isThisMonth = year === today.getFullYear() && month === today.getMonth()
 
+  const openAddClient = () => setShowAddClient(true)
+
+  const submitAddClient = () => {
+    if (!addClientName.trim()) return
+    addClient({ projectId: pid, name: addClientName.trim(), contractValue: 0, contractCurrency: 'SAR', status: 'active' })
+    setAddClientName('')
+    setShowAddClient(false)
+  }
+
   /* ── Mutations ── */
   // Create-then-open: the drawer edits live, so new items are created up front
   // and removed on close if left empty (no title, no body).
@@ -188,8 +174,128 @@ export default function ContentTab({ project }: Props) {
     setQuickTitle('')
   }
 
+  const firstDayOfMonth = new Date(Date.UTC(year, month, 1)).toISOString()
+
   return (
     <div className="axis-card p-4 md:p-6 space-y-4">
+
+      {/* Per-client contract progress — TOP of the card */}
+      {progress.length > 0 && (
+        <div className="space-y-2">
+          {/* Section sub-header */}
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>العملاء</span>
+            <button
+              onClick={openAddClient}
+              className="px-2.5 h-7 rounded-md text-xs font-medium transition-colors hover:bg-white/5"
+              style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
+            >
+              عميل جديد
+            </button>
+          </div>
+
+          {/* Client cards row */}
+          <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1">
+            {progress.map(({ client: c, scheduled, done, quota }) => {
+              const color = clientColorMap[c.id]
+              const pct = quota > 0 ? Math.min(100, Math.round((done / quota) * 100)) : 0
+              const complete = quota > 0 && done >= quota
+              return (
+                <div
+                  key={c.id}
+                  className="shrink-0 rounded-xl p-3 text-start relative"
+                  style={{
+                    width: 168,
+                    background: 'var(--color-surface-overlay)',
+                    border: `1px solid ${filterClient === c.id ? color : 'var(--color-surface-border)'}`,
+                  }}
+                >
+                  {/* Card action buttons — top-right */}
+                  <div className="absolute top-2 end-2 flex items-center gap-1">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openNew({ clientId: c.id, publishDate: firstDayOfMonth }) }}
+                      className="w-6 h-6 rounded-md flex items-center justify-center transition-colors hover:bg-white/10"
+                      style={{ color: 'var(--color-text-muted)', border: '1px solid var(--color-surface-border)' }}
+                      title="إضافة لهذا الشهر"
+                    >
+                      <CalendarPlus size={12} />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openNew({ clientId: c.id }) }}
+                      className="w-6 h-6 rounded-md flex items-center justify-center transition-colors hover:bg-white/10"
+                      style={{ color: 'var(--color-text-muted)', border: '1px solid var(--color-surface-border)' }}
+                      title="إضافة محتوى لهذا العميل"
+                    >
+                      <Plus size={12} />
+                    </button>
+                  </div>
+
+                  {/* Clickable area for filter */}
+                  <button
+                    className="w-full text-start"
+                    onClick={() => setFilterClient(filterClient === c.id ? 'all' : c.id)}
+                  >
+                    <div className="flex items-center gap-1.5 mb-1.5 pe-12">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                      <span className="text-xs font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>{c.name}</span>
+                      {complete && <CheckCircle2 size={13} style={{ color: 'var(--success-500)' }} className="ms-auto shrink-0" />}
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="axis-num text-lg font-bold" style={{ color }}>{done}</span>
+                      {quota > 0 && <span className="axis-num text-xs" style={{ color: 'var(--color-text-muted)' }}>/ {quota}</span>}
+                      <span className="text-xs ms-1" style={{ color: 'var(--color-text-muted)' }}>منجز</span>
+                    </div>
+                    {quota > 0 ? (
+                      <div className="mt-1.5 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--color-surface-muted)' }}>
+                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: complete ? 'var(--success-500)' : color }} />
+                      </div>
+                    ) : (
+                      <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                        <span className="axis-num">{scheduled}</span> مجدول
+                      </p>
+                    )}
+                    {quota > 0 && (
+                      <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                        <span className="axis-num">{scheduled}</span> مجدول · <span className="axis-num">{Math.max(0, quota - scheduled)}</span> متبقٍ للجدولة
+                      </p>
+                    )}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Inline new-client form */}
+          {showAddClient && (
+            <div className="flex gap-2 items-center rounded-xl p-2" style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)' }}>
+              <input
+                value={addClientName}
+                onChange={(e) => setAddClientName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && addClientName.trim()) {
+                    submitAddClient()
+                  }
+                  if (e.key === 'Escape') { setAddClientName(''); setShowAddClient(false) }
+                }}
+                placeholder="اسم العميل الجديد…"
+                autoFocus
+                className="flex-1 min-w-0 bg-transparent text-sm outline-none"
+                style={{ color: 'var(--color-text-primary)' }}
+              />
+              <button
+                onClick={submitAddClient}
+                className="px-3 h-8 rounded-md text-xs font-semibold shrink-0"
+                style={{ background: 'var(--iris-500)', color: 'white' }}
+              >إضافة</button>
+              <button
+                onClick={() => { setAddClientName(''); setShowAddClient(false) }}
+                className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost"
+              ><X size={13} /></button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
@@ -290,42 +396,6 @@ export default function ContentTab({ project }: Props) {
               style={{ background: 'var(--color-surface-muted)', border: '1px solid var(--color-surface-border)', color: 'var(--color-text-primary)' }}
             />
           </div>
-
-          {/* Single filter button + popover */}
-          <div className="relative">
-            <button
-              onClick={() => setShowFilters((v) => !v)}
-              className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md text-xs font-medium transition-colors"
-              style={{
-                background: activeFilterCount > 0 ? 'color-mix(in oklch, var(--iris-500) 15%, transparent)' : 'var(--color-surface-overlay)',
-                color: activeFilterCount > 0 ? 'var(--iris-500)' : 'var(--color-text-secondary)',
-                border: `1px solid ${activeFilterCount > 0 ? 'var(--iris-500)' : 'var(--color-surface-border)'}`,
-              }}
-            >
-              <SlidersHorizontal size={13} /> فلترة
-              {activeFilterCount > 0 && (
-                <span className="axis-num inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold text-white" style={{ background: 'var(--iris-500)' }}>
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
-            {showFilters && (
-              <FilterPanel
-                clients={clients}
-                clientColorMap={clientColorMap}
-                availablePlatforms={availablePlatforms}
-                filterClient={filterClient} setFilterClient={setFilterClient}
-                filterStage={filterStage} setFilterStage={setFilterStage}
-                filterSource={filterSource} setFilterSource={setFilterSource}
-                filterPlatform={filterPlatform} setFilterPlatform={setFilterPlatform}
-                activeFilterCount={activeFilterCount}
-                onReset={resetFilters}
-                presetName={presetName} setPresetName={setPresetName}
-                onSavePreset={saveCurrentPreset}
-                onClose={() => setShowFilters(false)}
-              />
-            )}
-          </div>
         </div>
       </div>
 
@@ -374,94 +444,81 @@ export default function ContentTab({ project }: Props) {
         </button>
       </div>
 
-      {/* Per-client contract progress */}
-      {progress.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1">
-          {progress.map(({ client: c, scheduled, done, quota }) => {
-            const color = clientColorMap[c.id]
-            const pct = quota > 0 ? Math.min(100, Math.round((done / quota) * 100)) : 0
-            const complete = quota > 0 && done >= quota
-            return (
-              <button
-                key={c.id}
-                onClick={() => setFilterClient(filterClient === c.id ? 'all' : c.id)}
-                className="shrink-0 rounded-xl p-3 text-start transition-colors hover:bg-white/5"
-                style={{
-                  width: 168,
-                  background: 'var(--color-surface-overlay)',
-                  border: `1px solid ${filterClient === c.id ? color : 'var(--color-surface-border)'}`,
-                }}
-              >
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                  <span className="text-xs font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>{c.name}</span>
-                  {complete && <CheckCircle2 size={13} style={{ color: 'var(--success-500)' }} className="ms-auto shrink-0" />}
-                </div>
-                <div className="flex items-baseline gap-1">
-                  <span className="axis-num text-lg font-bold" style={{ color }}>{done}</span>
-                  {quota > 0 && <span className="axis-num text-xs" style={{ color: 'var(--color-text-muted)' }}>/ {quota}</span>}
-                  <span className="text-xs ms-1" style={{ color: 'var(--color-text-muted)' }}>منجز</span>
-                </div>
-                {quota > 0 ? (
-                  <div className="mt-1.5 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--color-surface-muted)' }}>
-                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: complete ? 'var(--success-500)' : color }} />
-                  </div>
-                ) : (
-                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                    <span className="axis-num">{scheduled}</span> مجدول
-                  </p>
-                )}
-                {quota > 0 && (
-                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                    <span className="axis-num">{scheduled}</span> مجدول · <span className="axis-num">{Math.max(0, quota - scheduled)}</span> متبقٍ للجدولة
-                  </p>
-                )}
-              </button>
-            )
-          })}
+      {/* Client filter chips */}
+      {clients.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          <Chip active={filterClient === 'all'} onClick={() => setFilterClient('all')} color="var(--iris-500)">
+            كل العملاء
+          </Chip>
+          {clients.map((c) => (
+            <Chip key={c.id} active={filterClient === c.id} onClick={() => setFilterClient(filterClient === c.id ? 'all' : c.id)} color={clientColorMap[c.id]}>
+              {c.name}
+            </Chip>
+          ))}
         </div>
       )}
 
-      {/* Active filter summary + saved presets */}
-      {(activeFilterCount > 0 || presets.length > 0) && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {activeFilterCount > 0 && (
-            <>
-              {filterClient !== 'all' && (
-                <ActivePill onClear={() => setFilterClient('all')} color={clientColorMap[filterClient]}>{clientNameMap[filterClient] ?? 'عميل'}</ActivePill>
-              )}
-              {filterStage !== 'all' && (
-                <ActivePill onClear={() => setFilterStage('all')} color={STAGE_VAR[filterStage]}>{STAGE_LABEL[filterStage]}</ActivePill>
-              )}
-              {filterSource !== 'all' && (
-                <ActivePill onClear={() => setFilterSource('all')} color="var(--warning-500)">{filterSource === 'client-request' ? SOURCE_LABEL['client-request'] : SOURCE_LABEL.internal}</ActivePill>
-              )}
-              {filterPlatform !== 'all' && (
-                <ActivePill onClear={() => setFilterPlatform('all')} color="var(--iris-500)">{filterPlatform}</ActivePill>
-              )}
-              <button onClick={resetFilters} className="text-xs font-medium transition-colors hover:underline" style={{ color: 'var(--iris-500)' }}>
-                مسح الكل
-              </button>
-            </>
-          )}
-          {presets.length > 0 && (
-            <>
-              {activeFilterCount > 0 && <span className="w-px h-5 mx-1" style={{ background: 'var(--color-surface-border)' }} />}
-              <span className="inline-flex items-center gap-1 text-xs" style={{ color: 'var(--color-text-muted)' }}><Bookmark size={11} /> محفوظة:</span>
-              {presets.map((p) => (
-                <span
-                  key={p.id}
-                  className="group inline-flex items-center gap-1 px-2.5 h-7 rounded-full text-xs font-medium transition-colors hover:bg-white/5"
-                  style={{ background: 'var(--color-surface-overlay)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-surface-border)' }}
-                >
-                  <button onClick={() => applyPreset(p)}>{p.name}</button>
-                  <button onClick={() => deletePreset(p.id)} className="opacity-40 hover:opacity-100 transition-opacity" aria-label="حذف الفلتر المحفوظ">
-                    <X size={11} />
-                  </button>
-                </span>
-              ))}
-            </>
-          )}
+      {/* Status filter chips */}
+      <div className="flex flex-wrap gap-1.5 items-center">
+        <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>الحالة:</span>
+        <Chip active={filterStatus === 'all'} onClick={() => setFilterStatus('all')} color="var(--iris-500)">
+          كل الحالات
+        </Chip>
+        {STATUS_ORDER.map((s) => (
+          <Chip key={s} active={filterStatus === s} onClick={() => setFilterStatus(filterStatus === s ? 'all' : s)} color={STATUS_VAR[s]}>
+            {STATUS_LABEL[s]}
+          </Chip>
+        ))}
+      </div>
+
+      {/* Source filter chips */}
+      <div className="flex flex-wrap gap-1.5 items-center">
+        <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>المصدر:</span>
+        <Chip active={filterSource === 'all'} onClick={() => setFilterSource('all')} color="var(--iris-500)">
+          الكل
+        </Chip>
+        <Chip active={filterSource === 'client-request'} onClick={() => setFilterSource(filterSource === 'client-request' ? 'all' : 'client-request')} color="var(--warning-500)">
+          {SOURCE_LABEL['client-request']}
+        </Chip>
+        <Chip active={filterSource === 'internal'} onClick={() => setFilterSource(filterSource === 'internal' ? 'all' : 'internal')} color="oklch(0.62 0.17 215)">
+          {SOURCE_LABEL.internal}
+        </Chip>
+      </div>
+
+      {/* Platform filter chips */}
+      {availablePlatforms.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 items-center">
+          <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>المنصة:</span>
+          <Chip active={filterPlatform === 'all'} onClick={() => setFilterPlatform('all')} color="var(--iris-500)">
+            كل المنصات
+          </Chip>
+          {availablePlatforms.map((p) => (
+            <button
+              key={p}
+              onClick={() => setFilterPlatform(filterPlatform === p ? 'all' : p)}
+              className="px-3 h-7 rounded-full text-xs font-medium transition-colors inline-flex items-center gap-1.5"
+              style={{
+                background: filterPlatform === p ? 'color-mix(in oklch, var(--iris-500) 18%, transparent)' : 'var(--color-surface-overlay)',
+                color: filterPlatform === p ? 'var(--iris-500)' : 'var(--color-text-secondary)',
+                border: `1px solid ${filterPlatform === p ? 'color-mix(in oklch, var(--iris-500) 45%, transparent)' : 'var(--color-surface-border)'}`,
+              }}
+            >
+              <PlatformIcon platform={p} size={12} />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Reset filters */}
+      {(filterClient !== 'all' || filterStatus !== 'all' || filterSource !== 'all' || filterPlatform !== 'all') && (
+        <div className="flex">
+          <button
+            onClick={() => { setFilterClient('all'); setFilterStatus('all'); setFilterSource('all'); setFilterPlatform('all') }}
+            className="text-xs font-medium transition-colors hover:underline"
+            style={{ color: 'var(--iris-500)' }}
+          >
+            إعادة ضبط الفلاتر
+          </button>
         </div>
       )}
 
@@ -575,151 +632,14 @@ function Chip({ active, onClick, color, children }: { active: boolean; onClick: 
       onClick={onClick}
       className="px-3 h-7 rounded-full text-xs font-medium transition-colors inline-flex items-center gap-1.5"
       style={{
-        background: active ? color : 'var(--color-surface-overlay)',
-        color: active ? 'white' : 'var(--color-text-secondary)',
-        border: `1px solid ${active ? 'transparent' : 'var(--color-surface-border)'}`,
+        background: active ? `color-mix(in oklch, ${color} 18%, transparent)` : 'var(--color-surface-overlay)',
+        color: active ? color : 'var(--color-text-secondary)',
+        border: `1px solid ${active ? `color-mix(in oklch, ${color} 45%, transparent)` : 'var(--color-surface-border)'}`,
       }}
-    >
-      {!active && <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />}
-      {children}
-    </button>
-  )
-}
-
-function ActivePill({ color, onClear, children }: { color: string; onClear: () => void; children: React.ReactNode }) {
-  return (
-    <span
-      className="inline-flex items-center gap-1 px-2.5 h-7 rounded-full text-xs font-medium"
-      style={{ background: `color-mix(in oklch, ${color} 15%, transparent)`, color }}
     >
       <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
       {children}
-      <button onClick={onClear} className="opacity-60 hover:opacity-100 transition-opacity" aria-label="إزالة"><X size={11} /></button>
-    </span>
-  )
-}
-
-interface FilterPanelProps {
-  clients: { id: string; name: string }[]
-  clientColorMap: Record<string, string>
-  availablePlatforms: ContentPlatform[]
-  filterClient: string; setFilterClient: (v: string) => void
-  filterStage: ContentStage | 'all'; setFilterStage: (v: ContentStage | 'all') => void
-  filterSource: ContentSource | 'all'; setFilterSource: (v: ContentSource | 'all') => void
-  filterPlatform: ContentPlatform | 'all'; setFilterPlatform: (v: ContentPlatform | 'all') => void
-  activeFilterCount: number
-  onReset: () => void
-  presetName: string; setPresetName: (v: string) => void
-  onSavePreset: () => void
-  onClose: () => void
-}
-
-function FilterPanel({
-  clients, clientColorMap, availablePlatforms,
-  filterClient, setFilterClient, filterStage, setFilterStage,
-  filterSource, setFilterSource, filterPlatform, setFilterPlatform,
-  activeFilterCount, onReset, presetName, setPresetName, onSavePreset, onClose,
-}: FilterPanelProps) {
-  return (
-    <>
-      <div className="fixed inset-0 z-30" onClick={onClose} />
-      <div
-        className="absolute end-0 top-10 z-40 w-80 rounded-xl p-4 space-y-4 axis-menu"
-        style={{ background: 'var(--color-surface-overlay)', border: '1px solid var(--color-surface-border)', boxShadow: 'var(--shadow-lg)' }}
-      >
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>تصفية المحتوى</span>
-          <button onClick={onClose} className="axis-iconbtn axis-iconbtn--sm axis-iconbtn--ghost" aria-label="إغلاق"><X size={14} /></button>
-        </div>
-
-        {clients.length > 0 && (
-          <FilterGroup label="العميل">
-            <Chip active={filterClient === 'all'} onClick={() => setFilterClient('all')} color="var(--iris-500)">الكل</Chip>
-            {clients.map((c) => (
-              <Chip key={c.id} active={filterClient === c.id} onClick={() => setFilterClient(filterClient === c.id ? 'all' : c.id)} color={clientColorMap[c.id]}>
-                {c.name}
-              </Chip>
-            ))}
-          </FilterGroup>
-        )}
-
-        <FilterGroup label="المرحلة">
-          <Chip active={filterStage === 'all'} onClick={() => setFilterStage('all')} color="var(--iris-500)">الكل</Chip>
-          {STAGE_ORDER.map((s) => (
-            <Chip key={s} active={filterStage === s} onClick={() => setFilterStage(filterStage === s ? 'all' : s)} color={STAGE_VAR[s]}>
-              {STAGE_LABEL[s]}
-            </Chip>
-          ))}
-        </FilterGroup>
-
-        <FilterGroup label="المصدر">
-          <Chip active={filterSource === 'all'} onClick={() => setFilterSource('all')} color="var(--iris-500)">الكل</Chip>
-          <Chip active={filterSource === 'client-request'} onClick={() => setFilterSource(filterSource === 'client-request' ? 'all' : 'client-request')} color="var(--warning-500)">
-            {SOURCE_LABEL['client-request']}
-          </Chip>
-          <Chip active={filterSource === 'internal'} onClick={() => setFilterSource(filterSource === 'internal' ? 'all' : 'internal')} color="oklch(0.62 0.17 215)">
-            {SOURCE_LABEL.internal}
-          </Chip>
-        </FilterGroup>
-
-        {availablePlatforms.length > 0 && (
-          <FilterGroup label="المنصة">
-            <Chip active={filterPlatform === 'all'} onClick={() => setFilterPlatform('all')} color="var(--iris-500)">الكل</Chip>
-            {availablePlatforms.map((p) => (
-              <button
-                key={p}
-                onClick={() => setFilterPlatform(filterPlatform === p ? 'all' : p)}
-                className="px-3 h-7 rounded-full text-xs font-medium transition-colors inline-flex items-center gap-1.5"
-                style={{
-                  background: filterPlatform === p ? 'var(--iris-500)' : 'var(--color-surface-overlay)',
-                  color: filterPlatform === p ? 'white' : 'var(--color-text-secondary)',
-                  border: `1px solid ${filterPlatform === p ? 'transparent' : 'var(--color-surface-border)'}`,
-                }}
-              >
-                <PlatformIcon platform={p} size={12} />
-              </button>
-            ))}
-          </FilterGroup>
-        )}
-
-        {/* Save preset + reset */}
-        <div className="pt-3 space-y-2" style={{ borderTop: '1px solid var(--color-surface-border)' }}>
-          <div className="flex gap-2">
-            <input
-              value={presetName}
-              onChange={(e) => setPresetName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') onSavePreset() }}
-              placeholder="اسم الفلتر للحفظ"
-              disabled={activeFilterCount === 0}
-              className="flex-1 h-8 rounded-md px-2.5 text-xs outline-none disabled:opacity-50"
-              style={{ background: 'var(--color-surface-muted)', border: '1px solid var(--color-surface-border)', color: 'var(--color-text-primary)' }}
-            />
-            <button
-              onClick={onSavePreset}
-              disabled={activeFilterCount === 0 || !presetName.trim()}
-              className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-semibold text-white shrink-0 disabled:opacity-40"
-              style={{ background: 'var(--iris-500)' }}
-            >
-              <Save size={12} /> حفظ
-            </button>
-          </div>
-          {activeFilterCount > 0 && (
-            <button onClick={onReset} className="text-xs font-medium transition-colors hover:underline" style={{ color: 'var(--iris-500)' }}>
-              مسح كل الفلاتر
-            </button>
-          )}
-        </div>
-      </div>
-    </>
-  )
-}
-
-function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <p className="text-xs font-medium mb-1.5" style={{ color: 'var(--color-text-muted)' }}>{label}</p>
-      <div className="flex flex-wrap gap-1.5">{children}</div>
-    </div>
+    </button>
   )
 }
 

@@ -95,7 +95,7 @@ function BoardCard({
       className="board-card group"
       draggable
       onDragStart={(e) => { e.dataTransfer.setData('text/plain', item.id); e.dataTransfer.effectAllowed = 'move' }}
-      style={{ cursor: 'grab', borderInlineStart: `2px solid ${color}` }}
+      style={{ cursor: 'grab', borderLeft: `2px solid ${color}` }}
     >
       <div className="board-card__head">
         <span className="priority-dot" style={{ background: STAGE_VAR[stageOf(item.status)] }} />

@@ -189,7 +189,7 @@ function DayChip({
       style={{
         background: 'var(--color-surface-muted)',
         border: '1px solid var(--color-surface-border)',
-        borderInlineStart: `2px solid ${color}`,
+        borderLeft: `2px solid ${color}`,
         cursor: 'grab',
         maxWidth: inline ? 200 : '100%',
       }}
