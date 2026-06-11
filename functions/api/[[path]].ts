@@ -148,10 +148,42 @@ interface UserRow {
 async function getAuthUser(req: Request, db: D1Database): Promise<UserRow | null> {
   const email = req.headers.get('CF-Access-Authenticated-User-Email')
   if (!email) return null
-  return db
+  const normalized = email.toLowerCase()
+
+  const existing = await db
     .prepare('SELECT * FROM app_users WHERE lower(email) = ?')
-    .bind(email.toLowerCase())
+    .bind(normalized)
     .first<UserRow>()
+  if (existing) return existing
+
+  // Bootstrap: when no users exist yet, the first authenticated visitor claims
+  // the admin role server-side. This mirrors the client's bindIdentity claim and
+  // breaks the chicken-and-egg where every write needs an already-provisioned
+  // user. After the first admin exists, unprovisioned visitors get 401 (an admin
+  // must add them).
+  const count = await db.prepare('SELECT COUNT(*) AS n FROM app_users').first<{ n: number }>()
+  if (!count || count.n === 0) {
+    const now = new Date().toISOString()
+    const name = (req.headers.get('CF-Access-Authenticated-User-Name') || normalized.split('@')[0] || 'المسؤول').trim()
+    const admin: UserRow = {
+      id: 'admin-default',
+      name,
+      email: normalized,
+      avatar: null,
+      system_role: 'admin',
+      is_finance: 1,
+      is_content: 1,
+      created_at: now,
+    }
+    await db
+      .prepare(`INSERT OR REPLACE INTO app_users (id, name, email, avatar, system_role, is_finance, is_content, created_at)
+                VALUES (?, ?, ?, NULL, 'admin', 1, 1, ?)`)
+      .bind(admin.id, admin.name, admin.email, admin.created_at)
+      .run()
+    return admin
+  }
+
+  return null
 }
 
 function isAdmin(u: UserRow): boolean {
@@ -564,7 +596,13 @@ async function handleSyncPull(db: D1Database, caller: UserRow): Promise<Response
       : Promise.resolve([]),
   ])
 
+  // `seeded` reflects whether D1 holds any projects at all (unfiltered), so the
+  // client can tell "first-time migration" apart from "this member sees nothing".
+  const seededRow = await db.prepare('SELECT COUNT(*) AS n FROM projects').first<{ n: number }>()
+  const seeded = (seededRow?.n ?? 0) > 0
+
   return json({
+    seeded,
     projects, tasks, plans, phases, sprints, notes, docs, team, schedule,
     meetings, finance, packages, kpis, clients, metrics, experiments,
     channels, content, portfolios, users, permissions,

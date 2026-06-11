@@ -99,7 +99,9 @@ export default function ApiSync() {
       const snap = await apiSyncPull()
       if (cancelled) { hydrating.current = false; return }
 
-      const isEmpty = !snap || snap.projects.length === 0
+      // `seeded` tells first-time migration (push local) apart from a member
+      // who legitimately sees no projects (hydrate/replace, clearing stale data).
+      const isEmpty = !snap || !snap.seeded
 
       if (isEmpty) {
         // First time: push local data to D1 so all users can share it
@@ -151,26 +153,29 @@ export default function ApiSync() {
 // ── Store hydration ───────────────────────────────────────
 
 function hydrateStores(snap: SyncSnapshot): void {
-  if (snap.projects.length)    useProjectStore.setState({ projects:  snap.projects })
-  if (snap.tasks.length)       useTaskStore.setState({ tasks:        snap.tasks })
-  if (snap.plans.length)       usePlanStore.setState({ plans:        snap.plans })
-  if (snap.phases.length)      usePlanStore.setState({ phases:       snap.phases })
-  if (snap.sprints.length)     useSprintStore.setState({ sprints:    snap.sprints })
-  if (snap.notes.length)       useNoteStore.setState({ notes:        snap.notes })
-  if (snap.docs.length)        useDocumentStore.setState({ docs:     snap.docs })
-  if (snap.team.length)        useTeamStore.setState({ members:      snap.team })
-  if (snap.schedule.length)    useScheduleStore.setState({ events:   snap.schedule })
-  if (snap.meetings.length)    useMeetingStore.setState({ meetings:  snap.meetings })
-  if (snap.finance.length)     useFinanceStore.setState({ entries:   snap.finance })
-  if (snap.packages.length)    usePackageStore.setState({ packages:  snap.packages })
-  if (snap.kpis.length)        useKpiStore.setState({ kpis:          snap.kpis })
-  if (snap.clients.length)     useClientStore.setState({ clients:    snap.clients })
-  if (snap.metrics.length)     useGrowthStore.setState({ metrics:    snap.metrics })
-  if (snap.experiments.length) useGrowthStore.setState({ experiments: snap.experiments })
-  if (snap.channels.length)    useGrowthStore.setState({ channels:   snap.channels })
-  if (snap.content.length)     useContentStore.setState({ items:     snap.content })
-  if (snap.portfolios.length)  usePortfolioStore.setState({ portfolios: snap.portfolios })
-  // Users & permissions are admin-only; hydrate if present
+  // Replace data tables unconditionally (even when empty) so the server-side
+  // permission filtering is respected: a member who lacks finance/content/project
+  // access gets those arrays cleared from their browser, never seeing stale local
+  // data they no longer have permission for.
+  useProjectStore.setState({ projects:  snap.projects })
+  useTaskStore.setState({ tasks:        snap.tasks })
+  usePlanStore.setState({ plans:        snap.plans, phases: snap.phases })
+  useSprintStore.setState({ sprints:    snap.sprints })
+  useNoteStore.setState({ notes:        snap.notes })
+  useDocumentStore.setState({ docs:     snap.docs })
+  useTeamStore.setState({ members:      snap.team })
+  useScheduleStore.setState({ events:   snap.schedule })
+  useMeetingStore.setState({ meetings:  snap.meetings })
+  useFinanceStore.setState({ entries:   snap.finance })
+  usePackageStore.setState({ packages:  snap.packages })
+  useKpiStore.setState({ kpis:          snap.kpis })
+  useClientStore.setState({ clients:    snap.clients })
+  useGrowthStore.setState({ metrics: snap.metrics, experiments: snap.experiments, channels: snap.channels })
+  useContentStore.setState({ items:     snap.content })
+  usePortfolioStore.setState({ portfolios: snap.portfolios })
+  // Users & permissions drive the client-side permission UI and are admin-only in
+  // the snapshot. Only hydrate when present so a member keeps their own identity
+  // context (their matched user) rather than having it wiped to an empty list.
   if (snap.users.length)       usePermissionStore.setState({ users:       snap.users })
   if (snap.permissions.length) usePermissionStore.setState({ permissions: snap.permissions })
 }
