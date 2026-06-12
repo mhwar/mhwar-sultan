@@ -256,7 +256,7 @@ export const apiAccess = {
     ),
 
   setupCustomLogin: () =>
-    apiFetchDetailed<{ ok: boolean; results: string[]; warnings: string[]; loginPageUrl: string }>(
+    apiFetchDetailed<{ ok: boolean; results: string[]; warnings: string[]; loginPageUrl: string; googleRedirectUri?: string }>(
       'setup/custom-login', { method: 'POST', body: JSON.stringify({}) }
     ),
 }

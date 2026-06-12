@@ -477,6 +477,7 @@ function CustomLoginCard() {
   const [results, setResults] = useState<string[]>([])
   const [warnings, setWarnings] = useState<string[]>([])
   const [errMsg, setErrMsg] = useState('')
+  const [googleRedirectUri, setGoogleRedirectUri] = useState('')
 
   if (!isAdmin) return null
 
@@ -487,6 +488,7 @@ function CustomLoginCard() {
     if (error || !data) { setErrMsg(error ?? 'خطأ غير معروف'); setState('err'); return }
     setResults(data.results ?? [])
     setWarnings(data.warnings ?? [])
+    if (data.googleRedirectUri) setGoogleRedirectUri(data.googleRedirectUri)
     setState('ok')
   }
 
@@ -504,6 +506,19 @@ function CustomLoginCard() {
             <ul className="text-xs space-y-1" style={{ color: 'var(--fg-2)' }}>
               {results.map((r, i) => <li key={i}>✓ {r}</li>)}
             </ul>
+          )}
+          {googleRedirectUri && (
+            <div className="rounded-lg p-3 text-xs space-y-2" style={{ background: 'var(--color-surface-base)', border: '1px solid var(--border-subtle)' }}>
+              <p className="font-medium" style={{ color: 'var(--fg-1)' }}>
+                تحقق من Google Console — الرابط المُسموح به يجب أن يكون:
+              </p>
+              <p className="font-mono break-all select-all" dir="ltr" style={{ color: 'var(--iris-500)' }}>
+                {googleRedirectUri}
+              </p>
+              <p style={{ color: 'var(--fg-3)' }}>
+                Google Console ← بيانات اعتماد ← OAuth ← URIs إعادة التوجيه المُصرَّح بها
+              </p>
+            </div>
           )}
           {warnings.length > 0 && (
             <div className="rounded-lg p-3 text-xs space-y-1" style={{ background: 'var(--color-surface-base)', border: '1px solid var(--warning-500)' }}>
