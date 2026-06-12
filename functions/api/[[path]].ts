@@ -311,10 +311,24 @@ async function handleHealth(db: D1Database, req: Request, env: Env): Promise<Res
   } catch { /* dbOk stays false */ }
 
   let userCount: number | null = null
+  let userEmails: string[] | null = null
   try {
     const row = await db.prepare('SELECT COUNT(*) AS n FROM app_users').first<{ n: number }>()
     userCount = row?.n ?? 0
+    const { results } = await db.prepare('SELECT email, system_role FROM app_users ORDER BY created_at ASC').all<{ email: string; system_role: string }>()
+    userEmails = results.map((r) => `${r.email} (${r.system_role})`)
   } catch { /* leave null */ }
+
+  // Bootstrap state — once any password is set the public reset path stops
+  // exposing links. credentialCount > 0 means bootstrap is locked.
+  let credentialCount: number | null = null
+  let credentialEmails: string[] | null = null
+  try {
+    const row = await db.prepare('SELECT COUNT(*) AS n FROM user_credentials').first<{ n: number }>()
+    credentialCount = row?.n ?? 0
+    const { results } = await db.prepare('SELECT email FROM user_credentials').all<{ email: string }>()
+    credentialEmails = results.map((r) => r.email)
+  } catch { credentialCount = -1 /* table missing → signals a schema problem */ }
 
   const email = await resolveSessionEmail(req, env)
   return json({
@@ -325,6 +339,10 @@ async function handleHealth(db: D1Database, req: Request, env: Env): Promise<Res
     authenticated: !!email,
     email,
     userCount,
+    userEmails,
+    credentialCount,
+    credentialEmails,
+    bootstrapMode: credentialCount === 0,
     ts: new Date().toISOString(),
   })
 }
