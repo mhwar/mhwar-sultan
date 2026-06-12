@@ -436,6 +436,22 @@ async function cfPatch<T>(token: string, path: string, body: unknown): Promise<T
   } catch { return null }
 }
 
+async function cfPostDetailed<T>(
+  token: string, path: string, body: unknown
+): Promise<{ result: T | null; error: string | null }> {
+  try {
+    const r = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const d = await r.json() as { result: T; success: boolean; errors?: Array<{ message: string }> }
+    if (d.success) return { result: d.result, error: null }
+    const msg = d.errors?.[0]?.message ?? `HTTP ${r.status}`
+    return { result: null, error: msg }
+  } catch (e) { return { result: null, error: String(e) } }
+}
+
 const BOSLA_ACCOUNT_ID = '645b32d31a95fbc82db2c606a66565dc'
 
 /** Resolve account ID — uses env var, then discovers from token, then falls back to the known deployment account. */
@@ -573,20 +589,27 @@ async function handleSetupCustomLogin(env: Env, caller: UserRow): Promise<Respon
   const results: string[] = []
   const warnings: string[] = []
 
-  // 1. Update the CF Access organization login design to match the brand.
-  const org = await cfPut(token, `/accounts/${accountId}/access/organizations`, {
-    login_design: {
-      background_color: '#0f0f16',
-      button_color:     '#6366f1',
-      button_text_color:'#ffffff',
-      text_color:       '#e8e8f0',
-      logo_path:        'https://boslaworks.com/apple-touch-icon.png',
-      header_text:      'بوصلة الأعمال',
-      footer_text:      'نظام مقيّد للأعضاء المُصرَّح لهم فقط',
-    },
-  })
-  if (org) results.push('تم تحديث تصميم صفحة تسجيل الدخول')
-  else warnings.push('تعذّر تحديث تصميم CF Access — تحقق من الصلاحيات')
+  // 1. Update the CF Access organization login design.
+  // Must GET first (PUT replaces the full object — sending only login_design wipes other required fields).
+  const currentOrg = await cfGet<Record<string, unknown>>(token, `/accounts/${accountId}/access/organizations`)
+  if (currentOrg) {
+    const updated = await cfPut(token, `/accounts/${accountId}/access/organizations`, {
+      ...currentOrg,
+      login_design: {
+        background_color:  '#0f0f16',
+        button_color:      '#6366f1',
+        button_text_color: '#ffffff',
+        text_color:        '#e8e8f0',
+        logo_path:         'https://boslaworks.com/apple-touch-icon.png',
+        header_text:       'بوصلة الأعمال',
+        footer_text:       'نظام مقيّد للأعضاء المُصرَّح لهم فقط',
+      },
+    })
+    if (updated) results.push('تم تحديث تصميم صفحة تسجيل الدخول')
+    else warnings.push('تعذّر تحديث تصميم CF Access — تحقق من الصلاحيات')
+  } else {
+    warnings.push('تعذّر جلب إعدادات المنظمة من CF Access')
+  }
 
   // 2. Create a dedicated Access app for boslaworks.com/login with a bypass policy.
   // CF Access policies are app-level; the only way to bypass a specific sub-path is
@@ -602,26 +625,29 @@ async function handleSetupCustomLogin(env: Env, caller: UserRow): Promise<Respon
     results.push('تطبيق bypass لـ /login موجود بالفعل')
   } else {
     interface CfAppResult { id: string }
-    const newApp = await cfPost<CfAppResult>(token, `/accounts/${accountId}/access/apps`, {
-      name: 'boslaworks.com — Login Page (Public)',
-      domain: 'boslaworks.com/login',
-      type: 'self_hosted',
-      session_duration: '0S',
-      allowed_idps: [],
-      auto_redirect_to_identity: false,
-      skip_interstitial: true,
-    })
+    const { result: newApp, error: appErr } = await cfPostDetailed<CfAppResult>(
+      token, `/accounts/${accountId}/access/apps`, {
+        name: 'boslaworks.com — Login Page (Public)',
+        domain: 'boslaworks.com/login',
+        type: 'self_hosted',
+        session_duration: '0S',
+        auto_redirect_to_identity: false,
+        skip_interstitial: true,
+      }
+    )
 
     if (!newApp) {
-      warnings.push('تعذّر إنشاء تطبيق Access لـ /login — أنشئه يدوياً: domain "boslaworks.com/login"، نوع self-hosted، سياسة bypass للجميع')
+      warnings.push(`تعذّر إنشاء تطبيق Access لـ /login${appErr ? ` (${appErr})` : ''} — أنشئه يدوياً: domain "boslaworks.com/login"، نوع self-hosted، سياسة bypass للجميع`)
     } else {
-      const policy = await cfPost(token, `/accounts/${accountId}/access/apps/${newApp.id}/policies`, {
-        name: 'Bypass — public login page',
-        decision: 'bypass',
-        include: [{ everyone: {} }],
-      })
+      const { result: policy, error: polErr } = await cfPostDetailed(
+        token, `/accounts/${accountId}/access/apps/${newApp.id}/policies`, {
+          name: 'Bypass — public login page',
+          decision: 'bypass',
+          include: [{ everyone: {} }],
+        }
+      )
       if (policy) results.push('تم إنشاء تطبيق /login العام وإضافة سياسة bypass')
-      else warnings.push('تم إنشاء التطبيق لكن تعذّر إضافة سياسة bypass — افتح التطبيق في CF Zero Trust وأضف سياسة "bypass" يدوياً')
+      else warnings.push(`تم إنشاء التطبيق لكن تعذّر إضافة سياسة bypass${polErr ? ` (${polErr})` : ''} — افتح التطبيق في CF Zero Trust وأضف سياسة "bypass" يدوياً`)
     }
   }
 
