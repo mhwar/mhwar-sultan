@@ -602,8 +602,14 @@ async function handleSetupGoogleIdp(req: Request, env: Env, caller: UserRow): Pr
 
   if (!result) return err('فشل إضافة Google IDP — تحقق من Client ID و Secret', 500)
 
-  // Return the redirect URI the user needs to add in Google Console
-  const redirectUri = `https://${accountId}.cloudflareaccess.com/cdn-cgi/access/callback`
+  // Return the redirect URI the user needs to add in Google Console.
+  // auth_domain (e.g. "tiny-shape-6245.cloudflareaccess.com") comes from the org object;
+  // fallback to the team slug known at build time so the URL is always correct.
+  const orgForIdp = await cfGet<{ auth_domain?: string }>(
+    token, `/accounts/${accountId}/access/organizations`
+  )
+  const authDomain = orgForIdp?.auth_domain ?? 'tiny-shape-6245.cloudflareaccess.com'
+  const redirectUri = `https://${authDomain}/cdn-cgi/access/callback`
   return json({ ok: true, redirectUri })
 }
 
@@ -716,11 +722,19 @@ async function handleSetupCustomLogin(env: Env, caller: UserRow): Promise<Respon
     else warnings.push(`تعذّر تفعيل التحويل المباشر لقوقل${patchErr ? ` (${patchErr})` : ''}`)
   }
 
+  // Surface the correct Google Console redirect URI so the user can verify it.
+  const orgCheck = await cfGet<{ auth_domain?: string }>(
+    token, `/accounts/${accountId}/access/organizations`
+  )
+  const authDomain = orgCheck?.auth_domain ?? 'tiny-shape-6245.cloudflareaccess.com'
+  const googleRedirectUri = `https://${authDomain}/cdn-cgi/access/callback`
+
   return json({
     ok: true,
     results,
     warnings,
     loginPageUrl: 'https://boslaworks.com/login',
+    googleRedirectUri,
   })
 }
 
