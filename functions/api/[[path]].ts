@@ -588,10 +588,9 @@ async function handleSetupCustomLogin(env: Env, caller: UserRow): Promise<Respon
   if (org) results.push('تم تحديث تصميم صفحة تسجيل الدخول')
   else warnings.push('تعذّر تحديث تصميم CF Access — تحقق من الصلاحيات')
 
-  // 2. Create a separate Access app for boslaworks.com/login with a bypass policy
-  // so unauthenticated visitors can reach the custom Next.js login page.
-  // CF Access policies are app-level; the only way to bypass a sub-path is to create
-  // a dedicated app scoped to that path.
+  // 2. Create a dedicated Access app for boslaworks.com/login with a bypass policy.
+  // CF Access policies are app-level; the only way to bypass a specific sub-path is
+  // to create a separate app scoped to that path, which CF prioritises over the parent.
   const apps = await cfGet<Array<{ id: string; name: string; domain: string }>>(
     token, `/accounts/${accountId}/access/apps?per_page=100`
   )
@@ -602,7 +601,6 @@ async function handleSetupCustomLogin(env: Env, caller: UserRow): Promise<Respon
   if (loginApp) {
     results.push('تطبيق bypass لـ /login موجود بالفعل')
   } else {
-    // Create the public login sub-app
     interface CfAppResult { id: string }
     const newApp = await cfPost<CfAppResult>(token, `/accounts/${accountId}/access/apps`, {
       name: 'boslaworks.com — Login Page (Public)',
@@ -617,7 +615,6 @@ async function handleSetupCustomLogin(env: Env, caller: UserRow): Promise<Respon
     if (!newApp) {
       warnings.push('تعذّر إنشاء تطبيق Access لـ /login — أنشئه يدوياً: domain "boslaworks.com/login"، نوع self-hosted، سياسة bypass للجميع')
     } else {
-      // Add bypass policy to the new app (no session_duration on bypass policies)
       const policy = await cfPost(token, `/accounts/${accountId}/access/apps/${newApp.id}/policies`, {
         name: 'Bypass — public login page',
         decision: 'bypass',
