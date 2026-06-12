@@ -411,6 +411,33 @@ export interface Portfolio {
   updatedAt: string
 }
 
+// ── Product profile (investor-facing pitch document) ──────
+export interface ProfileSubProduct {
+  id: string
+  name: string
+  description: string
+}
+
+/** One structured profile per project — filled section by section and
+ *  exportable as a 16:9 presentation for investors and partners. */
+export interface ProductProfile {
+  id: string            // equals projectId (single record per project)
+  projectId: string
+  tagline: string       // short positioning line for the cover slide
+  overview: string      // general overview
+  problem: string       // the problem being solved
+  solution: string      // how the product solves it
+  subProducts: ProfileSubProduct[]  // derived products & services
+  market: string        // target audience & market
+  goals: string[]       // objectives
+  advantages: string[]  // competitive advantages
+  businessModel: string // business / revenue model
+  team: string          // team description
+  contact: string       // contact details
+  createdAt: string
+  updatedAt: string
+}
+
 // ── App Users & Permissions ───────────────────────────────
 export interface AppUser {
   id: string

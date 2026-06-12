@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, Package, TrendingUp, Zap, FileText,
+  LayoutDashboard, Package, TrendingUp, Zap, FileText, BookUser,
   Users2, CalendarDays, CalendarClock, Wallet, Gauge, Building2, Layers, type LucideIcon,
 } from 'lucide-react'
 import type { Project } from '@/types'
@@ -15,6 +15,7 @@ import KpisTab from '@/components/projects/tabs/KpisTab'
 import ClientsTab from '@/components/projects/tabs/ClientsTab'
 import ContentTab from '@/components/projects/tabs/ContentTab'
 import MeetingsTab from '@/components/projects/tabs/MeetingsTab'
+import ProfileTab from '@/components/projects/tabs/ProfileTab'
 
 /**
  * A tool = a tab = a page within a project. The registry is the single source
@@ -54,6 +55,11 @@ export const TOOLS: ToolDef[] = [
     id: 'notes', label: 'الملاحظات', icon: FileText, group: 'أساسية', core: true,
     description: 'ملاحظات وأفكار المشروع',
     render: (p) => <NotesTab project={p} />,
+  },
+  {
+    id: 'profile', label: 'الملف التعريفي', icon: BookUser, group: 'أساسية',
+    description: 'ملف تعريفي شامل للمنتج قابل للتصدير كعرض تقديمي',
+    render: (p) => <ProfileTab project={p} />,
   },
   {
     id: 'product', label: 'المنتج', icon: Package, group: 'تقنية', allowedTypes: ['technical'],

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, TaskPriority, Feature, Sprint, SprintStatus, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, FinancePackage, Kpi, Client, ContentItem, Portfolio, Meeting } from '@/types'
+import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, TaskPriority, Feature, Sprint, SprintStatus, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, FinancePackage, Kpi, Client, ContentItem, Portfolio, Meeting, ProductProfile } from '@/types'
 import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES, SEED_SPRINTS, SEED_DOCS, SEED_METRICS, SEED_EXPERIMENTS, SEED_CHANNELS, SEED_TEAM, SEED_SCHEDULE, SEED_FINANCE, SEED_PACKAGES, SEED_KPIS, SEED_CLIENTS, SEED_CONTENT, SEED_PORTFOLIOS, SEED_MEETINGS } from '@/lib/seed-data'
 import { domainForKind } from '@/lib/plan-kinds'
 import { FALLBACK_TOOL_IDS, DEFAULT_PROJECT_TYPE } from '@/lib/project-types'
@@ -1371,6 +1371,62 @@ export const usePortfolioStore = create<PortfolioStore>()(
         set((s) => ({ portfolios: s.portfolios.filter((p) => p.id !== id) })),
     }),
     { name: 'mhwar-portfolios', version: 1, skipHydration: true }
+  )
+)
+
+// ── Product Profile Store ─────────────────────────────────
+interface ProfileStore {
+  profiles: ProductProfile[]
+  getProfile: (projectId: string) => ProductProfile | undefined
+  /** Creates the project's profile on first edit, then patches it. */
+  upsertProfile: (projectId: string, patch: Partial<Omit<ProductProfile, 'id' | 'projectId' | 'createdAt' | 'updatedAt'>>) => void
+  deleteProfile: (projectId: string) => void
+}
+
+function emptyProfile(projectId: string): ProductProfile {
+  return {
+    id: projectId,
+    projectId,
+    tagline: '',
+    overview: '',
+    problem: '',
+    solution: '',
+    subProducts: [],
+    market: '',
+    goals: [],
+    advantages: [],
+    businessModel: '',
+    team: '',
+    contact: '',
+    createdAt: now(),
+    updatedAt: now(),
+  }
+}
+
+export const useProfileStore = create<ProfileStore>()(
+  persist(
+    (set, get) => ({
+      profiles: [],
+
+      getProfile: (projectId) => get().profiles.find((p) => p.projectId === projectId),
+
+      upsertProfile: (projectId, patch) =>
+        set((s) => {
+          const existing = s.profiles.find((p) => p.projectId === projectId)
+          if (existing) {
+            return {
+              profiles: s.profiles.map((p) =>
+                p.projectId === projectId ? { ...p, ...patch, updatedAt: now() } : p
+              ),
+            }
+          }
+          return { profiles: [...s.profiles, { ...emptyProfile(projectId), ...patch }] }
+        }),
+
+      deleteProfile: (projectId) =>
+        set((s) => ({ profiles: s.profiles.filter((p) => p.projectId !== projectId) })),
+    }),
+    { name: 'mhwar-profiles', version: 1, skipHydration: true }
   )
 )
 
