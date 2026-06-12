@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>بوصلة الأعمال — تسجيل الدخول</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      background: #0f0f16;
+      color: #e8e8f0;
+      font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+      direction: rtl;
+    }
+
+    /* Background glow */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(
+        ellipse 60% 40% at 50% 0%,
+        rgba(99, 102, 241, 0.08) 0%,
+        transparent 70%
+      );
+      z-index: 0;
+    }
+
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 360px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+    }
+
+    /* Brand mark */
+    .brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      box-shadow: 0 8px 32px rgba(99, 102, 241, 0.40);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .brand-text {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .brand-name {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #e8e8f0;
+    }
+
+    .brand-sub {
+      font-size: 13px;
+      color: rgba(232, 232, 240, 0.55);
+    }
+
+    /* Login card */
+    .card {
+      width: 100%;
+      background: #1a1a28;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.40), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+      padding: 28px 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .card-header {
+      text-align: center;
+    }
+
+    .card-header p {
+      font-size: 13px;
+      color: rgba(232, 232, 240, 0.6);
+      line-height: 1.5;
+    }
+
+    /* Error box — CF injects {{ERROR_MESSAGE}} */
+    .cf-error {
+      display: none; /* hidden until CF injects content */
+    }
+
+    /* CF Login button area — {{LOGIN_BUTTON}} goes here */
+    .login-area {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card-footer {
+      text-align: center;
+    }
+
+    .card-footer p {
+      font-size: 11px;
+      color: rgba(232, 232, 240, 0.30);
+      line-height: 1.6;
+    }
+
+    /* Footer copyright */
+    .footer {
+      font-size: 11px;
+      color: rgba(232, 232, 240, 0.25);
+    }
+
+    /*
+     * ─── Cloudflare button / form overrides ──────────────────────────────────
+     * CF Access injects its own HTML for the login button/form inside
+     * {{LOGIN_BUTTON}}. The selectors below re-skin CF's generated elements
+     * to match the Axis design system.
+     */
+
+    /* Primary buttons (Google, "Send code") */
+    .login-area a,
+    .login-area button,
+    .login-area input[type="submit"],
+    .login-area input[type="button"] {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 10px !important;
+      width: 100% !important;
+      padding: 12px 20px !important;
+      background: #6366f1 !important;
+      color: #ffffff !important;
+      border: none !important;
+      border-radius: 8px !important;
+      font-size: 15px !important;
+      font-weight: 600 !important;
+      font-family: inherit !important;
+      cursor: pointer !important;
+      text-decoration: none !important;
+      transition: background 120ms ease-out, box-shadow 120ms ease-out !important;
+      direction: rtl !important;
+    }
+
+    .login-area a:hover,
+    .login-area button:hover,
+    .login-area input[type="submit"]:hover {
+      background: #5558e8 !important;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25) !important;
+    }
+
+    /* OTP email input */
+    .login-area input[type="email"],
+    .login-area input[type="text"] {
+      width: 100% !important;
+      padding: 11px 14px !important;
+      background: rgba(255, 255, 255, 0.05) !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      border-radius: 8px !important;
+      color: #e8e8f0 !important;
+      font-size: 14px !important;
+      font-family: inherit !important;
+      outline: none !important;
+      direction: ltr !important;
+      text-align: left !important;
+    }
+
+    .login-area input[type="email"]:focus,
+    .login-area input[type="text"]:focus {
+      border-color: #6366f1 !important;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.20) !important;
+    }
+
+    .login-area input[type="email"]::placeholder,
+    .login-area input[type="text"]::placeholder {
+      color: rgba(232, 232, 240, 0.30) !important;
+    }
+
+    /* Error text from CF */
+    .login-area .error,
+    .login-area [class*="error"],
+    .login-area p[style*="red"],
+    .login-area p[style*="color:red"] {
+      color: #f87171 !important;
+      font-size: 12px !important;
+      text-align: center !important;
+    }
+
+    /* Labels CF might inject */
+    .login-area label {
+      font-size: 12px !important;
+      color: rgba(232, 232, 240, 0.55) !important;
+      display: block !important;
+      margin-bottom: 6px !important;
+    }
+
+    /* Dividers between IdPs */
+    .login-area hr {
+      border: none !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+      margin: 4px 0 !important;
+    }
+
+    /* Any paragraph CF injects (instructions, "send code to..." etc.) */
+    .login-area p {
+      font-size: 12px !important;
+      color: rgba(232, 232, 240, 0.50) !important;
+      text-align: center !important;
+      line-height: 1.5 !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+
+    <!-- Brand mark -->
+    <div class="brand">
+      <div class="icon">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
+             stroke="white" stroke-width="1.5"
+             stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/>
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1 class="brand-name">بوصلة الأعمال</h1>
+        <p class="brand-sub">منصة إدارة المشاريع الداخلية</p>
+      </div>
+    </div>
+
+    <!-- Login card -->
+    <div class="card">
+      <div class="card-header">
+        <p>سجّل دخولك للمتابعة إلى المنصة</p>
+      </div>
+
+      <!-- CF Access injects the login button / OTP form here -->
+      <div class="login-area">
+        {{LOGIN_BUTTON}}
+      </div>
+
+      <div class="card-footer">
+        <p>
+          يمكنك الدخول بحساب قوقل أو عبر رمز يصلك على بريدك
+        </p>
+      </div>
+    </div>
+
+    <!-- Copyright -->
+    <p class="footer">© 2026 بوصلة الأعمال</p>
+
+  </div>
+</body>
+</html>
