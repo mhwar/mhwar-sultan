@@ -811,10 +811,10 @@ async function handleSyncPull(db: D1Database, caller: UserRow): Promise<Response
     handleListPortfolios(db).then((r) => r.json()),
     isAdm
       ? db.prepare('SELECT * FROM app_users ORDER BY created_at').all().then((r) => r.results.map(rowToCamel))
-      : Promise.resolve([]),
+      : db.prepare('SELECT * FROM app_users WHERE id = ?').bind(caller.id).all().then((r) => r.results.map(rowToCamel)),
     isAdm
       ? db.prepare('SELECT * FROM project_permissions').all().then((r) => r.results.map(rowToCamel))
-      : Promise.resolve([]),
+      : db.prepare('SELECT * FROM project_permissions WHERE user_id = ?').bind(caller.id).all().then((r) => r.results.map(rowToCamel)),
   ])
 
   // `seeded` reflects whether D1 holds any projects at all (unfiltered), so the
