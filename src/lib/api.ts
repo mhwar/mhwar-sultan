@@ -253,6 +253,11 @@ export const apiAccess = {
     apiFetchDetailed<{ ok: boolean; redirectUri?: string; alreadyExists?: boolean }>(
       'setup/google-idp', { method: 'POST', body: JSON.stringify({ clientId, clientSecret }) }
     ),
+
+  setupCustomLogin: () =>
+    apiFetchDetailed<{ ok: boolean; results: string[]; warnings: string[]; loginPageUrl: string }>(
+      'setup/custom-login', { method: 'POST', body: JSON.stringify({}) }
+    ),
 }
 
 // ── Projects ──────────────────────────────────────────────

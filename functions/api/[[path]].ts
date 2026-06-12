@@ -412,6 +412,30 @@ async function cfPost<T>(token: string, path: string, body: unknown): Promise<T 
   } catch { return null }
 }
 
+async function cfPut<T>(token: string, path: string, body: unknown): Promise<T | null> {
+  try {
+    const r = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const d = await r.json() as { result: T; success: boolean; errors?: unknown[] }
+    return d.success ? d.result : null
+  } catch { return null }
+}
+
+async function cfPatch<T>(token: string, path: string, body: unknown): Promise<T | null> {
+  try {
+    const r = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const d = await r.json() as { result: T; success: boolean; errors?: unknown[] }
+    return d.success ? d.result : null
+  } catch { return null }
+}
+
 const BOSLA_ACCOUNT_ID = '645b32d31a95fbc82db2c606a66565dc'
 
 /** Resolve account ID — uses env var, then discovers from token, then falls back to the known deployment account. */
@@ -533,6 +557,69 @@ async function handleSetupGoogleIdp(req: Request, env: Env, caller: UserRow): Pr
   // Return the redirect URI the user needs to add in Google Console
   const redirectUri = `https://${accountId}.cloudflareaccess.com/cdn-cgi/access/callback`
   return json({ ok: true, redirectUri })
+}
+
+// POST /api/setup/custom-login — brand the CF Access login page + enable /login bypass
+
+async function handleSetupCustomLogin(env: Env, caller: UserRow): Promise<Response> {
+  if (!isAdmin(caller)) return err('غير مصرح', 403)
+
+  const token = env.CLOUDFLARE_API_TOKEN
+  if (!token) return err('CLOUDFLARE_API_TOKEN غير مُعدَّ', 400)
+
+  const accountId = await getAccountId(token, env.CF_ACCOUNT_ID)
+  if (!accountId) return err('تعذّر تحديد الحساب', 500)
+
+  const results: string[] = []
+  const warnings: string[] = []
+
+  // 1. Update the CF Access organization login design to match the brand.
+  const org = await cfPut(token, `/accounts/${accountId}/access/organizations`, {
+    login_design: {
+      background_color: '#0f0f16',
+      button_color:     '#6366f1',
+      button_text_color:'#ffffff',
+      text_color:       '#e8e8f0',
+      logo_path:        'https://boslaworks.com/apple-touch-icon.png',
+      header_text:      'بوصلة الأعمال',
+      footer_text:      'نظام مقيّد للأعضاء المُصرَّح لهم فقط',
+    },
+  })
+  if (org) results.push('تم تحديث تصميم صفحة تسجيل الدخول')
+  else warnings.push('تعذّر تحديث تصميم CF Access — تحقق من الصلاحيات')
+
+  // 2. Add a bypass policy for /login so unauthenticated visitors can reach the custom page.
+  const app = await findAccessApp(token, accountId)
+  if (!app) {
+    warnings.push('لم يُعثر على تطبيق boslaworks.com في CF Access — ابحث يدوياً وأضف سياسة bypass لـ /login')
+  } else {
+    const policies = await cfGet<Array<{ id: string; name: string; decision: string }>>(
+      token, `/accounts/${accountId}/access/apps/${app.id}/policies?per_page=100`
+    )
+    const alreadyBypassed = (policies ?? []).some(
+      (p) => p.decision === 'bypass' && p.name.toLowerCase().includes('login')
+    )
+    if (alreadyBypassed) {
+      results.push('سياسة bypass لـ /login موجودة بالفعل')
+    } else {
+      const policy = await cfPost(token, `/accounts/${accountId}/access/apps/${app.id}/policies`, {
+        name: 'Bypass — custom login page',
+        decision: 'bypass',
+        include: [{ everyone: {} }],
+        session_duration: '0S',
+        precedence: 1,
+      })
+      if (policy) results.push('تم إضافة سياسة bypass لصفحة /login')
+      else warnings.push('تعذّر إضافة سياسة bypass تلقائياً — أضفها يدوياً: القرار "bypass"، تضمين "الجميع"، مع تحديد مسار /login* إن أمكن')
+    }
+  }
+
+  return json({
+    ok: true,
+    results,
+    warnings,
+    loginPageUrl: 'https://boslaworks.com/login',
+  })
 }
 
 // ── Users ─────────────────────────────────────────────────
@@ -1026,6 +1113,11 @@ export async function onRequest(ctx: any): Promise<Response> {
   // /api/setup/google-idp  — one-time Google Identity Provider setup
   if (resource === 'setup' && idOrSub === 'google-idp') {
     if (method === 'POST') return handleSetupGoogleIdp(request, env as Env, caller)
+  }
+
+  // /api/setup/custom-login — brand CF Access login page + enable /login bypass
+  if (resource === 'setup' && idOrSub === 'custom-login') {
+    if (method === 'POST') return handleSetupCustomLogin(env as Env, caller)
   }
 
   // /api/sync  (and /api/sync/reset)
