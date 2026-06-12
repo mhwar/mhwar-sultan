@@ -311,24 +311,18 @@ async function handleHealth(db: D1Database, req: Request, env: Env): Promise<Res
   } catch { /* dbOk stays false */ }
 
   let userCount: number | null = null
-  let userEmails: string[] | null = null
   try {
     const row = await db.prepare('SELECT COUNT(*) AS n FROM app_users').first<{ n: number }>()
     userCount = row?.n ?? 0
-    const { results } = await db.prepare('SELECT email, system_role FROM app_users ORDER BY created_at ASC').all<{ email: string; system_role: string }>()
-    userEmails = results.map((r) => `${r.email} (${r.system_role})`)
   } catch { /* leave null */ }
 
-  // Bootstrap state — once any password is set the public reset path stops
-  // exposing links. credentialCount > 0 means bootstrap is locked.
+  // credentialCount > 0 means at least one account has a password. -1 signals a
+  // missing user_credentials table (schema problem).
   let credentialCount: number | null = null
-  let credentialEmails: string[] | null = null
   try {
     const row = await db.prepare('SELECT COUNT(*) AS n FROM user_credentials').first<{ n: number }>()
     credentialCount = row?.n ?? 0
-    const { results } = await db.prepare('SELECT email FROM user_credentials').all<{ email: string }>()
-    credentialEmails = results.map((r) => r.email)
-  } catch { credentialCount = -1 /* table missing → signals a schema problem */ }
+  } catch { credentialCount = -1 }
 
   const email = await resolveSessionEmail(req, env)
   return json({
@@ -339,10 +333,7 @@ async function handleHealth(db: D1Database, req: Request, env: Env): Promise<Res
     authenticated: !!email,
     email,
     userCount,
-    userEmails,
     credentialCount,
-    credentialEmails,
-    bootstrapMode: credentialCount === 0,
     ts: new Date().toISOString(),
   })
 }
@@ -495,21 +486,15 @@ async function handleRequestReset(req: Request, db: D1Database, env: Env): Promi
   const email = (p.email ?? '').trim().toLowerCase()
   if (!email) return err('البريد مطلوب', 400)
 
-  // Bootstrap mode: nobody has set a password yet. In this window (the site is
-  // still gated by Cloudflare Access) we may return the set-password link on
-  // screen, so the first admin can get in without an email provider. Once any
-  // password exists this path never exposes a link again.
+  // Global bootstrap: no password exists for anyone yet. The very first email to
+  // reach this endpoint (site still gated by Cloudflare Access) may claim an admin
+  // account, so the platform has an owner.
   const credCount = await db.prepare('SELECT COUNT(*) AS n FROM user_credentials').first<{ n: number }>()
-  const bootstrapMode = !credCount || credCount.n === 0
+  const globalBootstrap = !credCount || credCount.n === 0
 
   let user = await db.prepare('SELECT * FROM app_users WHERE lower(email) = ?').bind(email).first<UserRow>()
 
-  // Bootstrap mode: no passwords set yet → site is still gated by Cloudflare Access,
-  // so any email that reaches this endpoint is an authorized user. Let them claim
-  // an admin account and receive the set-password link on screen. The strict
-  // "app_users must be empty" guard is removed so this works even when the table
-  // has existing rows (e.g. records created by the old CF Access auto-bootstrap).
-  if (!user && bootstrapMode) {
+  if (!user && globalBootstrap) {
     const now = new Date().toISOString()
     await db
       .prepare(`INSERT INTO app_users (id, name, email, avatar, system_role, is_finance, is_content, created_at)
@@ -520,18 +505,28 @@ async function handleRequestReset(req: Request, db: D1Database, env: Env): Promi
     user = await db.prepare('SELECT * FROM app_users WHERE lower(email) = ?').bind(email).first<UserRow>()
   }
 
-  // Unknown email and not bootstrapping → say ok without doing anything (no enumeration).
+  // Unknown email → say ok without doing anything (no account enumeration).
   if (!user) return json({ ok: true })
 
-  const kind: 'invite' | 'reset' = bootstrapMode ? 'invite' : 'reset'
-  const ttl = bootstrapMode ? 7 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000
+  // "Activating" = the account exists but has never set a password (a pending
+  // invite, or an admin added after bootstrap closed). For these accounts there
+  // is no existing password to protect, so when we can't send email we return the
+  // set-password link directly — this is what unblocks an admin who was created
+  // after someone else already claimed the global-bootstrap window. Accounts that
+  // ALREADY have a password get a normal reset and never have a link exposed
+  // here (prevents takeover of active accounts). Safe in the CF Access window.
+  const hasCredential = await db
+    .prepare('SELECT 1 AS n FROM user_credentials WHERE email = ?')
+    .bind(email)
+    .first<{ n: number }>()
+  const activating = !hasCredential
+
+  const kind: 'invite' | 'reset' = activating ? 'invite' : 'reset'
+  const ttl = activating ? 7 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000
   const token = await issueToken(db, email, kind, ttl)
   const sent = await sendAuthLink(env, email, user.name, token, kind)
 
-  // No email provider during bootstrap → return the link so the admin can open
-  // it directly. Outside bootstrap we never expose links to an unauthenticated
-  // caller; the admin re-invites users from settings instead.
-  if (bootstrapMode && !sent) {
+  if (activating && !sent) {
     const siteUrl = env.SITE_URL ?? 'https://boslaworks.com'
     return json({ ok: true, link: `${siteUrl}/set-password?token=${token}` })
   }
