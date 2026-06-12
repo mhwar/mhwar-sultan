@@ -746,46 +746,27 @@ async function handleSetupCustomLogin(env: Env, caller: UserRow): Promise<Respon
     }
   }
 
-  // 3. Make the main app redirect straight to Google (skip Cloudflare's own login screen).
-  // When the custom /login button sends the user to the protected root, CF Access intercepts
-  // it. Without auto-redirect, CF shows its own IdP-chooser page — redundant on top of our
-  // branded page. Setting auto_redirect_to_identity + a single allowed IdP (Google) makes CF
-  // jump straight to Google.
-  const mainApp = (apps ?? []).find(
-    (a) => (a.domain?.includes('boslaworks.com') || a.name?.toLowerCase().includes('bosla'))
-      && !a.domain?.includes('/login')
-      && !a.name?.toLowerCase().includes('login page (public)')
+  // (Note) We intentionally do NOT force auto_redirect_to_identity to a single IdP.
+  // Cloudflare shows its branded chooser offering BOTH Google and the email-code
+  // method below — that fallback is what makes login resilient when Google misbehaves.
+
+  // 3. Ensure a zero-config fallback login method: One-time PIN (email code).
+  // Unlike Google, this needs no Google Console, no OAuth client, no callback URL —
+  // CF emails a code to the visitor. This is the reliable path that can't break the
+  // way the Google callback URL has. Idempotent — skips if already present.
+  const { result: idpList } = await cfGetWithError<CfIdp[]>(
+    token, `/accounts/${accountId}/access/identity_providers?per_page=50`
   )
-  if (!mainApp) {
-    warnings.push('تعذّر العثور على تطبيق Access الرئيسي لتفعيل التحويل المباشر لقوقل')
+  const hasOtp = (idpList ?? []).some((i) => i.type === 'onetimepin')
+  if (hasOtp) {
+    results.push('طريقة الدخول عبر رمز البريد مفعّلة (بديل موثوق لقوقل)')
   } else {
-    // The Access apps endpoint rejects PATCH ("Method not allowed for this
-    // authentication scheme") — only PUT is accepted, and PUT replaces the whole
-    // object. So GET the full app, strip read-only fields, merge our two settings,
-    // then PUT it back.
-    const { result: fullApp, error: appGetErr } =
-      await cfGetWithError<Record<string, unknown>>(token, `/accounts/${accountId}/access/apps/${mainApp.id}`)
-    if (!fullApp) {
-      warnings.push(`تعذّر جلب تطبيق Access الرئيسي${appGetErr ? ` (${appGetErr})` : ''}`)
-    } else {
-      const { result: idps } = await cfGetWithError<CfIdp[]>(
-        token, `/accounts/${accountId}/access/identity_providers?per_page=50`
-      )
-      const google = (idps ?? []).find((i) => i.type === 'google')
-      const {
-        id: _id, aud: _aud, created_at: _c, updated_at: _u, ...writableApp
-      } = fullApp
-      const putBody: Record<string, unknown> = {
-        ...writableApp,
-        auto_redirect_to_identity: true,
-      }
-      if (google) putBody.allowed_idps = [google.id]
-      const { result: updatedApp, error: appPutErr } = await cfPutDetailed(
-        token, `/accounts/${accountId}/access/apps/${mainApp.id}`, putBody
-      )
-      if (updatedApp) results.push('تم تفعيل التحويل المباشر لقوقل عند تسجيل الدخول')
-      else warnings.push(`تعذّر تفعيل التحويل المباشر لقوقل${appPutErr ? ` (${appPutErr})` : ''}`)
-    }
+    const { result: otp, error: otpErr } = await cfPostDetailed(
+      token, `/accounts/${accountId}/access/identity_providers`,
+      { type: 'onetimepin', name: 'رمز عبر البريد', config: {} }
+    )
+    if (otp) results.push('تم تفعيل الدخول عبر رمز البريد — بديل موثوق لا يحتاج Google Console')
+    else warnings.push(`تعذّر تفعيل الدخول عبر رمز البريد${otpErr ? ` (${otpErr})` : ''}`)
   }
 
   // Surface the correct Google Console redirect URI so the user can verify it.
