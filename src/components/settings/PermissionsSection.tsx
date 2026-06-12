@@ -272,14 +272,14 @@ function UserForm({ initial, onSave, onCancel }: UserFormProps) {
 
 function InviteButton({ user }: { user: AppUser }) {
   const inviterName = usePermissionStore((s) => s.getSignedInUser()?.name)
-  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'mailto'>('idle')
+  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'copied' | 'mailto'>('idle')
 
   const invite = async () => {
     if (!user.email) return
     setState('sending')
     const result = await sendInvite({ email: user.email, name: user.name, inviterName })
-    setState(result === 'sent' ? 'sent' : result === 'mailto' ? 'mailto' : 'idle')
-    if (result !== 'failed') setTimeout(() => setState('idle'), 3000)
+    setState(result.status === 'failed' ? 'idle' : result.status)
+    if (result.status !== 'failed') setTimeout(() => setState('idle'), 3000)
   }
 
   return (
@@ -288,9 +288,10 @@ function InviteButton({ user }: { user: AppUser }) {
       onClick={invite}
       disabled={state === 'sending'}
       className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-white/10 transition-colors disabled:opacity-50"
-      title="إرسال دعوة بالبريد"
+      title={state === 'copied' ? 'نُسخ الرابط — الصقه وأرسله للمستخدم' : 'إرسال دعوة'}
     >
       {state === 'sent' ? <Check size={13} style={{ color: 'var(--success-500)' }} />
+        : state === 'copied' ? <Link2 size={13} style={{ color: 'var(--success-500)' }} />
         : state === 'mailto' ? <Mail size={13} style={{ color: 'var(--iris-500)' }} />
         : <Send size={13} style={{ color: 'var(--iris-500)' }} />}
     </button>
@@ -330,41 +331,80 @@ function CopyInviteButton({ user, userPermissions }: { user: AppUser; userPermis
 // no email provider is configured the backend falls back to a mailto draft.
 
 function GrantAccessButton({ user }: { user: AppUser; userPermissions: ProjectPermission[] }) {
-  const [state, setState] = useState<'idle' | 'loading' | 'ok' | 'mailto' | 'err'>('idle')
+  const [state, setState] = useState<'idle' | 'loading' | 'ok' | 'copied' | 'mailto' | 'err'>('idle')
+  const [link, setLink] = useState<string | null>(null)
 
   const invite = async () => {
     if (!user.email) return
     setState('loading')
+    setLink(null)
     const result = await sendInvite({ email: user.email, name: user.name })
-    if (result === 'sent') setState('ok')
-    else if (result === 'mailto') setState('mailto')
-    else setState('err')
-    setTimeout(() => setState('idle'), 3500)
+    if (result.status === 'sent') { setState('ok'); setTimeout(() => setState('idle'), 3500) }
+    else if (result.status === 'copied') { setState('copied'); setLink(result.link ?? null) }
+    else if (result.status === 'mailto') { setState('mailto'); setTimeout(() => setState('idle'), 3500) }
+    else { setState('err'); setTimeout(() => setState('idle'), 3500) }
   }
 
   const label =
     state === 'loading' ? '...' :
     state === 'ok'      ? 'أُرسل الرابط' :
+    state === 'copied'  ? 'نُسخ الرابط' :
     state === 'mailto'  ? 'فُتح البريد' :
     state === 'err'     ? 'فشل' : 'إرسال دعوة'
 
   const tint =
-    state === 'ok'    ? 'var(--success-500)' :
-    state === 'err'   ? 'var(--danger-500)'  :
+    state === 'ok'     ? 'var(--success-500)' :
+    state === 'copied' ? 'var(--success-500)' :
+    state === 'err'    ? 'var(--danger-500)'  :
     state === 'mailto' ? 'var(--warning-500)' : 'var(--iris-500)'
 
   return (
-    <button
-      type="button"
-      onClick={invite}
-      disabled={state === 'loading' || !user.email}
-      title={!user.email ? 'أضف البريد أولاً' : 'إرسال رابط لضبط كلمة المرور والدخول'}
-      className="flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-colors disabled:opacity-40"
-      style={{ color: tint, border: `1px solid color-mix(in srgb, ${tint} 30%, transparent)` }}
+    <div className="flex flex-col items-end gap-1.5">
+      <button
+        type="button"
+        onClick={invite}
+        disabled={state === 'loading' || !user.email}
+        title={!user.email ? 'أضف البريد أولاً' : 'إنشاء رابط لضبط كلمة المرور والدخول'}
+        className="flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-colors disabled:opacity-40"
+        style={{ color: tint, border: `1px solid color-mix(in srgb, ${tint} 30%, transparent)` }}
+      >
+        <UserCheck size={12} />
+        {label}
+      </button>
+      {state === 'copied' && link && <InviteLinkRow link={link} />}
+    </div>
+  )
+}
+
+/** Selectable set-password link with a copy button — the manual delivery path. */
+function InviteLinkRow({ link }: { link: string }) {
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000) } catch { /* user can select manually */ }
+  }
+  return (
+    <div
+      className="flex items-center gap-1.5 rounded-md p-1.5 max-w-[260px]"
+      style={{ background: 'var(--color-surface-base)', border: '1px solid var(--border-subtle)' }}
     >
-      <UserCheck size={12} />
-      {label}
-    </button>
+      <input
+        readOnly
+        value={link}
+        onFocus={(e) => e.currentTarget.select()}
+        dir="ltr"
+        className="flex-1 min-w-0 bg-transparent text-[10px] outline-none"
+        style={{ color: 'var(--fg-2)' }}
+      />
+      <button
+        type="button"
+        onClick={copy}
+        title="نسخ الرابط"
+        className="shrink-0 w-6 h-6 rounded flex items-center justify-center hover:bg-white/10 transition-colors"
+        style={{ color: copied ? 'var(--success-500)' : 'var(--iris-500)' }}
+      >
+        {copied ? <Check size={12} /> : <Link2 size={12} />}
+      </button>
+    </div>
   )
 }
 
