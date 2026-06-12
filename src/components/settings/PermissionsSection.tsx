@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import {
   UserCog, ChevronDown, Plus, Pencil, Trash2, Check, X,
   ShieldCheck, ShieldOff, Eye, EyeOff, Settings2, BadgeCheck, LogOut, Send, Mail, Link2,
-  UserCheck, Globe,
+  UserCheck, Globe, ExternalLink, Compass,
 } from 'lucide-react'
 import { usePermissionStore } from '@/store/permissionStore'
 import { useProjectStore } from '@/store/store'
@@ -466,6 +466,88 @@ function GoogleSsoCard() {
   )
 }
 
+// ── Custom login page card ────────────────────────────────
+
+function CustomLoginCard() {
+  const isAdmin = usePermissionStore((s) => {
+    const u = s.signedInEmail ? s.users.find((x) => x.email?.toLowerCase() === s.signedInEmail) : null
+    return !u || u.systemRole === 'admin'
+  })
+  const [state, setState] = useState<'idle' | 'loading' | 'ok' | 'err'>('idle')
+  const [results, setResults] = useState<string[]>([])
+  const [warnings, setWarnings] = useState<string[]>([])
+  const [errMsg, setErrMsg] = useState('')
+
+  if (!isAdmin) return null
+
+  const activate = async () => {
+    setState('loading')
+    setErrMsg('')
+    const { data, error } = await apiAccess.setupCustomLogin()
+    if (error || !data) { setErrMsg(error ?? 'خطأ غير معروف'); setState('err'); return }
+    setResults(data.results ?? [])
+    setWarnings(data.warnings ?? [])
+    setState('ok')
+  }
+
+  return (
+    <div className="axis-card p-6">
+      <SectionHeader icon={<Compass size={15} strokeWidth={1.5} />} title="صفحة تسجيل الدخول" tint="var(--iris-500)" />
+
+      {state === 'ok' ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--success-500)' }}>
+            <Check size={15} />
+            تم تفعيل صفحة تسجيل الدخول المخصصة
+          </div>
+          {results.length > 0 && (
+            <ul className="text-xs space-y-1" style={{ color: 'var(--fg-2)' }}>
+              {results.map((r, i) => <li key={i}>✓ {r}</li>)}
+            </ul>
+          )}
+          {warnings.length > 0 && (
+            <div className="rounded-lg p-3 text-xs space-y-1" style={{ background: 'var(--color-surface-base)', border: '1px solid var(--warning-500)' }}>
+              <p className="font-medium" style={{ color: 'var(--warning-500)' }}>ملاحظات تتطلب تدخلاً:</p>
+              {warnings.map((w, i) => <p key={i} style={{ color: 'var(--fg-2)' }}>{w}</p>)}
+            </div>
+          )}
+          <a
+            href="/login"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="axis-btn axis-btn--iris-soft axis-btn--sm inline-flex"
+          >
+            <ExternalLink size={13} />
+            معاينة صفحة تسجيل الدخول
+          </a>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs" style={{ color: 'var(--fg-3)' }}>
+            استبدل صفحة Cloudflare الافتراضية بصفحة مُصمَّمة تعكس هوية المنصة. تُفعَّل آلياً عبر CF API.
+          </p>
+          {state === 'err' && (
+            <p className="text-xs font-mono break-all" dir="ltr" style={{ color: 'var(--danger-500)' }}>
+              {errMsg}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={activate}
+            disabled={state === 'loading'}
+            className="axis-btn axis-btn--primary axis-btn--sm"
+          >
+            {state === 'loading' ? 'جارٍ التفعيل...' : 'تفعيل صفحة تسجيل الدخول'}
+          </button>
+          <p className="text-[11px]" style={{ color: 'var(--fg-3)' }}>
+            يتطلب <span className="font-mono" dir="ltr">CLOUDFLARE_API_TOKEN</span> في Cloudflare Pages.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── User list card ────────────────────────────────────────
 
 function UserListCard() {
@@ -853,6 +935,7 @@ export default function PermissionsSection() {
       </div>
       <ProjectPermissionsCard hydrated={hydrated} />
       <GoogleSsoCard />
+      <CustomLoginCard />
     </div>
   )
 }

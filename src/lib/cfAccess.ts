@@ -18,6 +18,11 @@ export interface CfIdentity {
 /** The Cloudflare Access logout endpoint — clears the session and re-prompts. */
 export const CF_LOGOUT_URL = '/cdn-cgi/access/logout'
 
+/** Initiates a new Cloudflare Access session (triggers Google OAuth).
+ *  After authentication CF redirects back to the app automatically. */
+export const CF_LOGIN_URL =
+  'https://tiny-shape-6245.cloudflareaccess.com/cdn-cgi/access/login/boslaworks.com'
+
 export async function fetchCfIdentity(): Promise<CfIdentity | null> {
   try {
     const res = await fetch('/cdn-cgi/access/get-identity', {
