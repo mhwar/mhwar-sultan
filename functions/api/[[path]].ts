@@ -468,6 +468,22 @@ async function cfPutDetailed<T>(
   } catch (e) { return { result: null, error: String(e) } }
 }
 
+async function cfPatchDetailed<T>(
+  token: string, path: string, body: unknown
+): Promise<{ result: T | null; error: string | null }> {
+  try {
+    const r = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const d = await r.json() as { result: T; success: boolean; errors?: Array<{ message: string }> }
+    if (d.success) return { result: d.result, error: null }
+    const msg = d.errors?.[0]?.message ?? `HTTP ${r.status}`
+    return { result: null, error: msg }
+  } catch (e) { return { result: null, error: String(e) } }
+}
+
 const BOSLA_ACCOUNT_ID = '645b32d31a95fbc82db2c606a66565dc'
 
 /** Resolve account ID — uses env var, then discovers from token, then falls back to the known deployment account. */
@@ -672,6 +688,32 @@ async function handleSetupCustomLogin(env: Env, caller: UserRow): Promise<Respon
       if (policy) results.push('تم إنشاء تطبيق /login العام وإضافة سياسة bypass')
       else warnings.push(`تم إنشاء التطبيق لكن تعذّر إضافة سياسة bypass${polErr ? ` (${polErr})` : ''} — افتح التطبيق في CF Zero Trust وأضف سياسة "bypass" يدوياً`)
     }
+  }
+
+  // 3. Make the main app redirect straight to Google (skip Cloudflare's own login screen).
+  // When the custom /login button sends the user to the protected root, CF Access intercepts
+  // it. Without auto-redirect, CF shows its own IdP-chooser page — redundant on top of our
+  // branded page. Setting auto_redirect_to_identity + a single allowed IdP (Google) makes CF
+  // jump straight to Google.
+  const mainApp = (apps ?? []).find(
+    (a) => (a.domain?.includes('boslaworks.com') || a.name?.toLowerCase().includes('bosla'))
+      && !a.domain?.includes('/login')
+      && !a.name?.toLowerCase().includes('login page (public)')
+  )
+  if (!mainApp) {
+    warnings.push('تعذّر العثور على تطبيق Access الرئيسي لتفعيل التحويل المباشر لقوقل')
+  } else {
+    const { result: idps } = await cfGetWithError<CfIdp[]>(
+      token, `/accounts/${accountId}/access/identity_providers?per_page=50`
+    )
+    const google = (idps ?? []).find((i) => i.type === 'google')
+    const patchBody: Record<string, unknown> = { auto_redirect_to_identity: true }
+    if (google) patchBody.allowed_idps = [google.id]
+    const { result: patched, error: patchErr } = await cfPatchDetailed(
+      token, `/accounts/${accountId}/access/apps/${mainApp.id}`, patchBody
+    )
+    if (patched) results.push('تم تفعيل التحويل المباشر لقوقل عند تسجيل الدخول')
+    else warnings.push(`تعذّر تفعيل التحويل المباشر لقوقل${patchErr ? ` (${patchErr})` : ''}`)
   }
 
   return json({
