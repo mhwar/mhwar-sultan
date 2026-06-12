@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Compass, LogOut, RefreshCw, ShieldAlert } from 'lucide-react'
 import { usePermissionStore } from '@/store/permissionStore'
 import { fetchCfIdentity, CF_LOGOUT_URL } from '@/lib/cfAccess'
+import { apiGetMe } from '@/lib/api'
 
 /**
  * Resolves the Cloudflare Access identity on load and binds it to an in-app
@@ -26,6 +27,21 @@ export default function IdentityGate({ children }: { children: React.ReactNode }
         setStatus('ok')
         return
       }
+
+      // Fetch own user record from D1 so bindIdentity can find it for member accounts.
+      // Admins already have their record in the full sync snapshot; this covers members.
+      const me = await apiGetMe()
+      if (me && !cancelled) {
+        usePermissionStore.setState((s) => {
+          const exists = s.users.some((u) => u.id === me.id)
+          const users = exists
+            ? s.users.map((u) => (u.id === me.id ? { ...u, ...me } : u))
+            : [...s.users, me]
+          return { users }
+        })
+      }
+
+      if (cancelled) return
       const result = usePermissionStore.getState().bindIdentity(identity.email, identity.name)
       setStatus(result === 'unprovisioned' ? 'pending' : 'ok')
     })()
