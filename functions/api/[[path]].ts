@@ -452,6 +452,22 @@ async function cfPostDetailed<T>(
   } catch (e) { return { result: null, error: String(e) } }
 }
 
+async function cfPutDetailed<T>(
+  token: string, path: string, body: unknown
+): Promise<{ result: T | null; error: string | null }> {
+  try {
+    const r = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const d = await r.json() as { result: T; success: boolean; errors?: Array<{ message: string }> }
+    if (d.success) return { result: d.result, error: null }
+    const msg = d.errors?.[0]?.message ?? `HTTP ${r.status}`
+    return { result: null, error: msg }
+  } catch (e) { return { result: null, error: String(e) } }
+}
+
 const BOSLA_ACCOUNT_ID = '645b32d31a95fbc82db2c606a66565dc'
 
 /** Resolve account ID — uses env var, then discovers from token, then falls back to the known deployment account. */
@@ -591,24 +607,30 @@ async function handleSetupCustomLogin(env: Env, caller: UserRow): Promise<Respon
 
   // 1. Update the CF Access organization login design.
   // Must GET first (PUT replaces the full object — sending only login_design wipes other required fields).
-  const currentOrg = await cfGet<Record<string, unknown>>(token, `/accounts/${accountId}/access/organizations`)
+  // Read-only fields (timestamps) are stripped so CF doesn't reject the echo-back.
+  const { result: currentOrg, error: orgGetErr } =
+    await cfGetWithError<Record<string, unknown>>(token, `/accounts/${accountId}/access/organizations`)
   if (currentOrg) {
-    const updated = await cfPut(token, `/accounts/${accountId}/access/organizations`, {
-      ...currentOrg,
-      login_design: {
-        background_color:  '#0f0f16',
-        button_color:      '#6366f1',
-        button_text_color: '#ffffff',
-        text_color:        '#e8e8f0',
-        logo_path:         'https://boslaworks.com/apple-touch-icon.png',
-        header_text:       'بوصلة الأعمال',
-        footer_text:       'نظام مقيّد للأعضاء المُصرَّح لهم فقط',
-      },
-    })
+    const { created_at: _c, updated_at: _u, ...writable } = currentOrg
+    const { result: updated, error: orgPutErr } = await cfPutDetailed(
+      token, `/accounts/${accountId}/access/organizations`, {
+        ...writable,
+        login_design: {
+          ...((currentOrg.login_design as Record<string, unknown> | undefined) ?? {}),
+          background_color:  '#0f0f16',
+          button_color:      '#6366f1',
+          button_text_color: '#ffffff',
+          text_color:        '#e8e8f0',
+          logo_path:         'https://boslaworks.com/apple-touch-icon.png',
+          header_text:       'بوصلة الأعمال',
+          footer_text:       'نظام مقيّد للأعضاء المُصرَّح لهم فقط',
+        },
+      }
+    )
     if (updated) results.push('تم تحديث تصميم صفحة تسجيل الدخول')
-    else warnings.push('تعذّر تحديث تصميم CF Access — تحقق من الصلاحيات')
+    else warnings.push(`تعذّر تحديث تصميم CF Access${orgPutErr ? ` (${orgPutErr})` : ''}`)
   } else {
-    warnings.push('تعذّر جلب إعدادات المنظمة من CF Access')
+    warnings.push(`تعذّر جلب إعدادات المنظمة من CF Access${orgGetErr ? ` (${orgGetErr})` : ''}`)
   }
 
   // 2. Create a dedicated Access app for boslaworks.com/login with a bypass policy.
@@ -629,8 +651,9 @@ async function handleSetupCustomLogin(env: Env, caller: UserRow): Promise<Respon
       token, `/accounts/${accountId}/access/apps`, {
         name: 'boslaworks.com — Login Page (Public)',
         domain: 'boslaworks.com/login',
+        self_hosted_domains: ['boslaworks.com/login'],
         type: 'self_hosted',
-        session_duration: '0S',
+        session_duration: '24h',
         auto_redirect_to_identity: false,
         skip_interstitial: true,
       }
@@ -726,6 +749,7 @@ type Table =
   | 'product_docs' | 'team_members' | 'schedule_events' | 'meetings'
   | 'finance_entries' | 'finance_packages' | 'kpis' | 'clients'
   | 'growth_metrics' | 'growth_experiments' | 'growth_channels' | 'content_items'
+  | 'product_profiles'
 
 const ORDER_COL: Record<string, string> = {
   tasks: 'created_at',
@@ -745,6 +769,7 @@ const ORDER_COL: Record<string, string> = {
   growth_experiments: 'order_index',
   growth_channels: 'order_index',
   content_items: 'order_index',
+  product_profiles: 'created_at',
 }
 
 async function handleList(
@@ -885,7 +910,7 @@ async function handleSyncPull(db: D1Database, caller: UserRow): Promise<Response
   const [
     projects, tasks, plans, phases, sprints, notes, docs, team, schedule,
     meetings, finance, packages, kpis, clients, metrics, experiments,
-    channels, content, portfolios, users, permissions,
+    channels, content, portfolios, profiles, users, permissions,
   ] = await Promise.all([
     handleListProjects(db, caller).then((r) => r.json()),
     (async () => {
@@ -952,6 +977,13 @@ async function handleSyncPull(db: D1Database, caller: UserRow): Promise<Response
       ? db.prepare('SELECT * FROM content_items ORDER BY order_index').all().then((r) => r.results.map(rowToCamel))
       : Promise.resolve([]),
     handleListPortfolios(db).then((r) => r.json()),
+    (async () => {
+      // Tolerate a not-yet-migrated DB (table added after deploy) — sync must not break.
+      try {
+        const { results } = await db.prepare('SELECT * FROM product_profiles ORDER BY created_at').all()
+        return results.map(rowToCamel)
+      } catch { return [] }
+    })(),
     isAdm
       ? db.prepare('SELECT * FROM app_users ORDER BY created_at').all().then((r) => r.results.map(rowToCamel))
       : db.prepare('SELECT * FROM app_users WHERE id = ?').bind(caller.id).all().then((r) => r.results.map(rowToCamel)),
@@ -969,7 +1001,7 @@ async function handleSyncPull(db: D1Database, caller: UserRow): Promise<Response
     seeded,
     projects, tasks, plans, phases, sprints, notes, docs, team, schedule,
     meetings, finance, packages, kpis, clients, metrics, experiments,
-    channels, content, portfolios, users, permissions,
+    channels, content, portfolios, profiles, users, permissions,
   })
 }
 
@@ -1007,7 +1039,7 @@ async function handleSyncPush(req: Request, db: D1Database, caller: UserRow): Pr
     schedule?: AnyObj[]; meetings?: AnyObj[]; finance?: AnyObj[]; packages?: AnyObj[]
     kpis?: AnyObj[]; clients?: AnyObj[]; metrics?: AnyObj[]; experiments?: AnyObj[]
     channels?: AnyObj[]; content?: AnyObj[]; portfolios?: AnyObj[]
-    users?: AnyObj[]; permissions?: AnyObj[]
+    profiles?: AnyObj[]; users?: AnyObj[]; permissions?: AnyObj[]
   }
 
   await upsertBatch(db, 'projects',           body.projects    ?? [])
@@ -1029,6 +1061,7 @@ async function handleSyncPush(req: Request, db: D1Database, caller: UserRow): Pr
   await upsertBatch(db, 'growth_channels',    body.channels    ?? [])
   await upsertBatch(db, 'content_items',      body.content     ?? [])
   await upsertBatch(db, 'portfolios',         body.portfolios  ?? [])
+  await upsertBatch(db, 'product_profiles',   body.profiles    ?? [])
 
   // Users & permissions: only admin-provided data
   if (isAdmin(caller)) {
@@ -1045,7 +1078,7 @@ const DATA_TABLES = [
   'tasks', 'plan_phases', 'plans', 'sprints', 'notes', 'product_docs',
   'team_members', 'schedule_events', 'meetings', 'finance_entries',
   'finance_packages', 'kpis', 'clients', 'growth_metrics', 'growth_experiments',
-  'growth_channels', 'content_items', 'portfolios', 'projects',
+  'growth_channels', 'content_items', 'portfolios', 'product_profiles', 'projects',
 ]
 
 /**
@@ -1081,6 +1114,7 @@ async function handleSyncReset(req: Request, db: D1Database, caller: UserRow): P
   await upsertBatch(db, 'growth_channels',    body.channels    ?? [])
   await upsertBatch(db, 'content_items',      body.content     ?? [])
   await upsertBatch(db, 'portfolios',         body.portfolios  ?? [])
+  await upsertBatch(db, 'product_profiles',   body.profiles    ?? [])
 
   return json({ ok: true })
 }
@@ -1105,6 +1139,7 @@ const RESOURCE_TABLE: Record<string, Table> = {
   experiments: 'growth_experiments',
   channels:    'growth_channels',
   content:     'content_items',
+  profiles:    'product_profiles',
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

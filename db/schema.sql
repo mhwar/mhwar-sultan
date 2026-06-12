@@ -364,7 +364,28 @@ CREATE TABLE IF NOT EXISTS portfolios (
   updated_at      TEXT NOT NULL
 );
 
+-- ── Product profiles (investor-facing pitch documents) ────
+CREATE TABLE IF NOT EXISTS product_profiles (
+  id              TEXT PRIMARY KEY,          -- equals project_id (one per project)
+  project_id      TEXT NOT NULL,
+  tagline         TEXT NOT NULL DEFAULT '',
+  overview        TEXT NOT NULL DEFAULT '',
+  problem         TEXT NOT NULL DEFAULT '',
+  solution        TEXT NOT NULL DEFAULT '',
+  sub_products    TEXT NOT NULL DEFAULT '[]', -- JSON: [{id,name,description}]
+  market          TEXT NOT NULL DEFAULT '',
+  goals           TEXT NOT NULL DEFAULT '[]', -- JSON: string[]
+  advantages      TEXT NOT NULL DEFAULT '[]', -- JSON: string[]
+  business_model  TEXT NOT NULL DEFAULT '',
+  team            TEXT NOT NULL DEFAULT '',
+  contact         TEXT NOT NULL DEFAULT '',
+  created_at      TEXT NOT NULL,
+  updated_at      TEXT NOT NULL,
+  FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
+);
+
 -- ── Indexes ───────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_profiles_project    ON product_profiles(project_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_project       ON tasks           (project_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_status        ON tasks           (status);
 CREATE INDEX IF NOT EXISTS idx_plans_project       ON plans           (project_id);

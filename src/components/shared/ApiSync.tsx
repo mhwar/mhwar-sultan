@@ -33,6 +33,7 @@ import { usePackageStore }    from '@/store/store'
 import { useClientStore }     from '@/store/store'
 import { useContentStore }    from '@/store/store'
 import { usePortfolioStore }  from '@/store/store'
+import { useProfileStore }    from '@/store/store'
 import { syncMissingSeeds } from '@/components/shared/StoreHydration'
 import {
   apiAvailable, apiSyncPull, apiSyncPush,
@@ -43,7 +44,7 @@ import type {
   Project, Task, Plan, PlanPhase, Sprint, Note, ProductDoc,
   TeamMember, ScheduleEvent, Meeting, FinanceEntry, FinancePackage,
   Kpi, Client, GrowthMetric, GrowthExperiment, GrowthChannel,
-  ContentItem, Portfolio, AppUser, ProjectPermission,
+  ContentItem, Portfolio, ProductProfile, AppUser, ProjectPermission,
 } from '@/types'
 
 // ── Generic array-diffing watcher ─────────────────────────
@@ -96,6 +97,7 @@ export function localSnapshot(): Partial<SyncSnapshot> {
     channels:    useGrowthStore.getState().channels,
     content:     useContentStore.getState().items,
     portfolios:  usePortfolioStore.getState().portfolios,
+    profiles:    useProfileStore.getState().profiles,
     users:       usePermissionStore.getState().users,
     permissions: usePermissionStore.getState().permissions,
   }
@@ -242,6 +244,10 @@ function hydrateStores(snap: SyncSnapshot): void {
   }))
   useContentStore.setState((s) => ({ items:     merge(snap.content, s.items) }))
   usePortfolioStore.setState((s) => ({ portfolios: merge(snap.portfolios, s.portfolios) }))
+  // Guarded: an older API deploy may not return profiles yet — don't wipe local ones.
+  if (Array.isArray(snap.profiles)) {
+    useProfileStore.setState((s) => ({ profiles: merge(snap.profiles, s.profiles) }))
+  }
   // Users & permissions drive the client-side permission UI and are admin-only in
   // the snapshot. Only hydrate when present so a member keeps their own identity
   // context (their matched user) rather than having it wiped to an empty list.
@@ -272,6 +278,7 @@ function startWatchers(hydrating: MutableRefObject<boolean>): void {
   let prevChannels:    GrowthChannel[]     = useGrowthStore.getState().channels.slice()
   let prevContent:     ContentItem[]       = useContentStore.getState().items.slice()
   let prevPortfolios:  Portfolio[]         = usePortfolioStore.getState().portfolios.slice()
+  let prevProfiles:    ProductProfile[]    = useProfileStore.getState().profiles.slice()
   let prevUsers:       AppUser[]           = usePermissionStore.getState().users.slice()
   let prevPermissions: ProjectPermission[] = usePermissionStore.getState().permissions.slice()
 
@@ -355,6 +362,10 @@ function startWatchers(hydrating: MutableRefObject<boolean>): void {
 
   usePortfolioStore.subscribe((s) => {
     watch(s.portfolios, prevPortfolios, 'portfolios', (v) => { prevPortfolios = v })
+  })
+
+  useProfileStore.subscribe((s) => {
+    watch(s.profiles, prevProfiles, 'profiles', (v) => { prevProfiles = v })
   })
 
   usePermissionStore.subscribe((s) => {
