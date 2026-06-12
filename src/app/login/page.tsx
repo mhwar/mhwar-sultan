@@ -144,18 +144,22 @@ export default function LoginPage() {
             style={{ fontSize: '0.9375rem' }}
           >
             <GoogleIcon />
-            تسجيل الدخول بقوقل
+            تسجيل الدخول
           </a>
 
-          {/* Fallback link */}
+          <p className="text-xs text-center leading-relaxed" style={{ color: 'var(--fg-3)' }}>
+            يمكنك الدخول بحساب قوقل أو عبر رمز يصلك على بريدك
+          </p>
+
+          {/* Fallback link — direct CF Access team-domain login */}
           <div className="text-center">
             <a
-              href="/"
+              href="https://tiny-shape-6245.cloudflareaccess.com/cdn-cgi/access/login/boslaworks.com"
               className="inline-flex items-center gap-1 text-xs"
               style={{ color: 'var(--fg-3)' }}
             >
               <ExternalLink size={12} strokeWidth={1.5} />
-              جرّب رابطاً بديلاً
+              لم تفتح الصفحة؟ جرّب رابطاً بديلاً
             </a>
           </div>
 
