@@ -5,7 +5,7 @@ import { useEffect } from 'react'
 import { LayoutDashboard, FolderKanban, BarChart3, Settings, Plus, X, Search, CheckSquare, LogOut } from 'lucide-react'
 import { useProjectStore } from '@/store/store'
 import { usePermissionStore } from '@/store/permissionStore'
-import { CF_LOGOUT_URL } from '@/lib/cfAccess'
+import { logout } from '@/lib/auth'
 import ThemeToggle from '@/components/shared/ThemeToggle'
 
 const navItems = [
@@ -193,14 +193,15 @@ export default function AppSidebar({ open, onClose }: AppSidebarProps) {
                     {signedInEmail}
                   </div>
                 </div>
-                <a
-                  href={CF_LOGOUT_URL}
+                <button
+                  type="button"
+                  onClick={() => { void logout() }}
                   title="تسجيل الخروج"
                   className="w-7 h-7 rounded-md flex items-center justify-center transition-colors hover:bg-white/10 shrink-0"
                   style={{ color: 'var(--color-text-muted)' }}
                 >
                   <LogOut size={14} />
-                </a>
+                </button>
               </div>
             )}
             <Link

@@ -50,6 +50,8 @@ interface Env {
   CLOUDFLARE_API_TOKEN?: string
   /** Cloudflare Account ID — auto-discovered when omitted. */
   CF_ACCOUNT_ID?: string
+  /** HMAC secret used to sign session cookies. Required for password auth. */
+  SESSION_SECRET?: string
 }
 
 // ── Helpers ───────────────────────────────────────────────
@@ -149,73 +151,137 @@ interface UserRow {
   created_at: string
 }
 
-/** Decode the `email` claim from a Cloudflare Access JWT payload (no signature
- * check needed — Access already verified it at the edge before forwarding, and
- * clients can't spoof Cf-Access-* headers on a protected app). */
-function decodeJwtEmail(jwt: string): string | null {
+// ── Crypto primitives (Web Crypto — native in the Workers runtime) ──
+//
+// We run our own authentication instead of trusting Cloudflare Access headers.
+// Passwords are hashed with PBKDF2-SHA256; sessions are signed JWTs (HMAC-SHA256)
+// stored in an httpOnly cookie; invite/reset tokens are random and stored hashed.
+
+const SESSION_COOKIE = 'bosla_session'
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30 // 30 days
+const PBKDF2_ITERATIONS = 100_000
+
+const textEncoder = new TextEncoder()
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let bin = ''
+  for (const b of bytes) bin += String.fromCharCode(b)
+  return btoa(bin)
+}
+
+function base64ToBytes(b64: string): Uint8Array {
+  const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4)
+  const bin = atob(padded)
+  const out = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+  return out
+}
+
+function base64UrlEncode(input: string | Uint8Array): string {
+  const b64 = typeof input === 'string' ? btoa(input) : bytesToBase64(input)
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+function base64UrlDecode(input: string): string {
+  const b64 = input.replace(/-/g, '+').replace(/_/g, '/')
+  return atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4))
+}
+
+/** Constant-time comparison of two strings to avoid timing leaks. */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', textEncoder.encode(input))
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/** Derive a PBKDF2-SHA256 hash. Returns base64 hash + base64 salt. */
+async function hashPassword(password: string, saltBytes?: Uint8Array): Promise<{ hash: string; salt: string }> {
+  const salt = saltBytes ?? crypto.getRandomValues(new Uint8Array(16))
+  const keyMaterial = await crypto.subtle.importKey('raw', textEncoder.encode(password), 'PBKDF2', false, ['deriveBits'])
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    keyMaterial,
+    256
+  )
+  return { hash: bytesToBase64(new Uint8Array(bits)), salt: bytesToBase64(salt) }
+}
+
+async function verifyPassword(password: string, expectedHash: string, salt: string): Promise<boolean> {
   try {
-    const payload = jwt.split('.')[1]
-    if (!payload) return null
-    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/')
-    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4)
-    const data = JSON.parse(atob(padded)) as Record<string, unknown>
-    const email = (data.email ?? (data.identity as Record<string, unknown> | undefined)?.email) as unknown
-    return typeof email === 'string' && email ? email.toLowerCase() : null
+    const { hash } = await hashPassword(password, base64ToBytes(salt))
+    return timingSafeEqual(hash, expectedHash)
+  } catch {
+    return false
+  }
+}
+
+async function hmacKey(secret: string): Promise<CryptoKey> {
+  return crypto.subtle.importKey('raw', textEncoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify'])
+}
+
+/** Sign a session token (compact JWT, HS256) carrying the user's email. */
+async function signSession(email: string, secret: string): Promise<string> {
+  const now = Math.floor(Date.now() / 1000)
+  const header = base64UrlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+  const payload = base64UrlEncode(JSON.stringify({ sub: email, iat: now, exp: now + SESSION_TTL_SECONDS }))
+  const data = `${header}.${payload}`
+  const key = await hmacKey(secret)
+  const sig = await crypto.subtle.sign('HMAC', key, textEncoder.encode(data))
+  return `${data}.${base64UrlEncode(new Uint8Array(sig))}`
+}
+
+/** Verify a session token and return the email, or null if invalid/expired. */
+async function verifySession(token: string, secret: string): Promise<string | null> {
+  try {
+    const [header, payload, sig] = token.split('.')
+    if (!header || !payload || !sig) return null
+    const data = `${header}.${payload}`
+    const key = await hmacKey(secret)
+    const valid = await crypto.subtle.verify('HMAC', key, base64ToBytes(sig.replace(/-/g, '+').replace(/_/g, '/')), textEncoder.encode(data))
+    if (!valid) return null
+    const claims = JSON.parse(base64UrlDecode(payload)) as { sub?: string; exp?: number }
+    if (!claims.sub || !claims.exp || claims.exp < Math.floor(Date.now() / 1000)) return null
+    return claims.sub.toLowerCase()
   } catch {
     return null
   }
 }
 
-/** Resolve the authenticated visitor's email from Access headers, falling back
- * to the JWT when the dedicated email header isn't forwarded (some Access
- * configurations only send Cf-Access-Jwt-Assertion). */
-function resolveAccessEmail(req: Request): string | null {
-  const header =
-    req.headers.get('Cf-Access-Authenticated-User-Email') ||
-    req.headers.get('CF-Access-Authenticated-User-Email')
-  if (header) return header.toLowerCase()
-  const jwt = req.headers.get('Cf-Access-Jwt-Assertion')
-  return jwt ? decodeJwtEmail(jwt) : null
+function readCookie(req: Request, name: string): string | null {
+  const header = req.headers.get('Cookie')
+  if (!header) return null
+  for (const part of header.split(';')) {
+    const [k, ...rest] = part.trim().split('=')
+    if (k === name) return rest.join('=')
+  }
+  return null
 }
 
-async function getAuthUser(req: Request, db: D1Database): Promise<UserRow | null> {
-  const normalized = resolveAccessEmail(req)
-  if (!normalized) return null
+function sessionCookie(value: string, maxAge: number): string {
+  return `${SESSION_COOKIE}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`
+}
 
-  const existing = await db
+/** Resolve the signed-in email from the session cookie. */
+async function resolveSessionEmail(req: Request, env: Env): Promise<string | null> {
+  if (!env.SESSION_SECRET) return null
+  const token = readCookie(req, SESSION_COOKIE)
+  if (!token) return null
+  return verifySession(token, env.SESSION_SECRET)
+}
+
+async function getAuthUser(req: Request, db: D1Database, env: Env): Promise<UserRow | null> {
+  const normalized = await resolveSessionEmail(req, env)
+  if (!normalized) return null
+  return db
     .prepare('SELECT * FROM app_users WHERE lower(email) = ?')
     .bind(normalized)
     .first<UserRow>()
-  if (existing) return existing
-
-  // Bootstrap: when no users exist yet, the first authenticated visitor claims
-  // the admin role server-side. This mirrors the client's bindIdentity claim and
-  // breaks the chicken-and-egg where every write needs an already-provisioned
-  // user. After the first admin exists, unprovisioned visitors get 401 (an admin
-  // must add them).
-  const count = await db.prepare('SELECT COUNT(*) AS n FROM app_users').first<{ n: number }>()
-  if (!count || count.n === 0) {
-    const now = new Date().toISOString()
-    const name = (req.headers.get('CF-Access-Authenticated-User-Name') || normalized.split('@')[0] || 'المسؤول').trim()
-    const admin: UserRow = {
-      id: 'admin-default',
-      name,
-      email: normalized,
-      avatar: null,
-      system_role: 'admin',
-      is_finance: 1,
-      is_content: 1,
-      created_at: now,
-    }
-    await db
-      .prepare(`INSERT OR REPLACE INTO app_users (id, name, email, avatar, system_role, is_finance, is_content, created_at)
-                VALUES (?, ?, ?, NULL, 'admin', 1, 1, ?)`)
-      .bind(admin.id, admin.name, admin.email, admin.created_at)
-      .run()
-    return admin
-  }
-
-  return null
 }
 
 function isAdmin(u: UserRow): boolean {
@@ -235,35 +301,14 @@ async function canAccessProject(db: D1Database, userId: string, projectId: strin
 
 // ── Route handlers ────────────────────────────────────────
 
-// Health check — verifies D1 connectivity and surfaces the Cloudflare Access
-// identity headers actually received, so we can diagnose auth wiring.
-async function handleHealth(db: D1Database, req: Request): Promise<Response> {
+// Health check — verifies D1 connectivity and reports whether session auth is
+// configured, so we can diagnose deployment wiring.
+async function handleHealth(db: D1Database, req: Request, env: Env): Promise<Response> {
   let dbOk = false
   try {
     await db.prepare('SELECT 1').first()
     dbOk = true
   } catch { /* dbOk stays false */ }
-
-  const accessEmail = resolveAccessEmail(req)
-  const jwt = req.headers.get('Cf-Access-Jwt-Assertion')
-  const hasJwt = !!jwt
-
-  // Diagnostic: which claim keys does the JWT carry, and is there an email-like one?
-  let jwtClaimKeys: string[] | null = null
-  let jwtEmailClaim: string | null = null
-  if (jwt) {
-    try {
-      const payload = jwt.split('.')[1]
-      const b64 = payload.replace(/-/g, '+').replace(/_/g, '/')
-      const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4)
-      const data = JSON.parse(atob(padded)) as Record<string, unknown>
-      jwtClaimKeys = Object.keys(data)
-      const e = (data.email ?? (data.identity as Record<string, unknown> | undefined)?.email) as unknown
-      jwtEmailClaim = typeof e === 'string' ? e : null
-    } catch {
-      jwtClaimKeys = ['<decode-error>']
-    }
-  }
 
   let userCount: number | null = null
   try {
@@ -271,40 +316,206 @@ async function handleHealth(db: D1Database, req: Request): Promise<Response> {
     userCount = row?.n ?? 0
   } catch { /* leave null */ }
 
+  const email = await resolveSessionEmail(req, env)
   return json({
     ok: true,
     db: dbOk,
-    accessEmail,
-    hasJwt,
-    jwtClaimKeys,
-    jwtEmailClaim,
+    sessionConfigured: !!env.SESSION_SECRET,
+    emailConfigured: !!env.RESEND_API_KEY,
+    authenticated: !!email,
+    email,
     userCount,
     ts: new Date().toISOString(),
   })
 }
 
-// GET /api/auth/ping — public status check for the login page diagnostic panel.
-// Returns CF Access identity status without requiring a DB user record.
-async function handleAuthPing(req: Request): Promise<Response> {
-  const accessEmail = resolveAccessEmail(req)
-  const jwt = req.headers.get('Cf-Access-Jwt-Assertion')
-  let jwtEmail: string | null = null
-  if (jwt) {
-    try {
-      const payload = jwt.split('.')[1]
-      const b64 = payload.replace(/-/g, '+').replace(/_/g, '/')
-      const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4)
-      const data = JSON.parse(atob(padded)) as Record<string, unknown>
-      const e = (data.email ?? (data.identity as Record<string, unknown>|undefined)?.email) as unknown
-      jwtEmail = typeof e === 'string' ? e : null
-    } catch { /* ignore */ }
-  }
-  return json({
-    cfAuthenticated: !!(accessEmail || jwtEmail),
-    email: accessEmail || jwtEmail || null,
-    authDomain: 'tiny-shape-6245.cloudflareaccess.com',
-    callbackUrl: 'https://tiny-shape-6245.cloudflareaccess.com/cdn-cgi/access/callback',
+// ── Self-hosted authentication ────────────────────────────
+//
+// Email + password auth that replaces Cloudflare Access. Admins invite users by
+// email; the invitee sets their own password via a one-time link, then signs in
+// with email + password. Sessions are signed cookies verified on every request.
+
+interface LoginPayload { email?: string; password?: string }
+interface SetPasswordPayload { token?: string; password?: string }
+interface RequestResetPayload { email?: string }
+
+/** POST /api/auth/login — verify password, issue a session cookie. */
+async function handleLogin(req: Request, db: D1Database, env: Env): Promise<Response> {
+  if (!env.SESSION_SECRET) return err('المصادقة غير مُعدّة على الخادم (SESSION_SECRET مفقود)', 500)
+  const p = await req.json().catch(() => ({})) as LoginPayload
+  const email = (p.email ?? '').trim().toLowerCase()
+  const password = p.password ?? ''
+  if (!email || !password) return err('البريد وكلمة المرور مطلوبان', 400)
+
+  const generic = () => err('بريد أو كلمة مرور غير صحيحة', 401)
+
+  const user = await db.prepare('SELECT * FROM app_users WHERE lower(email) = ?').bind(email).first<UserRow>()
+  if (!user) return generic()
+  const cred = await db
+    .prepare('SELECT password_hash, password_salt FROM user_credentials WHERE email = ?')
+    .bind(email)
+    .first<{ password_hash: string; password_salt: string }>()
+  if (!cred) return err('لم تُضبط كلمة المرور بعد — استخدم رابط الدعوة أو «نسيت كلمة المرور»', 403)
+
+  const ok = await verifyPassword(password, cred.password_hash, cred.password_salt)
+  if (!ok) return generic()
+
+  const token = await signSession(email, env.SESSION_SECRET)
+  return new Response(JSON.stringify({ ok: true, user: rowToCamel(user as unknown as Record<string, unknown>) }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+      'Set-Cookie': sessionCookie(token, SESSION_TTL_SECONDS),
+    },
   })
+}
+
+/** POST /api/auth/set-password — redeem an invite/reset token, set password, sign in. */
+async function handleSetPassword(req: Request, db: D1Database, env: Env): Promise<Response> {
+  if (!env.SESSION_SECRET) return err('المصادقة غير مُعدّة على الخادم (SESSION_SECRET مفقود)', 500)
+  const p = await req.json().catch(() => ({})) as SetPasswordPayload
+  const rawToken = (p.token ?? '').trim()
+  const password = p.password ?? ''
+  if (!rawToken) return err('رابط غير صالح', 400)
+  if (password.length < 8) return err('كلمة المرور يجب ألا تقل عن 8 أحرف', 400)
+
+  const tokenHash = await sha256Hex(rawToken)
+  const row = await db
+    .prepare('SELECT email, kind, expires_at, consumed_at FROM auth_tokens WHERE token_hash = ?')
+    .bind(tokenHash)
+    .first<{ email: string; kind: string; expires_at: string; consumed_at: string | null }>()
+  if (!row) return err('الرابط غير صالح', 400)
+  if (row.consumed_at) return err('سبق استخدام هذا الرابط', 400)
+  if (new Date(row.expires_at).getTime() < Date.now()) return err('انتهت صلاحية الرابط — اطلب رابطاً جديداً', 400)
+
+  const email = row.email.toLowerCase()
+  const now = new Date().toISOString()
+
+  // Ensure a user record exists (invites create one upfront; this is a safety net).
+  const user = await db.prepare('SELECT * FROM app_users WHERE lower(email) = ?').bind(email).first<UserRow>()
+  if (!user) return err('لم يعد هذا الحساب موجوداً', 400)
+
+  const { hash, salt } = await hashPassword(password)
+  await db
+    .prepare(`INSERT INTO user_credentials (email, password_hash, password_salt, updated_at)
+              VALUES (?, ?, ?, ?)
+              ON CONFLICT(email) DO UPDATE SET password_hash = excluded.password_hash,
+                password_salt = excluded.password_salt, updated_at = excluded.updated_at`)
+    .bind(email, hash, salt, now)
+    .run()
+  await db.prepare('UPDATE auth_tokens SET consumed_at = ? WHERE token_hash = ?').bind(now, tokenHash).run()
+
+  const token = await signSession(email, env.SESSION_SECRET)
+  return new Response(JSON.stringify({ ok: true, user: rowToCamel(user as unknown as Record<string, unknown>) }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+      'Set-Cookie': sessionCookie(token, SESSION_TTL_SECONDS),
+    },
+  })
+}
+
+/** Create + store a one-time token and return the raw value (for emailing). */
+async function issueToken(db: D1Database, email: string, kind: 'invite' | 'reset', ttlMs: number): Promise<string> {
+  const raw = bytesToBase64(crypto.getRandomValues(new Uint8Array(32))).replace(/[+/=]/g, (c) => ({ '+': '-', '/': '_', '=': '' }[c] as string))
+  const tokenHash = await sha256Hex(raw)
+  const now = Date.now()
+  await db
+    .prepare(`INSERT INTO auth_tokens (token_hash, email, kind, expires_at, created_at)
+              VALUES (?, ?, ?, ?, ?)`)
+    .bind(tokenHash, email.toLowerCase(), kind, new Date(now + ttlMs).toISOString(), new Date(now).toISOString())
+    .run()
+  return raw
+}
+
+/** Send a set-password / reset email via Resend. Returns whether it was sent. */
+async function sendAuthLink(env: Env, email: string, name: string, token: string, kind: 'invite' | 'reset'): Promise<boolean> {
+  const siteUrl = env.SITE_URL ?? 'https://boslaworks.com'
+  const link = `${siteUrl}/set-password?token=${token}`
+  if (!env.RESEND_API_KEY) return false
+  const subject = kind === 'invite' ? 'دعوة للانضمام إلى بوصلة الأعمال' : 'إعادة تعيين كلمة المرور — بوصلة الأعمال'
+  const intro = kind === 'invite'
+    ? `تمت دعوتك للوصول إلى منصة بوصلة الأعمال. اضبط كلمة مرورك لإكمال إنشاء حسابك.`
+    : `وصلنا طلب لإعادة تعيين كلمة مرور حسابك. اضغط الزر لاختيار كلمة مرور جديدة.`
+  const cta = kind === 'invite' ? 'ضبط كلمة المرور والدخول' : 'إعادة تعيين كلمة المرور'
+  const html = `<!doctype html>
+<html dir="rtl" lang="ar"><body style="margin:0;background:#f1f5f9;font-family:-apple-system,Segoe UI,Tahoma,sans-serif">
+  <div style="max-width:520px;margin:0 auto;padding:32px 20px">
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:28px">
+      <div style="width:48px;height:48px;border-radius:12px;background:#6366F1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800">ب</div>
+      <h1 style="margin:20px 0 8px;color:#0f172a;font-size:18px">مرحباً ${name || ''}</h1>
+      <p style="margin:0;color:#475569;font-size:14px;line-height:1.7">${intro}</p>
+      <a href="${link}" style="display:inline-block;margin-top:24px;background:#6366F1;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 22px;border-radius:10px">${cta}</a>
+      <p style="margin:20px 0 0;color:#94a3b8;font-size:12px;line-height:1.7">
+        الحساب: ${email}. الرابط صالح لمدة ${kind === 'invite' ? '7 أيام' : 'ساعة واحدة'}. إن لم تطلب هذا تجاهل الرسالة.
+      </p>
+    </div>
+  </div>
+</body></html>`
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: env.INVITE_FROM ?? 'بوصلة الأعمال <onboarding@resend.dev>',
+        to: [email],
+        subject,
+        html,
+      }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+/** POST /api/auth/request-reset — email a reset link. Always returns ok (no enumeration). */
+async function handleRequestReset(req: Request, db: D1Database, env: Env): Promise<Response> {
+  const p = await req.json().catch(() => ({})) as RequestResetPayload
+  const email = (p.email ?? '').trim().toLowerCase()
+  if (!email) return err('البريد مطلوب', 400)
+
+  const user = await db.prepare('SELECT * FROM app_users WHERE lower(email) = ?').bind(email).first<UserRow>()
+  if (user) {
+    const token = await issueToken(db, email, 'reset', 60 * 60 * 1000) // 1 hour
+    await sendAuthLink(env, email, user.name, token, 'reset')
+  } else {
+    // Bootstrap: when no users exist at all, let the first email claim admin so a
+    // fresh deployment can be set up. Locked once any user exists.
+    const count = await db.prepare('SELECT COUNT(*) AS n FROM app_users').first<{ n: number }>()
+    if (count && count.n === 0) {
+      const now = new Date().toISOString()
+      await db
+        .prepare(`INSERT INTO app_users (id, name, email, avatar, system_role, is_finance, is_content, created_at)
+                  VALUES ('admin-default', ?, ?, NULL, 'admin', 1, 1, ?)`)
+        .bind(email.split('@')[0] || 'المسؤول', email, now)
+        .run()
+      const token = await issueToken(db, email, 'invite', 7 * 24 * 60 * 60 * 1000)
+      await sendAuthLink(env, email, email.split('@')[0] || 'المسؤول', token, 'invite')
+    }
+  }
+  return json({ ok: true })
+}
+
+/** POST /api/auth/logout — clear the session cookie. */
+function handleLogout(): Response {
+  return new Response(JSON.stringify({ ok: true }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+      'Set-Cookie': sessionCookie('', 0),
+    },
+  })
+}
+
+/** GET /api/auth/session — return the current user, or { authenticated: false }. */
+async function handleSession(req: Request, db: D1Database, env: Env): Promise<Response> {
+  const user = await getAuthUser(req, db, env)
+  if (!user) return json({ authenticated: false })
+  return json({ authenticated: true, user: rowToCamel(user as unknown as Record<string, unknown>) })
 }
 
 // ── Invitations ───────────────────────────────────────────
@@ -316,533 +527,38 @@ async function handleAuthPing(req: Request): Promise<Response> {
 interface InvitePayload {
   email: string
   name?: string
-  projectName?: string
-  toolLabels?: string[]
-  inviterName?: string
 }
 
-function inviteSubject(p: InvitePayload): string {
-  return p.projectName
-    ? `دعوة للوصول إلى مشروع ${p.projectName} — بوصلة الأعمال`
-    : 'دعوة للوصول إلى بوصلة الأعمال'
-}
-
-function inviteHtml(p: InvitePayload, siteUrl: string): string {
-  const tools = (p.toolLabels ?? []).filter(Boolean)
-  const toolsBlock = tools.length
-    ? `<p style="margin:16px 0 8px;color:#475569;font-size:14px">الأقسام المتاحة لك:</p>
-       <p style="margin:0;color:#0f172a;font-size:14px;font-weight:600">${tools.join(' · ')}</p>`
-    : ''
-  const projectLine = p.projectName
-    ? `تم منحك صلاحية الوصول إلى مشروع <strong>${p.projectName}</strong> على منصة بوصلة الأعمال.`
-    : 'تم منحك صلاحية الوصول إلى منصة بوصلة الأعمال.'
-  return `<!doctype html>
-<html dir="rtl" lang="ar"><body style="margin:0;background:#f1f5f9;font-family:-apple-system,Segoe UI,Tahoma,sans-serif">
-  <div style="max-width:520px;margin:0 auto;padding:32px 20px">
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:28px">
-      <div style="width:48px;height:48px;border-radius:12px;background:#6366F1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800">ب</div>
-      <h1 style="margin:20px 0 8px;color:#0f172a;font-size:18px">مرحباً ${p.name ?? ''}</h1>
-      <p style="margin:0;color:#475569;font-size:14px;line-height:1.7">${projectLine}</p>
-      ${toolsBlock}
-      <a href="${siteUrl}" style="display:inline-block;margin-top:24px;background:#6366F1;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 22px;border-radius:10px">فتح المنصة وتسجيل الدخول</a>
-      <p style="margin:20px 0 0;color:#94a3b8;font-size:12px;line-height:1.7">
-        سجّل الدخول باستخدام بريدك (${p.email}) عبر بوابة الدخول الموحّدة.${p.inviterName ? ` الدعوة من ${p.inviterName}.` : ''}
-      </p>
-    </div>
-  </div>
-</body></html>`
-}
-
-async function handleInvite(req: Request, env: Env, caller: UserRow): Promise<Response> {
+/**
+ * POST /api/invite — provision a user and email them a set-password link.
+ * Creates the app_users record if missing, issues a 7-day invite token, and
+ * sends the branded set-password email via Resend. Idempotent: re-inviting an
+ * existing user just sends a fresh link (useful for resending).
+ */
+async function handleInvite(req: Request, db: D1Database, env: Env, caller: UserRow): Promise<Response> {
   if (!isAdmin(caller)) return err('غير مصرح', 403)
-  const p = await req.json() as InvitePayload
-  if (!p.email) return err('البريد مطلوب', 400)
+  const p = await req.json().catch(() => ({})) as InvitePayload
+  const email = (p.email ?? '').trim().toLowerCase()
+  if (!email) return err('البريد مطلوب', 400)
 
-  const siteUrl = env.SITE_URL ?? 'https://boslaworks.com'
+  const existing = await db.prepare('SELECT * FROM app_users WHERE lower(email) = ?').bind(email).first<UserRow>()
+  const name = (p.name ?? existing?.name ?? email.split('@')[0] ?? '').trim()
+  if (!existing) {
+    const now = new Date().toISOString()
+    await db
+      .prepare(`INSERT INTO app_users (id, name, email, avatar, system_role, is_finance, is_content, created_at)
+                VALUES (?, ?, ?, NULL, 'member', 0, 0, ?)`)
+      .bind(`user-${crypto.randomUUID()}`, name || email, email, now)
+      .run()
+  }
 
-  // No provider configured → let the client fall back to a mailto draft.
   if (!env.RESEND_API_KEY) {
-    return json({ sent: false, fallback: true })
+    return json({ sent: false, fallback: true, reason: 'no-email-provider' })
   }
 
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: env.INVITE_FROM ?? 'بوصلة الأعمال <onboarding@resend.dev>',
-        to: [p.email],
-        subject: inviteSubject(p),
-        html: inviteHtml(p, siteUrl),
-      }),
-    })
-    if (!res.ok) {
-      const detail = await res.text()
-      return json({ sent: false, fallback: true, error: detail }, 200)
-    }
-    return json({ sent: true })
-  } catch {
-    return json({ sent: false, fallback: true })
-  }
-}
-
-// ── Cloudflare Access management ─────────────────────────
-//
-// Helpers that call the Cloudflare REST API from inside the Pages Function
-// (runs on CF infra — never blocked by IP allowlist restrictions).
-
-interface CfApp { id: string; domain?: string; name?: string }
-interface CfIdp { id: string; type: string; name: string }
-
-async function cfGet<T>(token: string, path: string): Promise<T | null> {
-  try {
-    const r = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    })
-    if (!r.ok) return null
-    const d = await r.json() as { result: T }
-    return d.result ?? null
-  } catch { return null }
-}
-
-async function cfGetWithError<T>(token: string, path: string): Promise<{ result: T | null; error: string | null }> {
-  try {
-    const r = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    })
-    const d = await r.json() as { result: T; success: boolean; errors?: Array<{ message: string }> }
-    if (!r.ok || !d.success) {
-      const msg = d.errors?.[0]?.message ?? `HTTP ${r.status}`
-      return { result: null, error: msg }
-    }
-    return { result: d.result ?? null, error: null }
-  } catch (e) {
-    return { result: null, error: String(e) }
-  }
-}
-
-async function cfPost<T>(token: string, path: string, body: unknown): Promise<T | null> {
-  try {
-    const r = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    const d = await r.json() as { result: T; success: boolean; errors?: unknown[] }
-    return d.success ? d.result : null
-  } catch { return null }
-}
-
-async function cfPut<T>(token: string, path: string, body: unknown): Promise<T | null> {
-  try {
-    const r = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    const d = await r.json() as { result: T; success: boolean; errors?: unknown[] }
-    return d.success ? d.result : null
-  } catch { return null }
-}
-
-async function cfPatch<T>(token: string, path: string, body: unknown): Promise<T | null> {
-  try {
-    const r = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
-      method: 'PATCH',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    const d = await r.json() as { result: T; success: boolean; errors?: unknown[] }
-    return d.success ? d.result : null
-  } catch { return null }
-}
-
-async function cfPostDetailed<T>(
-  token: string, path: string, body: unknown
-): Promise<{ result: T | null; error: string | null }> {
-  try {
-    const r = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    const d = await r.json() as { result: T; success: boolean; errors?: Array<{ message: string }> }
-    if (d.success) return { result: d.result, error: null }
-    const msg = d.errors?.[0]?.message ?? `HTTP ${r.status}`
-    return { result: null, error: msg }
-  } catch (e) { return { result: null, error: String(e) } }
-}
-
-async function cfPutDetailed<T>(
-  token: string, path: string, body: unknown
-): Promise<{ result: T | null; error: string | null }> {
-  try {
-    const r = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    const d = await r.json() as { result: T; success: boolean; errors?: Array<{ message: string }> }
-    if (d.success) return { result: d.result, error: null }
-    const msg = d.errors?.[0]?.message ?? `HTTP ${r.status}`
-    return { result: null, error: msg }
-  } catch (e) { return { result: null, error: String(e) } }
-}
-
-const BOSLA_ACCOUNT_ID = '645b32d31a95fbc82db2c606a66565dc'
-
-/** Resolve account ID — uses env var, then discovers from token, then falls back to the known deployment account. */
-async function getAccountId(token: string, envId?: string): Promise<string | null> {
-  if (envId) return envId
-  const accounts = await cfGet<Array<{ id: string }>>(token, '/accounts?per_page=1')
-  return accounts?.[0]?.id ?? BOSLA_ACCOUNT_ID
-}
-
-/** Find the Cloudflare Access app for boslaworks.com. */
-async function findAccessApp(token: string, accountId: string): Promise<CfApp | null> {
-  const apps = await cfGet<CfApp[]>(token, `/accounts/${accountId}/access/apps?per_page=50`)
-  return (apps ?? []).find(
-    (a) => a.domain?.includes('boslaworks') || a.name?.toLowerCase().includes('bosla')
-  ) ?? null
-}
-
-/** Add an email-based allow policy to the Access app. Idempotent — skips if already present. */
-async function grantAccessEmail(token: string, accountId: string, email: string, name: string): Promise<boolean> {
-  const app = await findAccessApp(token, accountId)
-  if (!app) return false
-
-  // Check if a policy for this email already exists
-  const policies = await cfGet<Array<{ id: string; name: string }>>(
-    token, `/accounts/${accountId}/access/apps/${app.id}/policies?per_page=100`
-  )
-  const exists = (policies ?? []).some((p) => p.name === `User: ${email}`)
-  if (exists) return true
-
-  const result = await cfPost(token, `/accounts/${accountId}/access/apps/${app.id}/policies`, {
-    name: `User: ${email}`,
-    decision: 'allow',
-    include: [{ email: { email } }],
-    precedence: 10,
-  })
-  return !!result
-}
-
-// POST /api/access/grant  — admin grants CF Access + provisions user in D1
-interface GrantPayload {
-  userId: string
-  name: string
-  email: string
-  systemRole: string
-  isFinance: boolean
-  isContent: boolean
-  createdAt: string
-  permissions: Array<{ userId: string; projectId: string; access: string; deniedTools: string[] }>
-}
-
-async function handleGrantAccess(req: Request, db: D1Database, env: Env, caller: UserRow): Promise<Response> {
-  if (!isAdmin(caller)) return err('غير مصرح', 403)
-
-  const p = await req.json() as GrantPayload
-  if (!p.email || !p.userId) return err('البيانات ناقصة', 400)
-
-  // 1) Upsert user in D1
-  await db.prepare(`
-    INSERT INTO app_users (id, name, email, system_role, is_finance, is_content, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET
-      name = excluded.name, email = excluded.email,
-      system_role = excluded.system_role,
-      is_finance = excluded.is_finance,
-      is_content = excluded.is_content
-  `).bind(p.userId, p.name, p.email.toLowerCase(), p.systemRole,
-           p.isFinance ? 1 : 0, p.isContent ? 1 : 0, p.createdAt).run()
-
-  // 2) Upsert permissions in D1
-  for (const perm of (p.permissions ?? [])) {
-    await db.prepare(`
-      INSERT INTO project_permissions (user_id, project_id, access, denied_tools)
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT(user_id, project_id) DO UPDATE SET
-        access = excluded.access, denied_tools = excluded.denied_tools
-    `).bind(perm.userId, perm.projectId, perm.access, JSON.stringify(perm.deniedTools ?? [])).run()
-  }
-
-  // 3) Add to Cloudflare Access (non-fatal if not configured)
-  let addedToAccess = false
-  const token = env.CLOUDFLARE_API_TOKEN
-  if (token) {
-    const accountId = await getAccountId(token, env.CF_ACCOUNT_ID)
-    if (accountId) addedToAccess = await grantAccessEmail(token, accountId, p.email, p.name)
-  }
-
-  return json({ ok: true, addedToAccess, cfConfigured: !!token })
-}
-
-// POST /api/setup/google-idp — one-time: add Google as CF Access identity provider
-interface GoogleIdpPayload { clientId: string; clientSecret: string }
-
-async function handleSetupGoogleIdp(req: Request, env: Env, caller: UserRow): Promise<Response> {
-  if (!isAdmin(caller)) return err('غير مصرح', 403)
-
-  const token = env.CLOUDFLARE_API_TOKEN
-  if (!token) return err('CLOUDFLARE_API_TOKEN غير مُعدَّ', 400)
-
-  const p = await req.json() as GoogleIdpPayload
-  if (!p.clientId || !p.clientSecret) return err('Client ID و Client Secret مطلوبان', 400)
-
-  const accountId = await getAccountId(token, env.CF_ACCOUNT_ID)
-  if (!accountId) return err('تعذّر تحديد الحساب', 500)
-
-  // Verify token has Zero Trust access by listing identity providers
-  const existing = await cfGetWithError<CfIdp[]>(token, `/accounts/${accountId}/access/identity_providers?per_page=50`)
-  if (existing.error) return err(`صلاحية Cloudflare API: ${existing.error}`, 400)
-  const hasGoogle = (existing.result ?? []).some((idp) => idp.type === 'google')
-  // Always resolve auth_domain so the correct Google Console redirect URI is shown —
-  // even when Google IdP already exists (the old code used account ID which was wrong).
-  const orgRes = await cfGet<{ auth_domain?: string }>(token, `/accounts/${accountId}/access/organizations`)
-  const authDomain = orgRes?.auth_domain ?? 'tiny-shape-6245.cloudflareaccess.com'
-  const redirectUri = `https://${authDomain}/cdn-cgi/access/callback`
-  if (hasGoogle) return json({ ok: true, alreadyExists: true, redirectUri })
-
-  const result = await cfPost(token, `/accounts/${accountId}/access/identity_providers`, {
-    type: 'google',
-    name: 'Google',
-    config: { client_id: p.clientId, client_secret: p.clientSecret },
-  })
-
-  if (!result) return err('فشل إضافة Google IDP — تحقق من Client ID و Secret', 500)
-
-  // Return the redirect URI the user needs to add in Google Console.
-  // auth_domain (e.g. "tiny-shape-6245.cloudflareaccess.com") comes from the org object;
-  // fallback to the team slug known at build time so the URL is always correct.
-  const orgForIdp = await cfGet<{ auth_domain?: string }>(
-    token, `/accounts/${accountId}/access/organizations`
-  )
-  const authDomain = orgForIdp?.auth_domain ?? 'tiny-shape-6245.cloudflareaccess.com'
-  const redirectUri = `https://${authDomain}/cdn-cgi/access/callback`
-  return json({ ok: true, redirectUri })
-}
-
-// Self-contained HTML uploaded to CF Access custom pages (identity_denied type).
-// CF hosts this on their CDN and serves it instead of the default login chooser.
-// {{LOGIN_BUTTON}} is a CF template variable — replaced with the actual IdP buttons
-// (Google + OTP) styled with the login_design colors we set in step 1.
-function buildLoginPageHtml(): string {
-  return `<!DOCTYPE html>
-<html dir="rtl" lang="ar">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>بوصلة الأعمال</title>
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{background:#0f0f16;color:#e8e8f0;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;direction:rtl}
-.card{background:#1a1a28;border:1px solid rgba(255,255,255,.08);border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.5);padding:32px;width:100%;max-width:360px;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center}
-.icon{width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,#6366f1 0%,#4f46e5 100%);box-shadow:0 8px 32px rgba(99,102,241,.4);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-h1{font-size:22px;font-weight:700;color:#e8e8f0;line-height:1.2}
-.sub{font-size:13px;color:rgba(232,232,240,.55)}
-.note{font-size:11px;color:rgba(232,232,240,.3)}
-</style>
-</head>
-<body>
-<div class="card">
-  <div class="icon">
-    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="10"/>
-      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
-    </svg>
-  </div>
-  <div>
-    <h1>بوصلة الأعمال</h1>
-    <p class="sub" style="margin-top:6px">منصة إدارة المشاريع الداخلية</p>
-  </div>
-  {{LOGIN_BUTTON}}
-  <p class="note">النظام مقيّد للأعضاء المُصرَّح لهم فقط</p>
-</div>
-</body>
-</html>`
-}
-
-// POST /api/setup/custom-login — brand the CF Access login page + enable /login bypass
-
-async function handleSetupCustomLogin(env: Env, caller: UserRow): Promise<Response> {
-  if (!isAdmin(caller)) return err('غير مصرح', 403)
-
-  const token = env.CLOUDFLARE_API_TOKEN
-  if (!token) return err('CLOUDFLARE_API_TOKEN غير مُعدَّ', 400)
-
-  const accountId = await getAccountId(token, env.CF_ACCOUNT_ID)
-  if (!accountId) return err('تعذّر تحديد الحساب', 500)
-
-  const results: string[] = []
-  const warnings: string[] = []
-
-  // 1. Update the CF Access organization login design.
-  // Must GET first (PUT replaces the full object — sending only login_design wipes other required fields).
-  // Read-only fields (timestamps) are stripped so CF doesn't reject the echo-back.
-  const { result: currentOrg, error: orgGetErr } =
-    await cfGetWithError<Record<string, unknown>>(token, `/accounts/${accountId}/access/organizations`)
-  if (currentOrg) {
-    const { created_at: _c, updated_at: _u, ...writable } = currentOrg
-    const { result: updated, error: orgPutErr } = await cfPutDetailed(
-      token, `/accounts/${accountId}/access/organizations`, {
-        ...writable,
-        login_design: {
-          ...((currentOrg.login_design as Record<string, unknown> | undefined) ?? {}),
-          background_color:  '#0f0f16',
-          button_color:      '#6366f1',
-          button_text_color: '#ffffff',
-          text_color:        '#e8e8f0',
-          logo_path:         'https://boslaworks.com/apple-touch-icon.png',
-          header_text:       'بوصلة الأعمال',
-          footer_text:       'نظام مقيّد للأعضاء المُصرَّح لهم فقط',
-        },
-      }
-    )
-    if (updated) results.push('تم تحديث تصميم صفحة تسجيل الدخول')
-    else warnings.push(`تعذّر تحديث تصميم CF Access${orgPutErr ? ` (${orgPutErr})` : ''}`)
-  } else {
-    warnings.push(`تعذّر جلب إعدادات المنظمة من CF Access${orgGetErr ? ` (${orgGetErr})` : ''}`)
-  }
-
-  // 2. Create a dedicated Access app for boslaworks.com/login with a bypass policy.
-  // CF Access policies are app-level; the only way to bypass a specific sub-path is
-  // to create a separate app scoped to that path, which CF prioritises over the parent.
-  const apps = await cfGet<Array<{ id: string; name: string; domain: string }>>(
-    token, `/accounts/${accountId}/access/apps?per_page=100`
-  )
-  const loginApp = (apps ?? []).find(
-    (a) => a.domain?.includes('boslaworks.com/login') || a.name?.toLowerCase().includes('login page (public)')
-  )
-
-  if (loginApp) {
-    results.push('تطبيق bypass لـ /login موجود بالفعل')
-  } else {
-    interface CfAppResult { id: string }
-    const { result: newApp, error: appErr } = await cfPostDetailed<CfAppResult>(
-      token, `/accounts/${accountId}/access/apps`, {
-        name: 'boslaworks.com — Login Page (Public)',
-        domain: 'boslaworks.com/login',
-        self_hosted_domains: ['boslaworks.com/login'],
-        type: 'self_hosted',
-        session_duration: '24h',
-        auto_redirect_to_identity: false,
-        skip_interstitial: true,
-      }
-    )
-
-    if (!newApp) {
-      warnings.push(`تعذّر إنشاء تطبيق Access لـ /login${appErr ? ` (${appErr})` : ''} — أنشئه يدوياً: domain "boslaworks.com/login"، نوع self-hosted، سياسة bypass للجميع`)
-    } else {
-      const { result: policy, error: polErr } = await cfPostDetailed(
-        token, `/accounts/${accountId}/access/apps/${newApp.id}/policies`, {
-          name: 'Bypass — public login page',
-          decision: 'bypass',
-          include: [{ everyone: {} }],
-        }
-      )
-      if (policy) results.push('تم إنشاء تطبيق /login العام وإضافة سياسة bypass')
-      else warnings.push(`تم إنشاء التطبيق لكن تعذّر إضافة سياسة bypass${polErr ? ` (${polErr})` : ''} — افتح التطبيق في CF Zero Trust وأضف سياسة "bypass" يدوياً`)
-    }
-  }
-
-  // 2b. Create a dedicated Access app for boslaworks.com/api/auth/ping with a bypass policy.
-  // This allows the login page diagnostic panel to call the ping endpoint without being
-  // redirected to the CF Access login page (requires a bypass policy, same as /login).
-  const pingApp = (apps ?? []).find(
-    (a) => a.domain?.includes('api/auth/ping') || a.name?.toLowerCase().includes('ping')
-  )
-
-  if (pingApp) {
-    results.push('تطبيق bypass لـ /api/auth/ping موجود بالفعل')
-  } else {
-    interface CfAppResult2 { id: string }
-    const { result: newPingApp, error: pingAppErr } = await cfPostDetailed<CfAppResult2>(
-      token, `/accounts/${accountId}/access/apps`, {
-        name: 'boslaworks.com — Auth Ping (Public)',
-        domain: 'boslaworks.com/api/auth/ping',
-        self_hosted_domains: ['boslaworks.com/api/auth/ping'],
-        type: 'self_hosted',
-        session_duration: '24h',
-        auto_redirect_to_identity: false,
-      }
-    )
-
-    if (!newPingApp) {
-      warnings.push(`تعذّر إنشاء تطبيق Access لـ /api/auth/ping${pingAppErr ? ` (${pingAppErr})` : ''} — أنشئه يدوياً: domain "boslaworks.com/api/auth/ping"، نوع self-hosted، سياسة bypass للجميع`)
-    } else {
-      const { result: pingPolicy, error: pingPolErr } = await cfPostDetailed(
-        token, `/accounts/${accountId}/access/apps/${newPingApp.id}/policies`, {
-          name: 'Bypass — public auth ping',
-          decision: 'bypass',
-          include: [{ everyone: {} }],
-        }
-      )
-      if (pingPolicy) results.push('تم إنشاء تطبيق /api/auth/ping العام وإضافة سياسة bypass')
-      else warnings.push(`تم إنشاء تطبيق ping لكن تعذّر إضافة سياسة bypass${pingPolErr ? ` (${pingPolErr})` : ''} — افتح التطبيق في CF Zero Trust وأضف سياسة "bypass" يدوياً`)
-    }
-  }
-
-  // (Note) We intentionally do NOT force auto_redirect_to_identity to a single IdP.
-  // Cloudflare shows its branded chooser offering BOTH Google and the email-code
-  // method below — that fallback is what makes login resilient when Google misbehaves.
-
-  // 3. Ensure a zero-config fallback login method: One-time PIN (email code).
-  // Unlike Google, this needs no Google Console, no OAuth client, no callback URL —
-  // CF emails a code to the visitor. This is the reliable path that can't break the
-  // way the Google callback URL has. Idempotent — skips if already present.
-  const { result: idpList } = await cfGetWithError<CfIdp[]>(
-    token, `/accounts/${accountId}/access/identity_providers?per_page=50`
-  )
-  const hasOtp = (idpList ?? []).some((i) => i.type === 'onetimepin')
-  if (hasOtp) {
-    results.push('طريقة الدخول عبر رمز البريد مفعّلة (بديل موثوق لقوقل)')
-  } else {
-    const { result: otp, error: otpErr } = await cfPostDetailed(
-      token, `/accounts/${accountId}/access/identity_providers`,
-      { type: 'onetimepin', name: 'رمز عبر البريد', config: {} }
-    )
-    if (otp) results.push('تم تفعيل الدخول عبر رمز البريد — بديل موثوق لا يحتاج Google Console')
-    else warnings.push(`تعذّر تفعيل الدخول عبر رمز البريد${otpErr ? ` (${otpErr})` : ''}`)
-  }
-
-  // 4. Upload branded HTML to CF Access custom pages so CF hosts + serves our design
-  // instead of their default login chooser. The identity_denied type is shown whenever
-  // CF Access requires authentication. {{LOGIN_BUTTON}} is replaced by CF with the
-  // actual IdP buttons (Google + OTP) using our login_design colors from step 1.
-  const { result: existingPages } = await cfGetWithError<Array<{ id: string; type: string }>>(
-    token, `/accounts/${accountId}/access/custom_pages`
-  )
-  const existingLoginPage = (existingPages ?? []).find((p) => p.type === 'identity_denied')
-  const customHtml = buildLoginPageHtml()
-  const pagePayload = {
-    name: 'بوصلة الأعمال — تسجيل الدخول',
-    type: 'identity_denied',
-    custom_html: customHtml,
-  }
-  const pageRes = existingLoginPage
-    ? await cfPutDetailed(token, `/accounts/${accountId}/access/custom_pages/${existingLoginPage.id}`, pagePayload)
-    : await cfPostDetailed(token, `/accounts/${accountId}/access/custom_pages`, pagePayload)
-  if (pageRes.result) results.push('تم رفع تصميم صفحة تسجيل الدخول على Cloudflare')
-  else warnings.push(`تعذّر رفع الصفحة المخصصة${pageRes.error ? ` (${pageRes.error})` : ''}`)
-
-  // Surface the correct Google Console redirect URI so the user can verify it.
-  const orgCheck = await cfGet<{ auth_domain?: string }>(
-    token, `/accounts/${accountId}/access/organizations`
-  )
-  const authDomain = orgCheck?.auth_domain ?? 'tiny-shape-6245.cloudflareaccess.com'
-  const googleRedirectUri = `https://${authDomain}/cdn-cgi/access/callback`
-
-  return json({
-    ok: true,
-    results,
-    warnings,
-    loginPageUrl: 'https://boslaworks.com/login',
-    googleRedirectUri,
-  })
+  const token = await issueToken(db, email, 'invite', 7 * 24 * 60 * 60 * 1000)
+  const sent = await sendAuthLink(env, email, name, token, 'invite')
+  return json({ sent, fallback: !sent })
 }
 
 // ── Users ─────────────────────────────────────────────────
@@ -1327,35 +1043,27 @@ export async function onRequest(ctx: any): Promise<Response> {
   const segments: string[] = Array.isArray(params?.path) ? params.path : (params?.path ? [params.path] : [])
 
   // Health check — no auth required
-  if (segments[0] === 'health') return handleHealth(db, request)
+  if (segments[0] === 'health') return handleHealth(db, request, env as Env)
 
-  // Auth ping — public (no D1 auth), requires CF Access bypass on /api/auth/ping
-  if (segments[0] === 'auth' && segments[1] === 'ping' && method === 'GET') return handleAuthPing(request)
+  // Public authentication endpoints (no session required — these establish it)
+  if (segments[0] === 'auth') {
+    const sub = segments[1]
+    if (sub === 'login'         && method === 'POST') return handleLogin(request, db, env as Env)
+    if (sub === 'set-password'  && method === 'POST') return handleSetPassword(request, db, env as Env)
+    if (sub === 'request-reset' && method === 'POST') return handleRequestReset(request, db, env as Env)
+    if (sub === 'logout'        && method === 'POST') return handleLogout()
+    if (sub === 'session'       && method === 'GET')  return handleSession(request, db, env as Env)
+  }
 
   // All other routes require authentication
-  const caller = await getAuthUser(request, db)
+  const caller = await getAuthUser(request, db, env as Env)
   if (!caller) return err('غير مصرح — تسجيل الدخول مطلوب', 401)
 
   const [resource, idOrSub] = segments
 
-  // /api/invite
+  // /api/invite — provision a user + email a set-password link
   if (resource === 'invite') {
-    if (method === 'POST') return handleInvite(request, env as Env, caller)
-  }
-
-  // /api/access/grant  — provision user in D1 + Cloudflare Access
-  if (resource === 'access' && idOrSub === 'grant') {
-    if (method === 'POST') return handleGrantAccess(request, db, env as Env, caller)
-  }
-
-  // /api/setup/google-idp  — one-time Google Identity Provider setup
-  if (resource === 'setup' && idOrSub === 'google-idp') {
-    if (method === 'POST') return handleSetupGoogleIdp(request, env as Env, caller)
-  }
-
-  // /api/setup/custom-login — brand CF Access login page + enable /login bypass
-  if (resource === 'setup' && idOrSub === 'custom-login') {
-    if (method === 'POST') return handleSetupCustomLogin(env as Env, caller)
+    if (method === 'POST') return handleInvite(request, db, env as Env, caller)
   }
 
   // /api/sync  (and /api/sync/reset)

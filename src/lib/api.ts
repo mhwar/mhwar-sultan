@@ -231,34 +231,32 @@ export const apiPermissions = {
     }),
 }
 
-// ── Access management ────────────────────────────────────
+// ── Authentication (self-hosted, email + password) ────────
 
-export interface GrantAccessPayload {
-  userId: string
-  name: string
-  email: string
-  systemRole: string
-  isFinance: boolean
-  isContent: boolean
-  createdAt: string
-  permissions: Array<{ userId: string; projectId: string; access: string; deniedTools: string[] }>
-}
+export interface SessionResult { authenticated: boolean; user?: AppUser }
 
-export interface GrantAccessResult { ok: boolean; addedToAccess: boolean; cfConfigured: boolean }
+export const apiAuth = {
+  /** Current session — { authenticated, user? }. Returns null if API unreachable. */
+  session: () => apiFetch<SessionResult>('auth/session'),
 
-export const apiAccess = {
-  grant: (payload: GrantAccessPayload) =>
-    apiFetch<GrantAccessResult>('access/grant', { method: 'POST', body: JSON.stringify(payload) }),
-
-  setupGoogleIdp: (clientId: string, clientSecret: string) =>
-    apiFetchDetailed<{ ok: boolean; redirectUri?: string; alreadyExists?: boolean }>(
-      'setup/google-idp', { method: 'POST', body: JSON.stringify({ clientId, clientSecret }) }
+  /** Sign in with email + password. Sets the session cookie on success. */
+  login: (email: string, password: string) =>
+    apiFetchDetailed<{ ok: boolean; user: AppUser }>(
+      'auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }
     ),
 
-  setupCustomLogin: () =>
-    apiFetchDetailed<{ ok: boolean; results: string[]; warnings: string[]; loginPageUrl: string; googleRedirectUri?: string }>(
-      'setup/custom-login', { method: 'POST', body: JSON.stringify({}) }
+  /** Redeem an invite/reset token and set a password. Signs in on success. */
+  setPassword: (token: string, password: string) =>
+    apiFetchDetailed<{ ok: boolean; user: AppUser }>(
+      'auth/set-password', { method: 'POST', body: JSON.stringify({ token, password }) }
     ),
+
+  /** Request a password-reset email. Always resolves ok (no account enumeration). */
+  requestReset: (email: string) =>
+    apiFetch<{ ok: boolean }>('auth/request-reset', { method: 'POST', body: JSON.stringify({ email }) }),
+
+  /** Clear the session cookie. */
+  logout: () => apiFetch<{ ok: boolean }>('auth/logout', { method: 'POST', body: '{}' }),
 }
 
 // ── Projects ──────────────────────────────────────────────

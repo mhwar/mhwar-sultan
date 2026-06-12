@@ -16,6 +16,26 @@ CREATE TABLE IF NOT EXISTS app_users (
   created_at      TEXT NOT NULL
 );
 
+-- ── User credentials (password auth — kept separate from app_users so
+--    hashes never leak into synced profile rows) ───────────
+CREATE TABLE IF NOT EXISTS user_credentials (
+  email           TEXT PRIMARY KEY,   -- lowercase login identifier
+  password_hash   TEXT NOT NULL,      -- PBKDF2-SHA256 derived key (base64)
+  password_salt   TEXT NOT NULL,      -- per-user random salt (base64)
+  updated_at      TEXT NOT NULL
+);
+
+-- ── Auth tokens (invite + password-reset links, single-use) ─
+CREATE TABLE IF NOT EXISTS auth_tokens (
+  token_hash      TEXT PRIMARY KEY,   -- SHA-256 of the raw token (never store raw)
+  email           TEXT NOT NULL,
+  kind            TEXT NOT NULL CHECK (kind IN ('invite', 'reset')),
+  expires_at      TEXT NOT NULL,
+  consumed_at     TEXT,               -- set when redeemed; single-use
+  created_at      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_email ON auth_tokens (email);
+
 -- ── Project-level permissions ─────────────────────────────
 CREATE TABLE IF NOT EXISTS project_permissions (
   user_id         TEXT NOT NULL,
