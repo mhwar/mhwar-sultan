@@ -18,17 +18,10 @@ export interface CfIdentity {
 /** The Cloudflare Access logout endpoint — clears the session and re-prompts. */
 export const CF_LOGOUT_URL = '/cdn-cgi/access/logout'
 
-/**
- * Initiates a Cloudflare Access session.
- *
- * We navigate to the protected app root (same origin). Because every path
- * except `/login` requires Access, Cloudflare intercepts the request, runs the
- * Google sign-in (branded via the org login design), then returns the user to
- * the app. This is reliable regardless of the exact registered app domain —
- * unlike the `/cdn-cgi/access/login/<domain>` URL, which 404s with
- * "Unable to find your Access application" when the domain string doesn't match.
- */
-export const CF_LOGIN_URL = '/'
+// Navigate directly to the CF Access team domain login for boslaworks.com.
+// This is more reliable than navigating to '/' because it goes straight to
+// CF Access without needing the protected-path interception mechanism.
+export const CF_LOGIN_URL = 'https://tiny-shape-6245.cloudflareaccess.com/cdn-cgi/access/login/boslaworks.com'
 
 export async function fetchCfIdentity(): Promise<CfIdentity | null> {
   try {

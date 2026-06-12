@@ -1,20 +1,65 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Compass } from 'lucide-react'
+import { Compass, AlertCircle, RefreshCw, ExternalLink } from 'lucide-react'
 import { fetchCfIdentity, CF_LOGIN_URL } from '@/lib/cfAccess'
+
+interface DiagnosticInfo {
+  cfAuthenticated: boolean
+  email: string | null
+  callbackUrl: string
+  authDomain: string
+}
 
 export default function LoginPage() {
   const router = useRouter()
   const [checking, setChecking] = useState(true)
+  const [diagnostic, setDiagnostic] = useState<DiagnosticInfo | null>(null)
+  const [pingStatus, setPingStatus] = useState<'idle' | 'loading' | 'ok' | 'unreachable'>('idle')
+  const [urlError, setUrlError] = useState<string | null>(null)
+
+  const runPing = useCallback(async () => {
+    setPingStatus('loading')
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 3000)
+      const res = await fetch('/api/auth/ping', { signal: controller.signal })
+      clearTimeout(timeoutId)
+      if (!res.ok) {
+        setPingStatus('unreachable')
+        return
+      }
+      const data = await res.json() as DiagnosticInfo
+      setDiagnostic(data)
+      setPingStatus('ok')
+    } catch {
+      setPingStatus('unreachable')
+    }
+  }, [])
 
   useEffect(() => {
-    // If already authenticated, go straight to the app.
+    // Check URL params for OAuth errors
+    const search = window.location.search
+    if (search) {
+      const params = new URLSearchParams(search)
+      const error = params.get('error')
+      const errorDesc = params.get('error_description')
+      if (error || errorDesc) {
+        setUrlError(errorDesc || error)
+      }
+    }
+
+    // Check if already authenticated
     fetchCfIdentity().then((identity) => {
-      if (identity) router.replace('/')
-      else setChecking(false)
+      if (identity) {
+        router.replace('/')
+        return
+      }
+      setChecking(false)
+      // Also try the ping endpoint for diagnostics
+      runPing()
     })
-  }, [router])
+  }, [router, runPing])
 
   if (checking) {
     return (
@@ -70,14 +115,28 @@ export default function LoginPage() {
         </div>
 
         {/* Login card */}
-        <div
-          className="axis-card w-full p-8 flex flex-col gap-6"
-        >
+        <div className="axis-card w-full p-8 flex flex-col gap-6">
           <div className="text-center">
             <p className="text-sm" style={{ color: 'var(--fg-2)' }}>
               سجّل دخولك للمتابعة إلى المنصة
             </p>
           </div>
+
+          {/* Error box */}
+          {urlError && (
+            <div
+              className="flex items-start gap-3 rounded-lg p-3"
+              style={{
+                border: '1px solid var(--feedback-danger-border, var(--danger-500))',
+                background: 'var(--feedback-danger-bg, oklch(0.15 0.05 25))',
+              }}
+            >
+              <AlertCircle size={16} strokeWidth={1.5} style={{ color: 'var(--danger-500)', flexShrink: 0, marginTop: 2 }} />
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--danger-500)' }}>
+                {urlError}
+              </p>
+            </div>
+          )}
 
           <a
             href={CF_LOGIN_URL}
@@ -88,6 +147,18 @@ export default function LoginPage() {
             تسجيل الدخول بقوقل
           </a>
 
+          {/* Fallback link */}
+          <div className="text-center">
+            <a
+              href="/"
+              className="inline-flex items-center gap-1 text-xs"
+              style={{ color: 'var(--fg-3)' }}
+            >
+              <ExternalLink size={12} strokeWidth={1.5} />
+              جرّب رابطاً بديلاً
+            </a>
+          </div>
+
           <p
             className="text-xs text-center leading-relaxed"
             style={{ color: 'var(--fg-4, var(--fg-3))' }}
@@ -97,6 +168,68 @@ export default function LoginPage() {
             إذا لم يكن لديك وصول تواصل مع مسؤول المنصة.
           </p>
         </div>
+
+        {/* Diagnostic section */}
+        {pingStatus !== 'idle' && (
+          <div className="w-full">
+            {pingStatus === 'loading' && (
+              <div className="flex items-center gap-2 justify-center">
+                <RefreshCw size={12} strokeWidth={1.5} className="animate-spin" style={{ color: 'var(--fg-4, var(--fg-3))' }} />
+                <span className="text-xs" style={{ color: 'var(--fg-4, var(--fg-3))' }}>جارٍ الفحص...</span>
+              </div>
+            )}
+
+            {pingStatus === 'unreachable' && (
+              <p className="text-xs text-center" style={{ color: 'var(--fg-4, var(--fg-3))' }}>
+                تشخيص الاتصال: يتطلب إعادة تشغيل «تفعيل» في الإعدادات لتفعيل نقطة التشخيص
+              </p>
+            )}
+
+            {pingStatus === 'ok' && diagnostic && (
+              <div className="flex flex-col gap-3">
+                {diagnostic.cfAuthenticated ? (
+                  <div
+                    className="rounded-lg p-3"
+                    style={{
+                      border: '1px solid var(--feedback-success-border, var(--success-500))',
+                      background: 'var(--feedback-success-bg, oklch(0.15 0.05 145))',
+                    }}
+                  >
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--success-500)' }}>
+                      Cloudflare Access: مُصادَق — {diagnostic.email}
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--fg-3)' }}>
+                      اضغط تحديث الصفحة للدخول
+                    </p>
+                  </div>
+                ) : (
+                  <div
+                    className="rounded-lg p-3"
+                    style={{
+                      border: '1px solid var(--feedback-warning-border, var(--warning-500))',
+                      background: 'var(--feedback-warning-bg, oklch(0.15 0.05 85))',
+                    }}
+                  >
+                    <p className="text-xs" style={{ color: 'var(--warning-500)' }}>
+                      Cloudflare Access: غير مُصادَق — تسجيل الدخول مطلوب
+                    </p>
+                  </div>
+                )}
+
+                <p className="text-xs text-center" style={{ color: 'var(--fg-4, var(--fg-3))' }}>
+                  callback:{' '}
+                  <span
+                    dir="ltr"
+                    className="font-mono select-all"
+                    style={{ userSelect: 'all' }}
+                  >
+                    {diagnostic.callbackUrl}
+                  </span>
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Footer */}
         <p className="text-xs" style={{ color: 'var(--fg-4, var(--fg-3))' }}>
