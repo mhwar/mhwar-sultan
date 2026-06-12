@@ -1,4 +1,4 @@
-import type { Project, Task, Plan, PlanPhase, Note, Sprint, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, FinancePackage, Kpi, Client, ContentItem, Portfolio, Meeting } from '@/types'
+import type { Project, Task, Plan, PlanPhase, Note, Sprint, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, FinancePackage, Kpi, Client, ContentItem, Portfolio, Meeting, ProductProfile } from '@/types'
 import { FALLBACK_TOOL_IDS } from '@/lib/project-types'
 
 export const SEED_METRICS: GrowthMetric[] = [
@@ -179,7 +179,7 @@ export const SEED_PROJECTS: Project[] = [
     logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgcng9IjQ0IiBmaWxsPSIjRjQ1ODFDIi8+PGcgZmlsbD0iI2ZmZiI+PHJlY3QgeD0iNTYiIHk9IjY4IiB3aWR0aD0iMTIiIGhlaWdodD0iNjQiIHJ4PSIzIi8+PHJlY3QgeD0iNzgiIHk9IjY4IiB3aWR0aD0iNyIgaGVpZ2h0PSI2NCIgcng9IjMiLz48cmVjdCB4PSI5NSIgeT0iNjgiIHdpZHRoPSIxNiIgaGVpZ2h0PSI2NCIgcng9IjMiLz48cmVjdCB4PSIxMjEiIHk9IjY4IiB3aWR0aD0iNyIgaGVpZ2h0PSI2NCIgcng9IjMiLz48cmVjdCB4PSIxMzgiIHk9IjY4IiB3aWR0aD0iMTIiIGhlaWdodD0iNjQiIHJ4PSIzIi8+PC9nPjxwYXRoIGQ9Ik00NCA2MFY0OHEwLTggOC04aDE0TTE1NiA2MFY0OHEwLTgtOC04aC0xNE00NCAxNDB2MTJxMCA4IDggOGgxNE0xNTYgMTQwdjEycTAgOC04IDhoLTE0IiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMTAiIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg==',
     category: 'منصة بيانات منتجات',
     type: 'technical',
-    tools: ['overview', 'product', 'execution', 'meetings', 'team', 'kpis', 'finance', 'notes'],
+    tools: ['overview', 'profile', 'product', 'execution', 'meetings', 'team', 'kpis', 'finance', 'notes'],
     createdAt: '2026-03-01T00:00:00Z',
     updatedAt: '2026-06-09T00:00:00Z',
     tags: ['بيانات المنتجات', 'GS1', 'هيئة الغذاء والدواء', 'باركود', 'ذكاء اصطناعي'],
@@ -197,7 +197,7 @@ export const SEED_PROJECTS: Project[] = [
     logo: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgcng9IjQ0IiBmaWxsPSIjMUUzQTlGIi8+PGNpcmNsZSBjeD0iMTAwIiBjeT0iMTAwIiByPSI2NCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utb3BhY2l0eT0iMC4zIiBzdHJva2Utd2lkdGg9IjciLz48cGF0aCBkPSJNMTAwIDQyIEwxMjggMTMyIEwxMDAgMTE0IEw3MiAxMzIgWiIgZmlsbD0iI0YwQjQyOSIvPjxjaXJjbGUgY3g9IjEwMCIgY3k9IjE0OCIgcj0iNyIgZmlsbD0iI2ZmZiIgZmlsbC1vcGFjaXR5PSIwLjg1Ii8+PC9zdmc+',
     category: 'وكالة محتوى وإدارة حسابات',
     type: 'content',
-    tools: ['overview', 'clients', 'content', 'execution', 'meetings', 'team', 'finance', 'kpis', 'notes'],
+    tools: ['overview', 'profile', 'clients', 'content', 'execution', 'meetings', 'team', 'finance', 'kpis', 'notes'],
     createdAt: '2026-02-01T00:00:00Z',
     updatedAt: '2026-06-10T00:00:00Z',
     tags: ['إدارة حسابات', 'صناعة المحتوى', 'تصميم', 'هوية بصرية', 'تقارير شهرية'],
@@ -809,4 +809,86 @@ export const SEED_CONTENT: ContentItem[] = [
 export const SEED_PORTFOLIOS: Portfolio[] = [
   { id: 'pf-product', name: 'منتجات رقمية', color: 'var(--iris-500)', icon: 'rocket', projectIds: ['mehwar', 'mellasaq'], createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' },
   { id: 'pf-clients', name: 'عملاء المحتوى', color: 'var(--success-500)', icon: 'target', projectIds: ['jasad', 'bawsala'], createdAt: '2026-03-01T00:00:00Z', updatedAt: '2026-03-01T00:00:00Z' },
+]
+
+// ── Product profiles (investor-facing) ────────────────────
+// Authored from each project's data: descriptions, work tracks, KPIs, packages.
+export const SEED_PROFILES: ProductProfile[] = [
+  {
+    id: 'mellasaq',
+    projectId: 'mellasaq',
+    tagline: 'نقرأ الملصق بدلاً عنك — لتختار ما يناسب صحتك في أقل من ثانية',
+    overview:
+      'ملصق منصة سعودية لبيانات المنتجات الاستهلاكية، تساعد المستخدم على فهم ما يشتريه واتخاذ قرار أفضل عبر تحليل المكونات والقيم الغذائية والحساسيات. تعمل المنصة حلقة وصل موثوقة بين الشركات والمصانع والأسر المنتجة من جهة، والجهات الرسمية التي يحتاجونها مثل مركز الترميز السعودي (GS1) وهيئة الغذاء والدواء من جهة أخرى.',
+    problem:
+      'يقف المستهلك أمام آلاف المنتجات دون قدرة عملية على قراءة المكونات أو معرفة ملاءمتها لحالته الصحية وحساسياته. وفي المقابل تفتقر الشركات والمصانع والأسر المنتجة إلى قناة موحدة وموثوقة تربط بيانات منتجاتها بالجهات الرسمية، فتبقى البيانات مبعثرة وغير دقيقة.',
+    solution:
+      'تطبيق يمسح الباركود فيحلل المكونات والقيم الغذائية والحساسيات بالذكاء الاصطناعي خلال لحظة، مدعوماً بقاعدة بيانات مرتبطة مباشرة بمركز الترميز السعودي وهيئة الغذاء والدواء. ويكمله جانب أعمال يتيح للشركات والمصانع إدارة بيانات منتجاتها عبر لوحة تحكم مخصصة.',
+    subProducts: [
+      { id: 'mlsq-sub-1', name: 'تطبيق الأفراد', description: 'مسح الباركود وتشخيص ملاءمة المنتج لصحة المستخدم وحساسياته في أقل من ثانية' },
+      { id: 'mlsq-sub-2', name: 'منصة ملصق للأعمال', description: 'لوحة تحكم للشركات والمصانع والأسر المنتجة لإدارة بيانات منتجاتها ومتابعتها' },
+      { id: 'mlsq-sub-3', name: 'محرك الذكاء الاصطناعي', description: 'خوارزميات تشخيص المكونات واستكمال البيانات الناقصة وتنظيف قاعدة البيانات آلياً' },
+      { id: 'mlsq-sub-4', name: 'الربط مع مركز الترميز (GS1)', description: 'تكامل مباشر لسحب تفاصيل المنتجات تلقائياً وترسيخ موثوقية البيانات' },
+    ],
+    market:
+      'المستهلك السعودي المهتم بصحته وذوو الحساسيات والأنظمة الغذائية الخاصة، إضافة إلى الشركات الغذائية والمصانع والأسر المنتجة وسلاسل التجزئة. سوق يتوسع مع توجه المملكة نحو الصحة الوقائية وجودة الحياة ضمن رؤية 2030، مع فرصة للتوسع الخليجي لاحقاً.',
+    goals: [
+      'إتمام الربط الفني الفعلي وتكامل البيانات مع مركز الترميز السعودي (GS1)',
+      'إغلاق الملفات والملاحظات المعلقة مع هيئة الغذاء والدواء وبناء قناة تواصل تقني مستمرة',
+      'إطلاق ميزات جديدة في تطبيق الأفراد تعزز دقة التشخيص وتجربة المستخدم',
+      'إطلاق منصة ملصق للأعمال بنماذج اشتراك ودخل واضحة',
+      'بناء شراكات سوق نوعية تمهيداً للتوسع',
+    ],
+    advantages: [
+      'ربط رسمي مباشر بمركز الترميز السعودي وهيئة الغذاء والدواء يمنح البيانات موثوقية رسمية',
+      'تشخيص بالذكاء الاصطناعي لملاءمة المنتج في أقل من ثانية واحدة',
+      'قاعدة بيانات سعودية محلية مبنية على المعايير الرسمية المعتمدة',
+      'نموذج ثنائي يجمع بين خدمة الأفراد ومنصة الأعمال في منظومة واحدة',
+    ],
+    businessModel:
+      'الخدمة مجانية للأفراد لبناء قاعدة مستخدمين واسعة، بينما يأتي الدخل من منصة الأعمال عبر اشتراكات شهرية للشركات والمصانع والأسر المنتجة (باقات متدرجة)، وواجهات ربط برمجية (API)، وحزم تقارير وبيانات موجهة للمصانع وسلاسل التجزئة.',
+    team:
+      'فريق تقني متخصص في تطوير المنتج وهندسة البيانات والذكاء الاصطناعي، يقود مسارات التمكين الخمسة: تكامل الترميز، وملف الهيئة، وتطبيق الأفراد، ومنصة الأعمال، وشراكات النمو.',
+    contact: 'الموقع الرسمي: checkersa.com',
+    createdAt: '2026-06-12T00:00:00Z',
+    updatedAt: '2026-06-12T00:00:00Z',
+  },
+  {
+    id: 'bawsala',
+    projectId: 'bawsala',
+    tagline: 'نحدد الاتجاه.. ونصنع الأثر',
+    overview:
+      'بوصلة الأعمال مؤسسة حلول أعمال متكاملة متخصصة في إدارة حسابات التواصل الاجتماعي وصناعة المحتوى للعملاء. نتولى الرحلة كاملة من استلام الطلبات وكتابة المحتوى وتصميمه، إلى الجدولة والنشر والتقارير الشهرية، عبر باقات تعاقدية واضحة.',
+    problem:
+      'تدرك الشركات والجهات أهمية حضورها الرقمي، لكنها تفتقر إلى الفريق والوقت والاتساق اللازم لإنتاج محتوى منتظم بجودة احترافية، ولقياس أثره على نمو الحساب والتفاعل بشكل موثوق.',
+    solution:
+      'خدمة إدارة حسابات متكاملة من الفكرة إلى النشر: تقويم محتوى شهري لكل عميل، وكتابة وتصميم وفق هويته البصرية، وجدولة ونشر منضبط، وتقارير أداء دورية بمؤشرات واضحة — كل ذلك ضمن باقات شهرية مرنة.',
+    subProducts: [
+      { id: 'bsl-sub-1', name: 'الباقة الفضية', description: 'إدارة محتوى أساسية لمنصة واحدة — 12 قطعة شهرياً وتقرير أداء شهري (4,000 ريال)' },
+      { id: 'bsl-sub-2', name: 'الباقة الذهبية', description: 'إدارة منصتين مع تصاميم وإنفوجرافيك — 16 قطعة شهرياً وتقرير نصف شهري (5,500 ريال)' },
+      { id: 'bsl-sub-3', name: 'الباقة البلاتينية', description: 'إدارة كل المنصات مع تغطيات وحملات — 20 قطعة شهرياً وتقارير أسبوعية (7,000 ريال)' },
+      { id: 'bsl-sub-4', name: 'خدمة التقارير الشهرية', description: 'تقرير لكل عميل: نمو المتابعين والتفاعل وأفضل القطع وتوصيات الشهر القادم' },
+    ],
+    market:
+      'المطاعم والعيادات والمؤسسات الصحية والجمعيات والجهات التعليمية في السوق السعودي، الباحثة عن إدارة احترافية ومنتظمة لحساباتها الرقمية دون بناء فريق داخلي.',
+    goals: [
+      'رفع عدد العملاء النشطين من 3 إلى 5 عبر عقدين جديدين قبل نهاية الربع الثالث',
+      'رفع نسبة الالتزام بمواعيد النشر إلى 95% أو أعلى',
+      'رفع متوسط رضا العملاء في الاستبيان الشهري إلى 4.8 من 5',
+      'توحيد عملية الإنتاج بقوالب جاهزة لتسريع التسليم ورفع الجودة',
+    ],
+    advantages: [
+      'عملية إنتاج موحدة وقوالب تصميم جاهزة لكل عميل تسرّع التسليم وتثبّت الجودة',
+      'فريق متكامل يجمع كتابة المحتوى والتصميم وإدارة الحسابات تحت سقف واحد',
+      'تقارير أداء شهرية بمؤشرات واضحة تربط العمل بالأثر الفعلي',
+      'ثلاث باقات بأسعار تنافسية تناسب أحجام العملاء المختلفة',
+    ],
+    businessModel:
+      'اشتراكات شهرية تعاقدية ضمن ثلاث باقات (الفضية 4,000 والذهبية 5,500 والبلاتينية 7,000 ريال)، مع خدمات إضافية كالتغطيات المصورة والحملات الإعلانية تُسعّر بحسب الطلب.',
+    team:
+      'فريق متخصص في إدارة الحسابات وكتابة المحتوى والتصميم، يدير تقويم النشر والإنتاج والتقارير لجميع العملاء وفق حصصهم التعاقدية.',
+    contact: 'للتواصل والاشتراك في الباقات تواصل مع فريق بوصلة الأعمال',
+    createdAt: '2026-06-12T00:00:00Z',
+    updatedAt: '2026-06-12T00:00:00Z',
+  },
 ]

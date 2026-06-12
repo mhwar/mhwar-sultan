@@ -35,6 +35,7 @@ import { useContentStore }    from '@/store/store'
 import { usePortfolioStore }  from '@/store/store'
 import { useProfileStore }    from '@/store/store'
 import { syncMissingSeeds } from '@/components/shared/StoreHydration'
+import { SEED_PROFILES } from '@/lib/seed-data'
 import {
   apiAvailable, apiSyncPull, apiSyncPush,
   type SyncSnapshot,
@@ -163,6 +164,12 @@ export default function ApiSync() {
         watchersStarted.current = true
         startWatchers(hydrating)
       }
+
+      // One-time seed of the authored product profiles into the shared DB.
+      // Runs after hydrate (so we never overwrite server data) and only for the
+      // admin (members receive them on the next pull). The watcher picks up the
+      // setState and pushes each new profile through the durable queue.
+      seedProfilesOnce()
     })()
 
     return () => { cancelled = true }
@@ -206,6 +213,50 @@ export default function ApiSync() {
   }, [signedInEmail, pullAndHydrate])
 
   return null
+}
+
+// ── One-time profile seeding ──────────────────────────────
+
+const PROFILES_SEEDED_KEY = 'mhwar-profiles-seeded'
+
+/**
+ * Inject the authored SEED_PROFILES that aren't already present (locally or on
+ * the server) so the admin's first session populates the shared DB. Guarded by
+ * a localStorage flag so a profile deleted later is never resurrected.
+ */
+function seedProfilesOnce(): void {
+  try {
+    if (window.localStorage.getItem(PROFILES_SEEDED_KEY) === '1') return
+    const me = usePermissionStore.getState().getSignedInUser()
+    // Only the admin seeds shared data; a member would push unauthorised writes.
+    if (me && me.systemRole !== 'admin') return
+
+    const have = new Set(useProfileStore.getState().profiles.map((p) => p.id))
+    const missing = SEED_PROFILES.filter((p) => !have.has(p.id))
+    if (missing.length) {
+      useProfileStore.setState((s) => ({ profiles: [...s.profiles, ...missing] }))
+    }
+
+    // Enable the «profile» tab on the two seeded projects in the shared DB.
+    // Project tools come authoritatively from D1, so a localStorage migration
+    // alone wouldn't stick — push the update through the project watcher here.
+    useProjectStore.setState((s) => ({
+      projects: s.projects.map((p) => {
+        if ((p.id === 'mellasaq' || p.id === 'bawsala') && !p.tools?.includes('profile')) {
+          const tools = p.tools ?? []
+          const at = tools.indexOf('overview')
+          const next = [...tools]
+          next.splice(at >= 0 ? at + 1 : 0, 0, 'profile')
+          return { ...p, tools: next }
+        }
+        return p
+      }),
+    }))
+
+    window.localStorage.setItem(PROFILES_SEEDED_KEY, '1')
+  } catch {
+    // localStorage unavailable — skip; seeding retries next session.
+  }
 }
 
 // ── Store hydration ───────────────────────────────────────

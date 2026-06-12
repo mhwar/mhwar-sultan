@@ -46,7 +46,7 @@ export const useProjectStore = create<ProjectStore>()(
     }),
     {
       name: 'mhwar-projects',
-      version: 5,
+      version: 6,
       skipHydration: true,
       // v1 → v2: backfill the modular-tools fields on existing projects.
       // Older projects predate `type`/`tools`; treat them as technical with the
@@ -120,6 +120,21 @@ export const useProjectStore = create<ProjectStore>()(
                 : p
             )
           }
+        }
+        // v5 → v6: enable the new «الملف التعريفي» (profile) tab on ملصق and
+        // بوصلة so the authored investor profile is reachable. Inserted after
+        // «overview»; user-removed tabs aren't forced back on other projects.
+        if (version < 6) {
+          state.projects = (state.projects ?? []).map((p) => {
+            if ((p.id === 'mellasaq' || p.id === 'bawsala') && !p.tools?.includes('profile')) {
+              const tools = p.tools ?? []
+              const at = tools.indexOf('overview')
+              const next = [...tools]
+              next.splice(at >= 0 ? at + 1 : 0, 0, 'profile')
+              return { ...p, tools: next }
+            }
+            return p
+          })
         }
         return state as never
       },

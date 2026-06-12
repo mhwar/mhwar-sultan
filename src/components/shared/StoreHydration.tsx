@@ -2,7 +2,7 @@
 import { useEffect } from 'react'
 import { useProjectStore, useTaskStore, usePlanStore, useNoteStore, useSprintStore, useDocumentStore, useGrowthStore, useTeamStore, useScheduleStore, useMeetingStore, useFinanceStore, usePackageStore, useKpiStore, useClientStore, useContentStore, usePortfolioStore, useProfileStore, useTaskFilterStore, bootstrapSprints } from '@/store/store'
 import { useThemeStore } from '@/store/themeStore'
-import { SEED_PROJECTS, SEED_CLIENTS, SEED_CONTENT } from '@/lib/seed-data'
+import { SEED_PROJECTS, SEED_CLIENTS, SEED_CONTENT, SEED_PROFILES } from '@/lib/seed-data'
 
 /**
  * Merge any seed records whose IDs are missing from the live stores.
@@ -34,6 +34,15 @@ export function syncMissingSeeds() {
   for (const item of SEED_CONTENT) {
     if (!liveItemIds.has(item.id)) {
       useContentStore.setState((s) => ({ items: [...s.items, item] }))
+    }
+  }
+
+  // Product profiles
+  const liveProfiles = useProfileStore.getState().profiles
+  const liveProfileIds = new Set(liveProfiles.map((p) => p.id))
+  for (const profile of SEED_PROFILES) {
+    if (!liveProfileIds.has(profile.id)) {
+      useProfileStore.setState((s) => ({ profiles: [...s.profiles, profile] }))
     }
   }
 }
