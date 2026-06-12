@@ -19,8 +19,13 @@ async function apiFetch<T>(
   options?: RequestInit
 ): Promise<T | null> {
   try {
+    // keepalive lets mutating requests finish even if the page starts unloading
+    // (e.g. a refresh moments after an edit), so writes are never aborted mid-flight.
+    const method = (options?.method ?? 'GET').toUpperCase()
+    const keepalive = method === 'POST' || method === 'PUT' || method === 'DELETE'
     const res = await fetch(`/api/${path}`, {
       credentials: 'include',
+      keepalive,
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...options?.headers },
       ...options,
     })
