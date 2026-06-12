@@ -486,18 +486,20 @@ async function handleRequestReset(req: Request, db: D1Database, env: Env): Promi
 
   let user = await db.prepare('SELECT * FROM app_users WHERE lower(email) = ?').bind(email).first<UserRow>()
 
-  // When the database has no users at all, let the first email claim admin.
+  // Bootstrap mode: no passwords set yet → site is still gated by Cloudflare Access,
+  // so any email that reaches this endpoint is an authorized user. Let them claim
+  // an admin account and receive the set-password link on screen. The strict
+  // "app_users must be empty" guard is removed so this works even when the table
+  // has existing rows (e.g. records created by the old CF Access auto-bootstrap).
   if (!user && bootstrapMode) {
-    const userCount = await db.prepare('SELECT COUNT(*) AS n FROM app_users').first<{ n: number }>()
-    if (userCount && userCount.n === 0) {
-      const now = new Date().toISOString()
-      await db
-        .prepare(`INSERT INTO app_users (id, name, email, avatar, system_role, is_finance, is_content, created_at)
-                  VALUES ('admin-default', ?, ?, NULL, 'admin', 1, 1, ?)`)
-        .bind(email.split('@')[0] || 'المسؤول', email, now)
-        .run()
-      user = await db.prepare('SELECT * FROM app_users WHERE lower(email) = ?').bind(email).first<UserRow>()
-    }
+    const now = new Date().toISOString()
+    await db
+      .prepare(`INSERT INTO app_users (id, name, email, avatar, system_role, is_finance, is_content, created_at)
+                VALUES (?, ?, ?, NULL, 'admin', 1, 1, ?)
+                ON CONFLICT(email) DO NOTHING`)
+      .bind(`admin-${crypto.randomUUID()}`, email.split('@')[0] || 'المسؤول', email, now)
+      .run()
+    user = await db.prepare('SELECT * FROM app_users WHERE lower(email) = ?').bind(email).first<UserRow>()
   }
 
   // Unknown email and not bootstrapping → say ok without doing anything (no enumeration).
