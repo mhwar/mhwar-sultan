@@ -588,29 +588,40 @@ async function handleSetupCustomLogin(env: Env, caller: UserRow): Promise<Respon
   if (org) results.push('تم تحديث تصميم صفحة تسجيل الدخول')
   else warnings.push('تعذّر تحديث تصميم CF Access — تحقق من الصلاحيات')
 
-  // 2. Add a bypass policy for /login so unauthenticated visitors can reach the custom page.
-  const app = await findAccessApp(token, accountId)
-  if (!app) {
-    warnings.push('لم يُعثر على تطبيق boslaworks.com في CF Access — ابحث يدوياً وأضف سياسة bypass لـ /login')
+  // 2. Create a dedicated Access app for boslaworks.com/login with a bypass policy.
+  // CF Access policies are app-level; the only way to bypass a specific sub-path is
+  // to create a separate app scoped to that path, which CF prioritises over the parent.
+  const apps = await cfGet<Array<{ id: string; name: string; domain: string }>>(
+    token, `/accounts/${accountId}/access/apps?per_page=100`
+  )
+  const loginApp = (apps ?? []).find(
+    (a) => a.domain?.includes('boslaworks.com/login') || a.name?.toLowerCase().includes('login page (public)')
+  )
+
+  if (loginApp) {
+    results.push('تطبيق bypass لـ /login موجود بالفعل')
   } else {
-    const policies = await cfGet<Array<{ id: string; name: string; decision: string }>>(
-      token, `/accounts/${accountId}/access/apps/${app.id}/policies?per_page=100`
-    )
-    const alreadyBypassed = (policies ?? []).some(
-      (p) => p.decision === 'bypass' && p.name.toLowerCase().includes('login')
-    )
-    if (alreadyBypassed) {
-      results.push('سياسة bypass لـ /login موجودة بالفعل')
+    interface CfAppResult { id: string }
+    const newApp = await cfPost<CfAppResult>(token, `/accounts/${accountId}/access/apps`, {
+      name: 'boslaworks.com — Login Page (Public)',
+      domain: 'boslaworks.com/login',
+      type: 'self_hosted',
+      session_duration: '0S',
+      allowed_idps: [],
+      auto_redirect_to_identity: false,
+      skip_interstitial: true,
+    })
+
+    if (!newApp) {
+      warnings.push('تعذّر إنشاء تطبيق Access لـ /login — أنشئه يدوياً: domain "boslaworks.com/login"، نوع self-hosted، سياسة bypass للجميع')
     } else {
-      const policy = await cfPost(token, `/accounts/${accountId}/access/apps/${app.id}/policies`, {
-        name: 'Bypass — custom login page',
+      const policy = await cfPost(token, `/accounts/${accountId}/access/apps/${newApp.id}/policies`, {
+        name: 'Bypass — public login page',
         decision: 'bypass',
         include: [{ everyone: {} }],
-        session_duration: '0S',
-        precedence: 1,
       })
-      if (policy) results.push('تم إضافة سياسة bypass لصفحة /login')
-      else warnings.push('تعذّر إضافة سياسة bypass تلقائياً — أضفها يدوياً: القرار "bypass"، تضمين "الجميع"، مع تحديد مسار /login* إن أمكن')
+      if (policy) results.push('تم إنشاء تطبيق /login العام وإضافة سياسة bypass')
+      else warnings.push('تم إنشاء التطبيق لكن تعذّر إضافة سياسة bypass — افتح التطبيق في CF Zero Trust وأضف سياسة "bypass" يدوياً')
     }
   }
 
