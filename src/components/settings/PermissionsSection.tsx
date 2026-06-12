@@ -3,13 +3,13 @@ import { useState, useEffect } from 'react'
 import {
   UserCog, ChevronDown, Plus, Pencil, Trash2, Check, X,
   ShieldCheck, ShieldOff, Eye, EyeOff, Settings2, BadgeCheck, LogOut, Send, Mail, Link2,
-  UserCheck, Globe, ExternalLink, Compass,
+  UserCheck,
 } from 'lucide-react'
 import { usePermissionStore } from '@/store/permissionStore'
 import { useProjectStore } from '@/store/store'
 import { TOOLS } from '@/lib/tool-registry'
-import { CF_LOGOUT_URL } from '@/lib/cfAccess'
-import { sendInvite, apiAccess } from '@/lib/api'
+import { logout } from '@/lib/auth'
+import { sendInvite } from '@/lib/api'
 import { buildInviteUrl } from '@/lib/invite-token'
 import type { AppUser, ProjectPermission } from '@/types'
 
@@ -80,7 +80,7 @@ function ActiveUserPicker({ hydrated }: { hydrated: boolean }) {
     <div className="axis-card p-6">
       <SectionHeader icon={<UserCog size={15} strokeWidth={1.5} />} title="الجلسة النشطة" tint="var(--iris-500)" />
 
-      {/* Cloudflare Access — verified identity */}
+      {/* Signed-in identity (own session) */}
       {signedInEmail ? (
         <div
           className="flex items-center gap-3 rounded-xl px-4 py-3"
@@ -100,22 +100,23 @@ function ActiveUserPicker({ hydrated }: { hydrated: boolean }) {
             </div>
             <p className="text-xs truncate" style={{ color: 'var(--fg-3)' }} dir="ltr">{signedInEmail}</p>
           </div>
-          <a
-            href={CF_LOGOUT_URL}
+          <button
+            type="button"
+            onClick={() => { void logout() }}
             className="axis-btn axis-btn--ghost axis-btn--sm shrink-0"
             title="تسجيل الخروج"
           >
             <LogOut size={13} />
             خروج
-          </a>
+          </button>
         </div>
       ) : (
         <div
           className="rounded-xl px-4 py-3 text-xs"
           style={{ background: 'var(--color-surface-raised)', border: '1px solid var(--border-subtle)', color: 'var(--fg-3)' }}
         >
-          لا توجد جلسة موثّقة عبر Cloudflare Access — يعمل الوضع المحلي دون قيود. عند
-          النشر خلف Cloudflare، يُربط المستخدم تلقائياً ببريده.
+          لا توجد جلسة نشطة — يعمل الوضع المحلي دون قيود. عند النشر، يسجّل المستخدم
+          دخوله ببريده وكلمة مروره فيُربط تلقائياً بحسابه.
         </div>
       )}
 
@@ -323,250 +324,47 @@ function CopyInviteButton({ user, userPermissions }: { user: AppUser; userPermis
   )
 }
 
-// ── Grant Cloudflare Access button ───────────────────────
+// ── Send invite link button ──────────────────────────────
+//
+// Emails the user a set-password link via the backend (POST /api/invite). When
+// no email provider is configured the backend falls back to a mailto draft.
 
-function GrantAccessButton({ user, userPermissions }: { user: AppUser; userPermissions: ProjectPermission[] }) {
-  const [state, setState] = useState<'idle' | 'loading' | 'ok' | 'noApi' | 'err'>('idle')
+function GrantAccessButton({ user }: { user: AppUser; userPermissions: ProjectPermission[] }) {
+  const [state, setState] = useState<'idle' | 'loading' | 'ok' | 'mailto' | 'err'>('idle')
 
-  const grant = async () => {
+  const invite = async () => {
     if (!user.email) return
     setState('loading')
-    const result = await apiAccess.grant({
-      userId: user.id,
-      name: user.name,
-      email: user.email,
-      systemRole: user.systemRole,
-      isFinance: user.isFinance,
-      isContent: user.isContent,
-      createdAt: user.createdAt,
-      permissions: userPermissions.map((p) => ({
-        userId: p.userId,
-        projectId: p.projectId,
-        access: p.access,
-        deniedTools: p.deniedTools,
-      })),
-    })
-    if (!result) { setState('err'); setTimeout(() => setState('idle'), 3000); return }
-    if (!result.cfConfigured) { setState('noApi'); setTimeout(() => setState('idle'), 4000); return }
-    setState('ok')
-    setTimeout(() => setState('idle'), 3000)
+    const result = await sendInvite({ email: user.email, name: user.name })
+    if (result === 'sent') setState('ok')
+    else if (result === 'mailto') setState('mailto')
+    else setState('err')
+    setTimeout(() => setState('idle'), 3500)
   }
 
   const label =
     state === 'loading' ? '...' :
-    state === 'ok'      ? 'تم الإضافة' :
-    state === 'noApi'   ? 'تم (بدون CF)' :
-    state === 'err'     ? 'فشل' : 'منح الوصول'
+    state === 'ok'      ? 'أُرسل الرابط' :
+    state === 'mailto'  ? 'فُتح البريد' :
+    state === 'err'     ? 'فشل' : 'إرسال دعوة'
 
   const tint =
     state === 'ok'    ? 'var(--success-500)' :
     state === 'err'   ? 'var(--danger-500)'  :
-    state === 'noApi' ? 'var(--warning-500)' : 'var(--iris-500)'
+    state === 'mailto' ? 'var(--warning-500)' : 'var(--iris-500)'
 
   return (
     <button
       type="button"
-      onClick={grant}
+      onClick={invite}
       disabled={state === 'loading' || !user.email}
-      title={!user.email ? 'أضف البريد أولاً' : 'منح صلاحية الوصول وإضافة لـ Cloudflare Access'}
+      title={!user.email ? 'أضف البريد أولاً' : 'إرسال رابط لضبط كلمة المرور والدخول'}
       className="flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-colors disabled:opacity-40"
       style={{ color: tint, border: `1px solid color-mix(in srgb, ${tint} 30%, transparent)` }}
     >
       <UserCheck size={12} />
       {label}
     </button>
-  )
-}
-
-// ── Google SSO setup card ─────────────────────────────────
-
-function GoogleSsoCard() {
-  const signedInEmail = usePermissionStore((s) => s.signedInEmail)
-  const isAdmin = usePermissionStore((s) => {
-    const u = s.signedInEmail ? s.users.find((x) => x.email?.toLowerCase() === s.signedInEmail) : null
-    return !u || u.systemRole === 'admin'
-  })
-  const [clientId, setClientId] = useState('')
-  const [clientSecret, setClientSecret] = useState('')
-  const [state, setState] = useState<'idle' | 'loading' | 'ok' | 'err'>('idle')
-  const [redirectUri, setRedirectUri] = useState('')
-  const [errMsg, setErrMsg] = useState('')
-
-  if (!isAdmin) return null
-
-  const setup = async () => {
-    if (!clientId.trim() || !clientSecret.trim()) return
-    setState('loading')
-    setErrMsg('')
-    const { data, error } = await apiAccess.setupGoogleIdp(clientId.trim(), clientSecret.trim())
-    if (error || !data) { setErrMsg(error ?? 'خطأ غير معروف'); setState('err'); return }
-    if (data.redirectUri) setRedirectUri(data.redirectUri)
-    setState('ok')
-  }
-
-  return (
-    <div className="axis-card p-6">
-      <SectionHeader icon={<Globe size={15} strokeWidth={1.5} />} title="تسجيل الدخول بـ Google" tint="#4285F4" />
-
-      {state === 'ok' ? (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--success-500)' }}>
-            <Check size={15} />
-            {redirectUri ? 'تحقق من إعداد Google Console' : 'تم إعداد Google كمزوّد هوية في Cloudflare Access'}
-          </div>
-          {redirectUri && (
-            <div className="rounded-lg p-3 text-xs space-y-2" style={{ background: 'var(--color-surface-base)', border: '1px solid var(--warning-500)' }}>
-              <p className="font-medium" style={{ color: 'var(--warning-500)' }}>
-                يجب أن يكون هذا الرابط مضافاً في Google Console تحت Authorized redirect URIs:
-              </p>
-              <p className="font-mono break-all select-all" dir="ltr" style={{ color: 'var(--iris-500)', fontSize: '0.7rem' }}>{redirectUri}</p>
-              <p style={{ color: 'var(--fg-3)' }}>
-                المسار: Google Console → بيانات اعتماد → OAuth 2.0 → Edit → Authorized redirect URIs
-              </p>
-              <p style={{ color: 'var(--fg-3)' }}>
-                إذا أضفت رابطاً آخر سابقاً (يحتوي على أرقام طويلة وليس tiny-shape-6245) فاحذفه وأضف الرابط الصحيح أعلاه.
-              </p>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <p className="text-xs" style={{ color: 'var(--fg-3)' }}>
-            أنشئ OAuth 2.0 Client ID من Google Cloud Console ثم الصق البيانات هنا.
-          </p>
-          <div className="space-y-2">
-            <input
-              className="axis-input w-full text-sm font-mono"
-              placeholder="Client ID"
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              dir="ltr"
-            />
-            <input
-              className="axis-input w-full text-sm font-mono"
-              placeholder="Client Secret"
-              type="password"
-              value={clientSecret}
-              onChange={(e) => setClientSecret(e.target.value)}
-              dir="ltr"
-            />
-          </div>
-          {state === 'err' && (
-            <p className="text-xs font-mono break-all" dir="ltr" style={{ color: 'var(--danger-500)' }}>
-              {errMsg}
-            </p>
-          )}
-          <button
-            type="button"
-            onClick={setup}
-            disabled={state === 'loading' || !clientId.trim() || !clientSecret.trim()}
-            className="axis-btn axis-btn--primary axis-btn--sm"
-          >
-            {state === 'loading' ? 'جارٍ الإعداد...' : 'إعداد Google SSO'}
-          </button>
-          <p className="text-[11px]" style={{ color: 'var(--fg-3)' }}>
-            يتطلب إعداد env var: <span className="font-mono" dir="ltr">CLOUDFLARE_API_TOKEN</span> في Cloudflare Pages.
-          </p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Custom login page card ────────────────────────────────
-
-function CustomLoginCard() {
-  const isAdmin = usePermissionStore((s) => {
-    const u = s.signedInEmail ? s.users.find((x) => x.email?.toLowerCase() === s.signedInEmail) : null
-    return !u || u.systemRole === 'admin'
-  })
-  const [state, setState] = useState<'idle' | 'loading' | 'ok' | 'err'>('idle')
-  const [results, setResults] = useState<string[]>([])
-  const [warnings, setWarnings] = useState<string[]>([])
-  const [errMsg, setErrMsg] = useState('')
-  const [googleRedirectUri, setGoogleRedirectUri] = useState('')
-
-  if (!isAdmin) return null
-
-  const activate = async () => {
-    setState('loading')
-    setErrMsg('')
-    const { data, error } = await apiAccess.setupCustomLogin()
-    if (error || !data) { setErrMsg(error ?? 'خطأ غير معروف'); setState('err'); return }
-    setResults(data.results ?? [])
-    setWarnings(data.warnings ?? [])
-    if (data.googleRedirectUri) setGoogleRedirectUri(data.googleRedirectUri)
-    setState('ok')
-  }
-
-  return (
-    <div className="axis-card p-6">
-      <SectionHeader icon={<Compass size={15} strokeWidth={1.5} />} title="صفحة تسجيل الدخول" tint="var(--iris-500)" />
-
-      {state === 'ok' ? (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--success-500)' }}>
-            <Check size={15} />
-            تم تفعيل صفحة تسجيل الدخول المخصصة
-          </div>
-          {results.length > 0 && (
-            <ul className="text-xs space-y-1" style={{ color: 'var(--fg-2)' }}>
-              {results.map((r, i) => <li key={i}>✓ {r}</li>)}
-            </ul>
-          )}
-          {googleRedirectUri && (
-            <div className="rounded-lg p-3 text-xs space-y-2" style={{ background: 'var(--color-surface-base)', border: '1px solid var(--border-subtle)' }}>
-              <p className="font-medium" style={{ color: 'var(--fg-1)' }}>
-                تحقق من Google Console — الرابط المُسموح به يجب أن يكون:
-              </p>
-              <p className="font-mono break-all select-all" dir="ltr" style={{ color: 'var(--iris-500)' }}>
-                {googleRedirectUri}
-              </p>
-              <p style={{ color: 'var(--fg-3)' }}>
-                Google Console ← بيانات اعتماد ← OAuth ← URIs إعادة التوجيه المُصرَّح بها
-              </p>
-            </div>
-          )}
-          {warnings.length > 0 && (
-            <div className="rounded-lg p-3 text-xs space-y-1" style={{ background: 'var(--color-surface-base)', border: '1px solid var(--warning-500)' }}>
-              <p className="font-medium" style={{ color: 'var(--warning-500)' }}>ملاحظات تتطلب تدخلاً:</p>
-              {warnings.map((w, i) => <p key={i} style={{ color: 'var(--fg-2)' }}>{w}</p>)}
-            </div>
-          )}
-          <a
-            href="/login"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="axis-btn axis-btn--iris-soft axis-btn--sm inline-flex"
-          >
-            <ExternalLink size={13} />
-            معاينة صفحة تسجيل الدخول
-          </a>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <p className="text-xs" style={{ color: 'var(--fg-3)' }}>
-            استبدل صفحة Cloudflare الافتراضية بصفحة مُصمَّمة تعكس هوية المنصة. تُفعَّل آلياً عبر CF API.
-          </p>
-          {state === 'err' && (
-            <p className="text-xs font-mono break-all" dir="ltr" style={{ color: 'var(--danger-500)' }}>
-              {errMsg}
-            </p>
-          )}
-          <button
-            type="button"
-            onClick={activate}
-            disabled={state === 'loading'}
-            className="axis-btn axis-btn--primary axis-btn--sm"
-          >
-            {state === 'loading' ? 'جارٍ التفعيل...' : 'تفعيل صفحة تسجيل الدخول'}
-          </button>
-          <p className="text-[11px]" style={{ color: 'var(--fg-3)' }}>
-            يتطلب <span className="font-mono" dir="ltr">CLOUDFLARE_API_TOKEN</span> في Cloudflare Pages.
-          </p>
-        </div>
-      )}
-    </div>
   )
 }
 
@@ -956,8 +754,6 @@ export default function PermissionsSection() {
         <UserListCard />
       </div>
       <ProjectPermissionsCard hydrated={hydrated} />
-      <GoogleSsoCard />
-      <CustomLoginCard />
     </div>
   )
 }

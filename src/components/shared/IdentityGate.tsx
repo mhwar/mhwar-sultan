@@ -1,54 +1,66 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { Compass, LogOut, RefreshCw, ShieldAlert } from 'lucide-react'
 import { usePermissionStore } from '@/store/permissionStore'
-import { fetchCfIdentity, CF_LOGOUT_URL } from '@/lib/cfAccess'
-import { apiGetMe } from '@/lib/api'
+import { getSession, logout } from '@/lib/auth'
+
+/** Pages reachable without a session (the auth flow itself). */
+const PUBLIC_PATHS = ['/login', '/set-password']
 
 /**
- * Resolves the Cloudflare Access identity on load and binds it to an in-app
- * user profile. Visitors who are authenticated at the edge but not yet
- * provisioned in-app see a branded "access pending" screen instead of the app.
+ * Resolves the signed-in identity from our own session cookie and binds it to an
+ * in-app user profile. Unauthenticated visitors are sent to /login; users with a
+ * valid session but no provisioned profile see a branded "access pending" screen.
  *
- * Outside Cloudflare (local/dev) the identity is null and the app renders
- * normally with its unrestricted local behaviour.
+ * When the API is unreachable (local dev, preview) the app renders normally with
+ * its unrestricted local behaviour.
  */
 export default function IdentityGate({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<'resolving' | 'ok' | 'pending'>('resolving')
   const signedInEmail = usePermissionStore((s) => s.signedInEmail)
+  const router = useRouter()
+  const pathname = usePathname()
+  const isPublic = PUBLIC_PATHS.some((p) => pathname?.startsWith(p))
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
       usePermissionStore.persist.rehydrate()
-      const identity = await fetchCfIdentity()
+      const session = await getSession()
       if (cancelled) return
-      if (!identity) {
+
+      // Local dev / preview: API down → render freely, no gating.
+      if (session.status === 'unreachable') {
         setStatus('ok')
         return
       }
 
-      // Fetch own user record from D1 so bindIdentity can find it for member accounts.
-      // Admins already have their record in the full sync snapshot; this covers members.
-      const me = await apiGetMe()
-      if (me && !cancelled) {
-        usePermissionStore.setState((s) => {
-          const exists = s.users.some((u) => u.id === me.id)
-          const users = exists
-            ? s.users.map((u) => (u.id === me.id ? { ...u, ...me } : u))
-            : [...s.users, me]
-          return { users }
-        })
+      // Not signed in → send to the login page (unless already on a public page).
+      if (session.status === 'anonymous') {
+        if (!isPublic) router.replace('/login')
+        setStatus('ok')
+        return
       }
 
+      // Authenticated: fold the user record into the store so bindIdentity matches.
+      const me = session.user
+      usePermissionStore.setState((s) => {
+        const exists = s.users.some((u) => u.id === me.id)
+        const users = exists
+          ? s.users.map((u) => (u.id === me.id ? { ...u, ...me } : u))
+          : [...s.users, me]
+        return { users }
+      })
+
       if (cancelled) return
-      const result = usePermissionStore.getState().bindIdentity(identity.email, identity.name)
+      const result = usePermissionStore.getState().bindIdentity(session.email, session.name)
       setStatus(result === 'unprovisioned' ? 'pending' : 'ok')
     })()
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [router, isPublic])
 
   if (status === 'pending') {
     return <AccessPending email={signedInEmail} />
@@ -108,10 +120,10 @@ function AccessPending({ email }: { email: string | null }) {
             <RefreshCw size={13} />
             تحديث
           </button>
-          <a href={CF_LOGOUT_URL} className="axis-btn axis-btn--ghost axis-btn--sm flex-1">
+          <button type="button" onClick={() => { void logout() }} className="axis-btn axis-btn--ghost axis-btn--sm flex-1">
             <LogOut size={13} />
             تبديل الحساب
-          </a>
+          </button>
         </div>
       </div>
     </div>
