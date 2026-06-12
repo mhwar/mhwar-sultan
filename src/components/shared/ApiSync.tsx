@@ -36,12 +36,9 @@ import { usePortfolioStore }  from '@/store/store'
 import { syncMissingSeeds } from '@/components/shared/StoreHydration'
 import {
   apiAvailable, apiSyncPull, apiSyncPush,
-  apiProjects, apiTasks, apiPlans, apiPhases, apiSprints, apiNotes,
-  apiDocs, apiTeam, apiSchedule, apiMeetings, apiFinance, apiPackages,
-  apiKpis, apiClients, apiMetrics, apiExperiments, apiChannels,
-  apiContent, apiPortfolios, apiUsers, apiPermissions,
   type SyncSnapshot,
 } from '@/lib/api'
+import { enqueue, drain, pendingIds, hasPending } from '@/lib/syncQueue'
 import type {
   Project, Task, Plan, PlanPhase, Sprint, Note, ProductDoc,
   TeamMember, ScheduleEvent, Meeting, FinanceEntry, FinancePackage,
@@ -49,52 +46,31 @@ import type {
   ContentItem, Portfolio, AppUser, ProjectPermission,
 } from '@/types'
 
-// ── Pending-op tracking ───────────────────────────────────
-//
-// Counts in-flight API mutations. pullAndHydrate waits for the count to reach
-// zero before pulling from D1, so a deleted item that's still being removed on
-// the server is never resurrected by a concurrent pull.
-
-let pendingOps = 0
-
-function track(p: Promise<unknown>): void {
-  pendingOps++
-  p.catch(console.error).finally(() => { pendingOps-- })
-}
-
-async function waitIdle(maxMs = 8000): Promise<void> {
-  const deadline = Date.now() + maxMs
-  while (pendingOps > 0 && Date.now() < deadline) {
-    await new Promise<void>((r) => setTimeout(r, 100))
-  }
-}
-
 // ── Generic array-diffing watcher ─────────────────────────
+//
+// Mutations are written to a durable, localStorage-backed queue (see syncQueue)
+// rather than fired and forgotten. The queue survives refreshes and retries on
+// failure, and pullAndHydrate drains it before pulling so local changes always
+// reach D1 before the authoritative snapshot is applied.
 
 type HasId = { id: string }
-
-interface ApiMethods<T> {
-  create: (d: T) => Promise<unknown>
-  update: (id: string, d: T) => Promise<unknown>
-  delete: (id: string) => Promise<unknown>
-}
 
 function diffAndSync<T extends HasId>(
   current: T[],
   prev: T[],
-  api: ApiMethods<T>
+  resource: string
 ): void {
   for (const item of current) {
     const old = prev.find((o) => o.id === item.id)
     if (!old) {
-      track(api.create(item))
+      enqueue({ resource, kind: 'create', id: item.id, data: item })
     } else if (JSON.stringify(old) !== JSON.stringify(item)) {
-      track(api.update(item.id, item))
+      enqueue({ resource, kind: 'update', id: item.id, data: item })
     }
   }
   for (const old of prev) {
     if (!current.find((c) => c.id === old.id)) {
-      track(api.delete(old.id))
+      enqueue({ resource, kind: 'delete', id: old.id })
     }
   }
 }
@@ -136,10 +112,11 @@ export default function ApiSync() {
   // when D1 is genuinely empty and the caller may seed it — never on a failed
   // pull, which previously resurrected deleted records.
   const pullAndHydrate = useCallback(async (): Promise<void> => {
-    // Wait for any in-flight mutations (creates/updates/deletes) to settle
-    // before pulling authoritative data from D1. Without this guard, a delete
-    // that races a focus event brings the deleted item back from D1.
-    await waitIdle()
+    // Flush every queued local mutation to D1 before pulling authoritative data.
+    // This guarantees local creates/edits/deletes are persisted server-side first,
+    // so the snapshot we apply already reflects them — no resurrection of deletes,
+    // no clobbering of un-synced creates.
+    await drain()
     const snap = await apiSyncPull()
     if (!snap) return // pull failed/unauthorised — keep local, never push
 
@@ -189,20 +166,40 @@ export default function ApiSync() {
     return () => { cancelled = true }
   }, [signedInEmail, pullAndHydrate])
 
-  // Refresh when the tab regains focus, so a browser left open converges on the
-  // latest shared state (deletes/edits made elsewhere) without a manual reload.
+  // Converge on the latest shared state without a manual reload:
+  //  • on tab focus / visibility regain (immediate),
+  //  • every 15s while the tab is visible (so account B sees account A's changes),
+  //  • flush the write queue when the tab is hidden or unloading (keepalive
+  //    fetches finish even after the page starts closing).
   useEffect(() => {
     if (!signedInEmail) return
+
     const refresh = () => {
       if (document.visibilityState === 'visible' && !hydrating.current) {
         pullAndHydrate().catch(() => {})
       }
     }
-    window.addEventListener('visibilitychange', refresh)
+    const flush = () => { if (hasPending()) drain().catch(() => {}) }
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flush()
+      else refresh()
+    }
+
+    window.addEventListener('visibilitychange', onVisibility)
     window.addEventListener('focus', refresh)
+    window.addEventListener('pagehide', flush)
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible' && !hydrating.current && !hasPending()) {
+        pullAndHydrate().catch(() => {})
+      }
+    }, 15_000)
+
     return () => {
-      window.removeEventListener('visibilitychange', refresh)
+      window.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener('focus', refresh)
+      window.removeEventListener('pagehide', flush)
+      window.clearInterval(interval)
     }
   }, [signedInEmail, pullAndHydrate])
 
@@ -212,26 +209,39 @@ export default function ApiSync() {
 // ── Store hydration ───────────────────────────────────────
 
 function hydrateStores(snap: SyncSnapshot): void {
-  // Replace data tables unconditionally (even when empty) so the server-side
-  // permission filtering is respected: a member who lacks finance/content/project
-  // access gets those arrays cleared from their browser, never seeing stale local
-  // data they no longer have permission for.
-  useProjectStore.setState({ projects:  snap.projects })
-  useTaskStore.setState({ tasks:        snap.tasks })
-  usePlanStore.setState({ plans:        snap.plans, phases: snap.phases })
-  useSprintStore.setState({ sprints:    snap.sprints })
-  useNoteStore.setState({ notes:        snap.notes })
-  useDocumentStore.setState({ docs:     snap.docs })
-  useTeamStore.setState({ members:      snap.team })
-  useScheduleStore.setState({ events:   snap.schedule })
-  useMeetingStore.setState({ meetings:  snap.meetings })
-  useFinanceStore.setState({ entries:   snap.finance })
-  usePackageStore.setState({ packages:  snap.packages })
-  useKpiStore.setState({ kpis:          snap.kpis })
-  useClientStore.setState({ clients:    snap.clients })
-  useGrowthStore.setState({ metrics: snap.metrics, experiments: snap.experiments, channels: snap.channels })
-  useContentStore.setState({ items:     snap.content })
-  usePortfolioStore.setState({ portfolios: snap.portfolios })
+  // Apply the server snapshot, but preserve any local record whose write hasn't
+  // been confirmed by D1 yet (still in the queue and absent from the snapshot).
+  // This keeps server-side permission filtering intact — blocked items are never
+  // queued, so they're still cleared — while preventing a just-created record from
+  // vanishing if the pull lands before its write is acknowledged.
+  const pend = pendingIds()
+  const merge = <T extends { id: string }>(server: T[], local: T[]): T[] => {
+    if (pend.size === 0) return server
+    const serverIds = new Set(server.map((r) => r.id))
+    const survivors = local.filter((r) => pend.has(r.id) && !serverIds.has(r.id))
+    return survivors.length ? [...server, ...survivors] : server
+  }
+
+  useProjectStore.setState((s) => ({ projects:  merge(snap.projects, s.projects) }))
+  useTaskStore.setState((s) => ({ tasks:        merge(snap.tasks, s.tasks) }))
+  usePlanStore.setState((s) => ({ plans: merge(snap.plans, s.plans), phases: merge(snap.phases, s.phases) }))
+  useSprintStore.setState((s) => ({ sprints:    merge(snap.sprints, s.sprints) }))
+  useNoteStore.setState((s) => ({ notes:        merge(snap.notes, s.notes) }))
+  useDocumentStore.setState((s) => ({ docs:     merge(snap.docs, s.docs) }))
+  useTeamStore.setState((s) => ({ members:      merge(snap.team, s.members) }))
+  useScheduleStore.setState((s) => ({ events:   merge(snap.schedule, s.events) }))
+  useMeetingStore.setState((s) => ({ meetings:  merge(snap.meetings, s.meetings) }))
+  useFinanceStore.setState((s) => ({ entries:   merge(snap.finance, s.entries) }))
+  usePackageStore.setState((s) => ({ packages:  merge(snap.packages, s.packages) }))
+  useKpiStore.setState((s) => ({ kpis:          merge(snap.kpis, s.kpis) }))
+  useClientStore.setState((s) => ({ clients:    merge(snap.clients, s.clients) }))
+  useGrowthStore.setState((s) => ({
+    metrics:     merge(snap.metrics, s.metrics),
+    experiments: merge(snap.experiments, s.experiments),
+    channels:    merge(snap.channels, s.channels),
+  }))
+  useContentStore.setState((s) => ({ items:     merge(snap.content, s.items) }))
+  usePortfolioStore.setState((s) => ({ portfolios: merge(snap.portfolios, s.portfolios) }))
   // Users & permissions drive the client-side permission UI and are admin-only in
   // the snapshot. Only hydrate when present so a member keeps their own identity
   // context (their matched user) rather than having it wiped to an empty list.
@@ -272,101 +282,100 @@ function startWatchers(hydrating: MutableRefObject<boolean>): void {
   function watch<T extends HasId>(
     current: T[],
     prev: T[],
-    api: ApiMethods<T>,
+    resource: string,
     setPrev: (v: T[]) => void
   ): void {
     if (hydrating.current) { setPrev(current.slice()); return }
-    diffAndSync(current, prev, api)
+    diffAndSync(current, prev, resource)
     setPrev(current.slice())
   }
 
   useProjectStore.subscribe((s) => {
-    watch(s.projects, prevProjects, apiProjects as ApiMethods<Project>, (v) => { prevProjects = v })
+    watch(s.projects, prevProjects, 'projects', (v) => { prevProjects = v })
   })
 
   useTaskStore.subscribe((s) => {
-    watch(s.tasks, prevTasks, apiTasks as ApiMethods<Task>, (v) => { prevTasks = v })
+    watch(s.tasks, prevTasks, 'tasks', (v) => { prevTasks = v })
   })
 
   usePlanStore.subscribe((s) => {
-    watch(s.plans,  prevPlans,  apiPlans  as ApiMethods<Plan>,      (v) => { prevPlans  = v })
-    watch(s.phases, prevPhases, apiPhases as ApiMethods<PlanPhase>, (v) => { prevPhases = v })
+    watch(s.plans,  prevPlans,  'plans',  (v) => { prevPlans  = v })
+    watch(s.phases, prevPhases, 'phases', (v) => { prevPhases = v })
   })
 
   useSprintStore.subscribe((s) => {
-    watch(s.sprints, prevSprints, apiSprints as ApiMethods<Sprint>, (v) => { prevSprints = v })
+    watch(s.sprints, prevSprints, 'sprints', (v) => { prevSprints = v })
   })
 
   useNoteStore.subscribe((s) => {
-    watch(s.notes, prevNotes, apiNotes as ApiMethods<Note>, (v) => { prevNotes = v })
+    watch(s.notes, prevNotes, 'notes', (v) => { prevNotes = v })
   })
 
   useDocumentStore.subscribe((s) => {
-    watch(s.docs, prevDocs, apiDocs as ApiMethods<ProductDoc>, (v) => { prevDocs = v })
+    watch(s.docs, prevDocs, 'docs', (v) => { prevDocs = v })
   })
 
   useGrowthStore.subscribe((s) => {
-    watch(s.metrics,     prevMetrics,     apiMetrics     as ApiMethods<GrowthMetric>,     (v) => { prevMetrics     = v })
-    watch(s.experiments, prevExperiments, apiExperiments as ApiMethods<GrowthExperiment>, (v) => { prevExperiments = v })
-    watch(s.channels,    prevChannels,    apiChannels    as ApiMethods<GrowthChannel>,    (v) => { prevChannels    = v })
+    watch(s.metrics,     prevMetrics,     'metrics',     (v) => { prevMetrics     = v })
+    watch(s.experiments, prevExperiments, 'experiments', (v) => { prevExperiments = v })
+    watch(s.channels,    prevChannels,    'channels',    (v) => { prevChannels    = v })
   })
 
   useTeamStore.subscribe((s) => {
-    watch(s.members, prevTeam, apiTeam as ApiMethods<TeamMember>, (v) => { prevTeam = v })
+    watch(s.members, prevTeam, 'team', (v) => { prevTeam = v })
   })
 
   useScheduleStore.subscribe((s) => {
-    watch(s.events, prevSchedule, apiSchedule as ApiMethods<ScheduleEvent>, (v) => { prevSchedule = v })
+    watch(s.events, prevSchedule, 'schedule', (v) => { prevSchedule = v })
   })
 
   useMeetingStore.subscribe((s) => {
-    watch(s.meetings, prevMeetings, apiMeetings as ApiMethods<Meeting>, (v) => { prevMeetings = v })
+    watch(s.meetings, prevMeetings, 'meetings', (v) => { prevMeetings = v })
   })
 
   useFinanceStore.subscribe((s) => {
-    watch(s.entries, prevFinance, apiFinance as ApiMethods<FinanceEntry>, (v) => { prevFinance = v })
+    watch(s.entries, prevFinance, 'finance', (v) => { prevFinance = v })
   })
 
   usePackageStore.subscribe((s) => {
-    watch(s.packages, prevPackages, apiPackages as ApiMethods<FinancePackage>, (v) => { prevPackages = v })
+    watch(s.packages, prevPackages, 'packages', (v) => { prevPackages = v })
   })
 
   useKpiStore.subscribe((s) => {
-    watch(s.kpis, prevKpis, apiKpis as ApiMethods<Kpi>, (v) => { prevKpis = v })
+    watch(s.kpis, prevKpis, 'kpis', (v) => { prevKpis = v })
   })
 
   useClientStore.subscribe((s) => {
-    watch(s.clients, prevClients, apiClients as ApiMethods<Client>, (v) => { prevClients = v })
+    watch(s.clients, prevClients, 'clients', (v) => { prevClients = v })
   })
 
   useContentStore.subscribe((s) => {
-    watch(s.items, prevContent, apiContent as ApiMethods<ContentItem>, (v) => { prevContent = v })
+    watch(s.items, prevContent, 'content', (v) => { prevContent = v })
   })
 
   usePortfolioStore.subscribe((s) => {
-    watch(s.portfolios, prevPortfolios, apiPortfolios as ApiMethods<Portfolio>, (v) => { prevPortfolios = v })
+    watch(s.portfolios, prevPortfolios, 'portfolios', (v) => { prevPortfolios = v })
   })
 
   usePermissionStore.subscribe((s) => {
-    watch(s.users, prevUsers, apiUsers as ApiMethods<AppUser>, (v) => { prevUsers = v })
+    watch(s.users, prevUsers, 'users', (v) => { prevUsers = v })
 
     // ProjectPermission uses a composite key (userId+projectId), not a single id.
-    // Sync by detecting added or removed entries via JSON comparison of the composite key.
+    // Queue added/changed/removed entries through the durable queue, keyed by the
+    // composite id so the queue de-dups and persists them like every other write.
     const current = s.permissions
     if (!hydrating.current) {
       for (const perm of current) {
         const key = `${perm.userId}:${perm.projectId}`
         const old = prevPermissions.find((p) => `${p.userId}:${p.projectId}` === key)
-        if (!old) {
-          track(apiPermissions.set(perm))
-        } else if (JSON.stringify(old) !== JSON.stringify(perm)) {
-          track(apiPermissions.set(perm))
+        if (!old || JSON.stringify(old) !== JSON.stringify(perm)) {
+          enqueue({ resource: 'permissions', kind: 'update', id: key, data: perm })
         }
       }
       for (const old of prevPermissions) {
         const key = `${old.userId}:${old.projectId}`
         if (!current.find((p) => `${p.userId}:${p.projectId}` === key)) {
-          track(apiPermissions.remove(old.userId, old.projectId))
+          enqueue({ resource: 'permissions', kind: 'delete', id: key, data: { userId: old.userId, projectId: old.projectId } })
         }
       }
     }
