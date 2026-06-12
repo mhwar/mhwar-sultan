@@ -390,16 +390,18 @@ function GoogleSsoCard() {
   const [clientSecret, setClientSecret] = useState('')
   const [state, setState] = useState<'idle' | 'loading' | 'ok' | 'err'>('idle')
   const [redirectUri, setRedirectUri] = useState('')
+  const [errMsg, setErrMsg] = useState('')
 
   if (!isAdmin) return null
 
   const setup = async () => {
     if (!clientId.trim() || !clientSecret.trim()) return
     setState('loading')
-    const result = await apiAccess.setupGoogleIdp(clientId.trim(), clientSecret.trim())
-    if (!result) { setState('err'); return }
-    if (result.alreadyExists) { setState('ok'); setRedirectUri(''); return }
-    if (result.redirectUri) setRedirectUri(result.redirectUri)
+    setErrMsg('')
+    const { data, error } = await apiAccess.setupGoogleIdp(clientId.trim(), clientSecret.trim())
+    if (error || !data) { setErrMsg(error ?? 'خطأ غير معروف'); setState('err'); return }
+    if (data.alreadyExists) { setState('ok'); setRedirectUri(''); return }
+    if (data.redirectUri) setRedirectUri(data.redirectUri)
     setState('ok')
   }
 
@@ -443,8 +445,8 @@ function GoogleSsoCard() {
             />
           </div>
           {state === 'err' && (
-            <p className="text-xs" style={{ color: 'var(--danger-500)' }}>
-              فشل الإعداد — تحقق من Client ID و Secret أو تأكد من إعداد CLOUDFLARE_API_TOKEN
+            <p className="text-xs font-mono break-all" dir="ltr" style={{ color: 'var(--danger-500)' }}>
+              {errMsg}
             </p>
           )}
           <button

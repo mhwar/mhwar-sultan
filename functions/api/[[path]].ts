@@ -384,6 +384,22 @@ async function cfGet<T>(token: string, path: string): Promise<T | null> {
   } catch { return null }
 }
 
+async function cfGetWithError<T>(token: string, path: string): Promise<{ result: T | null; error: string | null }> {
+  try {
+    const r = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    })
+    const d = await r.json() as { result: T; success: boolean; errors?: Array<{ message: string }> }
+    if (!r.ok || !d.success) {
+      const msg = d.errors?.[0]?.message ?? `HTTP ${r.status}`
+      return { result: null, error: msg }
+    }
+    return { result: d.result ?? null, error: null }
+  } catch (e) {
+    return { result: null, error: String(e) }
+  }
+}
+
 async function cfPost<T>(token: string, path: string, body: unknown): Promise<T | null> {
   try {
     const r = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
@@ -396,11 +412,13 @@ async function cfPost<T>(token: string, path: string, body: unknown): Promise<T 
   } catch { return null }
 }
 
-/** Resolve account ID — uses env var or auto-discovers from token. */
+const BOSLA_ACCOUNT_ID = '645b32d31a95fbc82db2c606a66565dc'
+
+/** Resolve account ID — uses env var, then discovers from token, then falls back to the known deployment account. */
 async function getAccountId(token: string, envId?: string): Promise<string | null> {
   if (envId) return envId
   const accounts = await cfGet<Array<{ id: string }>>(token, '/accounts?per_page=1')
-  return accounts?.[0]?.id ?? null
+  return accounts?.[0]?.id ?? BOSLA_ACCOUNT_ID
 }
 
 /** Find the Cloudflare Access app for boslaworks.com. */
@@ -498,9 +516,10 @@ async function handleSetupGoogleIdp(req: Request, env: Env, caller: UserRow): Pr
   const accountId = await getAccountId(token, env.CF_ACCOUNT_ID)
   if (!accountId) return err('تعذّر تحديد الحساب', 500)
 
-  // Check if Google IDP already exists
-  const existing = await cfGet<CfIdp[]>(token, `/accounts/${accountId}/access/identity_providers?per_page=50`)
-  const hasGoogle = (existing ?? []).some((idp) => idp.type === 'google')
+  // Verify token has Zero Trust access by listing identity providers
+  const existing = await cfGetWithError<CfIdp[]>(token, `/accounts/${accountId}/access/identity_providers?per_page=50`)
+  if (existing.error) return err(`صلاحية Cloudflare API: ${existing.error}`, 400)
+  const hasGoogle = (existing.result ?? []).some((idp) => idp.type === 'google')
   if (hasGoogle) return json({ ok: true, alreadyExists: true })
 
   const result = await cfPost(token, `/accounts/${accountId}/access/identity_providers`, {
