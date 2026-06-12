@@ -626,6 +626,46 @@ async function handleSetupGoogleIdp(req: Request, env: Env, caller: UserRow): Pr
   return json({ ok: true, redirectUri })
 }
 
+// Self-contained HTML uploaded to CF Access custom pages (identity_denied type).
+// CF hosts this on their CDN and serves it instead of the default login chooser.
+// {{LOGIN_BUTTON}} is a CF template variable — replaced with the actual IdP buttons
+// (Google + OTP) styled with the login_design colors we set in step 1.
+function buildLoginPageHtml(): string {
+  return `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>بوصلة الأعمال</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#0f0f16;color:#e8e8f0;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;direction:rtl}
+.card{background:#1a1a28;border:1px solid rgba(255,255,255,.08);border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.5);padding:32px;width:100%;max-width:360px;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center}
+.icon{width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,#6366f1 0%,#4f46e5 100%);box-shadow:0 8px 32px rgba(99,102,241,.4);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+h1{font-size:22px;font-weight:700;color:#e8e8f0;line-height:1.2}
+.sub{font-size:13px;color:rgba(232,232,240,.55)}
+.note{font-size:11px;color:rgba(232,232,240,.3)}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10"/>
+      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+    </svg>
+  </div>
+  <div>
+    <h1>بوصلة الأعمال</h1>
+    <p class="sub" style="margin-top:6px">منصة إدارة المشاريع الداخلية</p>
+  </div>
+  {{LOGIN_BUTTON}}
+  <p class="note">النظام مقيّد للأعضاء المُصرَّح لهم فقط</p>
+</div>
+</body>
+</html>`
+}
+
 // POST /api/setup/custom-login — brand the CF Access login page + enable /login bypass
 
 async function handleSetupCustomLogin(env: Env, caller: UserRow): Promise<Response> {
@@ -768,6 +808,26 @@ async function handleSetupCustomLogin(env: Env, caller: UserRow): Promise<Respon
     if (otp) results.push('تم تفعيل الدخول عبر رمز البريد — بديل موثوق لا يحتاج Google Console')
     else warnings.push(`تعذّر تفعيل الدخول عبر رمز البريد${otpErr ? ` (${otpErr})` : ''}`)
   }
+
+  // 4. Upload branded HTML to CF Access custom pages so CF hosts + serves our design
+  // instead of their default login chooser. The identity_denied type is shown whenever
+  // CF Access requires authentication. {{LOGIN_BUTTON}} is replaced by CF with the
+  // actual IdP buttons (Google + OTP) using our login_design colors from step 1.
+  const { result: existingPages } = await cfGetWithError<Array<{ id: string; type: string }>>(
+    token, `/accounts/${accountId}/access/custom_pages`
+  )
+  const existingLoginPage = (existingPages ?? []).find((p) => p.type === 'identity_denied')
+  const customHtml = buildLoginPageHtml()
+  const pagePayload = {
+    name: 'بوصلة الأعمال — تسجيل الدخول',
+    type: 'identity_denied',
+    custom_html: customHtml,
+  }
+  const pageRes = existingLoginPage
+    ? await cfPutDetailed(token, `/accounts/${accountId}/access/custom_pages/${existingLoginPage.id}`, pagePayload)
+    : await cfPostDetailed(token, `/accounts/${accountId}/access/custom_pages`, pagePayload)
+  if (pageRes.result) results.push('تم رفع تصميم صفحة تسجيل الدخول على Cloudflare')
+  else warnings.push(`تعذّر رفع الصفحة المخصصة${pageRes.error ? ` (${pageRes.error})` : ''}`)
 
   // Surface the correct Google Console redirect URI so the user can verify it.
   const orgCheck = await cfGet<{ auth_domain?: string }>(
