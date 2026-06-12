@@ -283,6 +283,30 @@ async function handleHealth(db: D1Database, req: Request): Promise<Response> {
   })
 }
 
+// GET /api/auth/ping — public status check for the login page diagnostic panel.
+// Returns CF Access identity status without requiring a DB user record.
+async function handleAuthPing(req: Request): Promise<Response> {
+  const accessEmail = resolveAccessEmail(req)
+  const jwt = req.headers.get('Cf-Access-Jwt-Assertion')
+  let jwtEmail: string | null = null
+  if (jwt) {
+    try {
+      const payload = jwt.split('.')[1]
+      const b64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+      const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4)
+      const data = JSON.parse(atob(padded)) as Record<string, unknown>
+      const e = (data.email ?? (data.identity as Record<string, unknown>|undefined)?.email) as unknown
+      jwtEmail = typeof e === 'string' ? e : null
+    } catch { /* ignore */ }
+  }
+  return json({
+    cfAuthenticated: !!(accessEmail || jwtEmail),
+    email: accessEmail || jwtEmail || null,
+    authDomain: 'tiny-shape-6245.cloudflareaccess.com',
+    callbackUrl: 'https://tiny-shape-6245.cloudflareaccess.com/cdn-cgi/access/callback',
+  })
+}
+
 // ── Invitations ───────────────────────────────────────────
 //
 // POST /api/invite — notify a granted user by email. Sends automatically via
@@ -682,6 +706,43 @@ async function handleSetupCustomLogin(env: Env, caller: UserRow): Promise<Respon
       )
       if (policy) results.push('تم إنشاء تطبيق /login العام وإضافة سياسة bypass')
       else warnings.push(`تم إنشاء التطبيق لكن تعذّر إضافة سياسة bypass${polErr ? ` (${polErr})` : ''} — افتح التطبيق في CF Zero Trust وأضف سياسة "bypass" يدوياً`)
+    }
+  }
+
+  // 2b. Create a dedicated Access app for boslaworks.com/api/auth/ping with a bypass policy.
+  // This allows the login page diagnostic panel to call the ping endpoint without being
+  // redirected to the CF Access login page (requires a bypass policy, same as /login).
+  const pingApp = (apps ?? []).find(
+    (a) => a.domain?.includes('api/auth/ping') || a.name?.toLowerCase().includes('ping')
+  )
+
+  if (pingApp) {
+    results.push('تطبيق bypass لـ /api/auth/ping موجود بالفعل')
+  } else {
+    interface CfAppResult2 { id: string }
+    const { result: newPingApp, error: pingAppErr } = await cfPostDetailed<CfAppResult2>(
+      token, `/accounts/${accountId}/access/apps`, {
+        name: 'boslaworks.com — Auth Ping (Public)',
+        domain: 'boslaworks.com/api/auth/ping',
+        self_hosted_domains: ['boslaworks.com/api/auth/ping'],
+        type: 'self_hosted',
+        session_duration: '24h',
+        auto_redirect_to_identity: false,
+      }
+    )
+
+    if (!newPingApp) {
+      warnings.push(`تعذّر إنشاء تطبيق Access لـ /api/auth/ping${pingAppErr ? ` (${pingAppErr})` : ''} — أنشئه يدوياً: domain "boslaworks.com/api/auth/ping"، نوع self-hosted، سياسة bypass للجميع`)
+    } else {
+      const { result: pingPolicy, error: pingPolErr } = await cfPostDetailed(
+        token, `/accounts/${accountId}/access/apps/${newPingApp.id}/policies`, {
+          name: 'Bypass — public auth ping',
+          decision: 'bypass',
+          include: [{ everyone: {} }],
+        }
+      )
+      if (pingPolicy) results.push('تم إنشاء تطبيق /api/auth/ping العام وإضافة سياسة bypass')
+      else warnings.push(`تم إنشاء تطبيق ping لكن تعذّر إضافة سياسة bypass${pingPolErr ? ` (${pingPolErr})` : ''} — افتح التطبيق في CF Zero Trust وأضف سياسة "bypass" يدوياً`)
     }
   }
 
@@ -1226,6 +1287,9 @@ export async function onRequest(ctx: any): Promise<Response> {
 
   // Health check — no auth required
   if (segments[0] === 'health') return handleHealth(db, request)
+
+  // Auth ping — public (no D1 auth), requires CF Access bypass on /api/auth/ping
+  if (segments[0] === 'auth' && segments[1] === 'ping' && method === 'GET') return handleAuthPing(request)
 
   // All other routes require authentication
   const caller = await getAuthUser(request, db)
