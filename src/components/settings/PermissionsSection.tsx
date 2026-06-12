@@ -400,7 +400,6 @@ function GoogleSsoCard() {
     setErrMsg('')
     const { data, error } = await apiAccess.setupGoogleIdp(clientId.trim(), clientSecret.trim())
     if (error || !data) { setErrMsg(error ?? 'خطأ غير معروف'); setState('err'); return }
-    if (data.alreadyExists) { setState('ok'); setRedirectUri(''); return }
     if (data.redirectUri) setRedirectUri(data.redirectUri)
     setState('ok')
   }
@@ -413,12 +412,20 @@ function GoogleSsoCard() {
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--success-500)' }}>
             <Check size={15} />
-            تم إعداد Google كمزوّد هوية في Cloudflare Access
+            {redirectUri ? 'تحقق من إعداد Google Console' : 'تم إعداد Google كمزوّد هوية في Cloudflare Access'}
           </div>
           {redirectUri && (
-            <div className="rounded-lg p-3 text-xs" style={{ background: 'var(--color-surface-base)', border: '1px solid var(--border-subtle)' }}>
-              <p className="font-medium mb-1" style={{ color: 'var(--fg-2)' }}>Authorized redirect URI (أضفه في Google Console):</p>
-              <p className="font-mono break-all" style={{ color: 'var(--iris-500)' }} dir="ltr">{redirectUri}</p>
+            <div className="rounded-lg p-3 text-xs space-y-2" style={{ background: 'var(--color-surface-base)', border: '1px solid var(--warning-500)' }}>
+              <p className="font-medium" style={{ color: 'var(--warning-500)' }}>
+                يجب أن يكون هذا الرابط مضافاً في Google Console تحت Authorized redirect URIs:
+              </p>
+              <p className="font-mono break-all select-all" dir="ltr" style={{ color: 'var(--iris-500)', fontSize: '0.7rem' }}>{redirectUri}</p>
+              <p style={{ color: 'var(--fg-3)' }}>
+                المسار: Google Console → بيانات اعتماد → OAuth 2.0 → Edit → Authorized redirect URIs
+              </p>
+              <p style={{ color: 'var(--fg-3)' }}>
+                إذا أضفت رابطاً آخر سابقاً (يحتوي على أرقام طويلة وليس tiny-shape-6245) فاحذفه وأضف الرابط الصحيح أعلاه.
+              </p>
             </div>
           )}
         </div>

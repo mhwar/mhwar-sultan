@@ -576,7 +576,12 @@ async function handleSetupGoogleIdp(req: Request, env: Env, caller: UserRow): Pr
   const existing = await cfGetWithError<CfIdp[]>(token, `/accounts/${accountId}/access/identity_providers?per_page=50`)
   if (existing.error) return err(`صلاحية Cloudflare API: ${existing.error}`, 400)
   const hasGoogle = (existing.result ?? []).some((idp) => idp.type === 'google')
-  if (hasGoogle) return json({ ok: true, alreadyExists: true })
+  // Always resolve auth_domain so the correct Google Console redirect URI is shown —
+  // even when Google IdP already exists (the old code used account ID which was wrong).
+  const orgRes = await cfGet<{ auth_domain?: string }>(token, `/accounts/${accountId}/access/organizations`)
+  const authDomain = orgRes?.auth_domain ?? 'tiny-shape-6245.cloudflareaccess.com'
+  const redirectUri = `https://${authDomain}/cdn-cgi/access/callback`
+  if (hasGoogle) return json({ ok: true, alreadyExists: true, redirectUri })
 
   const result = await cfPost(token, `/accounts/${accountId}/access/identity_providers`, {
     type: 'google',
