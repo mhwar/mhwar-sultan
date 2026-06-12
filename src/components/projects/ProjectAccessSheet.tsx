@@ -139,7 +139,7 @@ interface MemberRowProps {
 function MemberAccessRow({ user, project, projectTools, inviterName, perm, onSet }: MemberRowProps) {
   const access = perm?.access ?? 'all'
   const [expanded, setExpanded] = useState(access === 'custom')
-  const [inviteState, setInviteState] = useState<'idle' | 'sending' | 'sent' | 'mailto'>('idle')
+  const [inviteState, setInviteState] = useState<'idle' | 'sending' | 'sent' | 'copied' | 'mailto'>('idle')
 
   const handleAccess = (val: ProjectPermission['access']) => {
     onSet({ access: val, deniedTools: perm?.deniedTools ?? [] })
@@ -172,8 +172,8 @@ function MemberAccessRow({ user, project, projectTools, inviterName, perm, onSet
       toolLabels: effectiveLabels,
       inviterName,
     })
-    setInviteState(result === 'sent' ? 'sent' : result === 'mailto' ? 'mailto' : 'idle')
-    if (result !== 'failed') setTimeout(() => setInviteState('idle'), 3000)
+    setInviteState(result.status === 'failed' ? 'idle' : result.status)
+    if (result.status !== 'failed') setTimeout(() => setInviteState('idle'), 3000)
   }
 
   return (
@@ -226,6 +226,7 @@ function MemberAccessRow({ user, project, projectTools, inviterName, perm, onSet
           title={user.email ? 'إرسال دعوة بالبريد' : 'لا يوجد بريد لهذا العضو'}
         >
           {inviteState === 'sent' ? <><Check size={12} /> أُرسلت</>
+            : inviteState === 'copied' ? <><Check size={12} /> نُسخ الرابط</>
             : inviteState === 'mailto' ? <><Mail size={12} /> فتح البريد</>
             : inviteState === 'sending' ? <>جارٍ…</>
             : <><Send size={12} /> دعوة</>}

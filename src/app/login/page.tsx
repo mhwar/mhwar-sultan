@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import { Compass, AlertCircle, Loader2 } from 'lucide-react'
+import { Compass, AlertCircle, Loader2, Link2, Check } from 'lucide-react'
 import { getSession } from '@/lib/auth'
 import { apiAuth } from '@/lib/api'
 
@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<'login' | 'reset'>('login')
   const [resetSent, setResetSent] = useState(false)
+  const [resetLink, setResetLink] = useState<string | null>(null)
 
   // If already signed in, skip straight to the app.
   useEffect(() => {
@@ -43,8 +44,9 @@ export default function LoginPage() {
     e.preventDefault()
     setSubmitting(true)
     setError(null)
-    await apiAuth.requestReset(email.trim())
+    const res = await apiAuth.requestReset(email.trim())
     setSubmitting(false)
+    setResetLink(res?.link ?? null)
     setResetSent(true)
   }, [email])
 
@@ -131,7 +133,7 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                onClick={() => { setMode('reset'); setError(null); setResetSent(false) }}
+                onClick={() => { setMode('reset'); setError(null); setResetSent(false); setResetLink(null) }}
                 className="text-xs text-center mx-auto"
                 style={{ color: 'var(--fg-3)' }}
               >
@@ -144,7 +146,9 @@ export default function LoginPage() {
                 إعادة تعيين كلمة المرور
               </p>
 
-              {resetSent ? (
+              {resetSent && resetLink ? (
+                <ResetLinkBox link={resetLink} />
+              ) : resetSent ? (
                 <div
                   className="rounded-lg p-3 text-xs leading-relaxed"
                   style={{
@@ -201,6 +205,53 @@ export default function LoginPage() {
         <p className="text-xs" style={{ color: 'var(--fg-4, var(--fg-3))' }}>
           © {new Date().getFullYear()} بوصلة الأعمال
         </p>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * First-admin bootstrap: the backend returned the set-password link directly
+ * (no email provider). Show it with an "open now" action and a copy button.
+ */
+function ResetLinkBox({ link }: { link: string }) {
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000) } catch { /* user can select manually */ }
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-xs leading-relaxed" style={{ color: 'var(--fg-2)' }}>
+        لا يوجد مزوّد بريد، لذا هذا رابط ضبط كلمة المرور مباشرةً. افتحه الآن لإكمال إعداد حسابك
+      </p>
+      <a
+        href={link}
+        className="axis-btn axis-btn--primary w-full justify-center gap-2 py-3"
+        style={{ fontSize: '0.9375rem' }}
+      >
+        افتح الآن لضبط كلمة المرور
+      </a>
+      <div
+        className="flex items-center gap-1.5 rounded-lg p-2"
+        style={{ background: 'var(--color-surface-base)', border: '1px solid var(--border-subtle)' }}
+      >
+        <input
+          readOnly
+          value={link}
+          onFocus={(e) => e.currentTarget.select()}
+          dir="ltr"
+          className="flex-1 min-w-0 bg-transparent text-[10px] outline-none"
+          style={{ color: 'var(--fg-3)' }}
+        />
+        <button
+          type="button"
+          onClick={copy}
+          title="نسخ الرابط"
+          className="shrink-0 w-7 h-7 rounded flex items-center justify-center hover:bg-white/10 transition-colors"
+          style={{ color: copied ? 'var(--success-500)' : 'var(--iris-500)' }}
+        >
+          {copied ? <Check size={13} /> : <Link2 size={13} />}
+        </button>
       </div>
     </div>
   )

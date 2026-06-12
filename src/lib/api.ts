@@ -151,6 +151,8 @@ export interface InviteResult {
   sent: boolean
   fallback?: boolean
   error?: string
+  /** Set-password link to share manually when no email provider is configured. */
+  link?: string
 }
 
 /**
@@ -166,19 +168,33 @@ export async function apiInvite(payload: InvitePayload): Promise<InviteResult | 
   })
 }
 
+export interface InviteOutcome {
+  status: 'sent' | 'copied' | 'mailto' | 'failed'
+  /** The set-password link, present when status is 'copied'. */
+  link?: string
+}
+
 /**
- * Send an invitation, transparently falling back to a mailto draft when the
- * backend has no email provider (or is unreachable in local dev). Returns how
- * the invite was delivered so the UI can show the right confirmation.
+ * Send an invitation. When the backend delivers it by email → 'sent'. When no
+ * email provider is configured the backend returns a set-password link, which
+ * we copy to the clipboard (best-effort) and surface as 'copied' so the admin
+ * can paste it into WhatsApp/email. Falls back to a mailto draft only when no
+ * link is available (e.g. API unreachable in local dev).
  */
-export async function sendInvite(payload: InvitePayload): Promise<'sent' | 'mailto' | 'failed'> {
+export async function sendInvite(payload: InvitePayload): Promise<InviteOutcome> {
   const result = await apiInvite(payload)
-  if (result?.sent) return 'sent'
+  if (result?.sent) return { status: 'sent' }
+  if (result?.link) {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      try { await navigator.clipboard.writeText(result.link) } catch { /* show link inline instead */ }
+    }
+    return { status: 'copied', link: result.link }
+  }
   if (typeof window !== 'undefined') {
     window.location.href = buildInviteMailto(payload)
-    return 'mailto'
+    return { status: 'mailto' }
   }
-  return 'failed'
+  return { status: 'failed' }
 }
 
 /** Build a mailto: URL with a pre-filled Arabic invitation draft. */
@@ -251,9 +267,13 @@ export const apiAuth = {
       'auth/set-password', { method: 'POST', body: JSON.stringify({ token, password }) }
     ),
 
-  /** Request a password-reset email. Always resolves ok (no account enumeration). */
+  /**
+   * Request a password reset. Always resolves ok (no account enumeration).
+   * During first-admin bootstrap with no email provider, the response includes
+   * a `link` to open directly.
+   */
   requestReset: (email: string) =>
-    apiFetch<{ ok: boolean }>('auth/request-reset', { method: 'POST', body: JSON.stringify({ email }) }),
+    apiFetch<{ ok: boolean; link?: string }>('auth/request-reset', { method: 'POST', body: JSON.stringify({ email }) }),
 
   /** Clear the session cookie. */
   logout: () => apiFetch<{ ok: boolean }>('auth/logout', { method: 'POST', body: '{}' }),

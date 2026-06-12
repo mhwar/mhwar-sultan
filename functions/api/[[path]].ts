@@ -477,24 +477,43 @@ async function handleRequestReset(req: Request, db: D1Database, env: Env): Promi
   const email = (p.email ?? '').trim().toLowerCase()
   if (!email) return err('البريد مطلوب', 400)
 
-  const user = await db.prepare('SELECT * FROM app_users WHERE lower(email) = ?').bind(email).first<UserRow>()
-  if (user) {
-    const token = await issueToken(db, email, 'reset', 60 * 60 * 1000) // 1 hour
-    await sendAuthLink(env, email, user.name, token, 'reset')
-  } else {
-    // Bootstrap: when no users exist at all, let the first email claim admin so a
-    // fresh deployment can be set up. Locked once any user exists.
-    const count = await db.prepare('SELECT COUNT(*) AS n FROM app_users').first<{ n: number }>()
-    if (count && count.n === 0) {
+  // Bootstrap mode: nobody has set a password yet. In this window (the site is
+  // still gated by Cloudflare Access) we may return the set-password link on
+  // screen, so the first admin can get in without an email provider. Once any
+  // password exists this path never exposes a link again.
+  const credCount = await db.prepare('SELECT COUNT(*) AS n FROM user_credentials').first<{ n: number }>()
+  const bootstrapMode = !credCount || credCount.n === 0
+
+  let user = await db.prepare('SELECT * FROM app_users WHERE lower(email) = ?').bind(email).first<UserRow>()
+
+  // When the database has no users at all, let the first email claim admin.
+  if (!user && bootstrapMode) {
+    const userCount = await db.prepare('SELECT COUNT(*) AS n FROM app_users').first<{ n: number }>()
+    if (userCount && userCount.n === 0) {
       const now = new Date().toISOString()
       await db
         .prepare(`INSERT INTO app_users (id, name, email, avatar, system_role, is_finance, is_content, created_at)
                   VALUES ('admin-default', ?, ?, NULL, 'admin', 1, 1, ?)`)
         .bind(email.split('@')[0] || 'المسؤول', email, now)
         .run()
-      const token = await issueToken(db, email, 'invite', 7 * 24 * 60 * 60 * 1000)
-      await sendAuthLink(env, email, email.split('@')[0] || 'المسؤول', token, 'invite')
+      user = await db.prepare('SELECT * FROM app_users WHERE lower(email) = ?').bind(email).first<UserRow>()
     }
+  }
+
+  // Unknown email and not bootstrapping → say ok without doing anything (no enumeration).
+  if (!user) return json({ ok: true })
+
+  const kind: 'invite' | 'reset' = bootstrapMode ? 'invite' : 'reset'
+  const ttl = bootstrapMode ? 7 * 24 * 60 * 60 * 1000 : 60 * 60 * 1000
+  const token = await issueToken(db, email, kind, ttl)
+  const sent = await sendAuthLink(env, email, user.name, token, kind)
+
+  // No email provider during bootstrap → return the link so the admin can open
+  // it directly. Outside bootstrap we never expose links to an unauthenticated
+  // caller; the admin re-invites users from settings instead.
+  if (bootstrapMode && !sent) {
+    const siteUrl = env.SITE_URL ?? 'https://boslaworks.com'
+    return json({ ok: true, link: `${siteUrl}/set-password?token=${token}` })
   }
   return json({ ok: true })
 }
@@ -552,13 +571,20 @@ async function handleInvite(req: Request, db: D1Database, env: Env, caller: User
       .run()
   }
 
+  // Always issue a fresh token and build the set-password link. When no email
+  // provider is configured (or sending fails) we return the link so the admin
+  // can copy it and share it manually. Safe to expose here: this route is
+  // admin-only (isAdmin check above).
+  const token = await issueToken(db, email, 'invite', 7 * 24 * 60 * 60 * 1000)
+  const siteUrl = env.SITE_URL ?? 'https://boslaworks.com'
+  const link = `${siteUrl}/set-password?token=${token}`
+
   if (!env.RESEND_API_KEY) {
-    return json({ sent: false, fallback: true, reason: 'no-email-provider' })
+    return json({ sent: false, fallback: true, reason: 'no-email-provider', link })
   }
 
-  const token = await issueToken(db, email, 'invite', 7 * 24 * 60 * 60 * 1000)
   const sent = await sendAuthLink(env, email, name, token, 'invite')
-  return json({ sent, fallback: !sent })
+  return json({ sent, fallback: !sent, link: sent ? undefined : link })
 }
 
 // ── Users ─────────────────────────────────────────────────
