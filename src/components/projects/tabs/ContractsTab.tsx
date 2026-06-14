@@ -356,7 +356,8 @@ function ContractForm({ draft, onChange, onSave, onClose, isEdit }: FormProps) {
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '8px 12px', borderRadius: 8,
     border: '1px solid var(--border-subtle)',
-    background: 'var(--surface-raised)', color: 'var(--fg-1)',
+    background: 'var(--color-surface-raised)', color: 'var(--color-text-primary)',
+
     fontSize: 14, boxSizing: 'border-box',
   }
   const labelStyle: React.CSSProperties = { fontSize: 13, color: 'var(--fg-2)', marginBottom: 4, display: 'block' }
@@ -378,7 +379,8 @@ function ContractForm({ draft, onChange, onSave, onClose, isEdit }: FormProps) {
       {/* Sheet */}
       <div style={{
         position: 'relative', width: '100%', maxWidth: 600,
-        background: 'var(--surface-base)', overflowY: 'auto',
+        background: 'var(--color-surface-overlay)', overflowY: 'auto',
+
         display: 'flex', flexDirection: 'column',
         zIndex: 1,
       }}>
@@ -386,7 +388,8 @@ function ContractForm({ draft, onChange, onSave, onClose, isEdit }: FormProps) {
         <div style={{
           padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          position: 'sticky', top: 0, background: 'var(--surface-base)', zIndex: 1,
+          position: 'sticky', top: 0, background: 'var(--color-surface-overlay)', zIndex: 1,
+
         }}>
           <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0, color: 'var(--fg-1)' }}>
             {isEdit ? 'تعديل العقد' : 'عقد جديد'}
@@ -637,7 +640,8 @@ function ContractForm({ draft, onChange, onSave, onClose, isEdit }: FormProps) {
         <div style={{
           padding: '16px 24px', borderTop: '1px solid var(--border-subtle)',
           display: 'flex', justifyContent: 'flex-end', gap: 8,
-          position: 'sticky', bottom: 0, background: 'var(--surface-base)',
+          position: 'sticky', bottom: 0, background: 'var(--color-surface-overlay)',
+
         }}>
           <button
             onClick={onClose}
