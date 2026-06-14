@@ -34,6 +34,7 @@ import { useClientStore }     from '@/store/store'
 import { useContentStore }    from '@/store/store'
 import { usePortfolioStore }  from '@/store/store'
 import { useProfileStore }    from '@/store/store'
+import { useContractStore }   from '@/store/store'
 import { syncMissingSeeds } from '@/components/shared/StoreHydration'
 import { SEED_PROFILES } from '@/lib/seed-data'
 import {
@@ -45,7 +46,7 @@ import type {
   Project, Task, Plan, PlanPhase, Sprint, Note, ProductDoc,
   TeamMember, ScheduleEvent, Meeting, FinanceEntry, FinancePackage,
   Kpi, Client, GrowthMetric, GrowthExperiment, GrowthChannel,
-  ContentItem, Portfolio, ProductProfile, AppUser, ProjectPermission,
+  ContentItem, Portfolio, ProductProfile, AppUser, ProjectPermission, Contract,
 } from '@/types'
 
 // ── Generic array-diffing watcher ─────────────────────────
@@ -99,6 +100,7 @@ export function localSnapshot(): Partial<SyncSnapshot> {
     content:     useContentStore.getState().items,
     portfolios:  usePortfolioStore.getState().portfolios,
     profiles:    useProfileStore.getState().profiles,
+    contracts:   useContractStore.getState().contracts,
     users:       usePermissionStore.getState().users,
     permissions: usePermissionStore.getState().permissions,
   }
@@ -299,6 +301,10 @@ function hydrateStores(snap: SyncSnapshot): void {
   if (Array.isArray(snap.profiles)) {
     useProfileStore.setState((s) => ({ profiles: merge(snap.profiles, s.profiles) }))
   }
+  // Admin-only: older deploys or non-admin pulls won't return contracts.
+  if (Array.isArray(snap.contracts)) {
+    useContractStore.setState((s) => ({ contracts: merge(snap.contracts!, s.contracts) }))
+  }
   // Users & permissions drive the client-side permission UI and are admin-only in
   // the snapshot. Only hydrate when present so a member keeps their own identity
   // context (their matched user) rather than having it wiped to an empty list.
@@ -330,6 +336,7 @@ function startWatchers(hydrating: MutableRefObject<boolean>): void {
   let prevContent:     ContentItem[]       = useContentStore.getState().items.slice()
   let prevPortfolios:  Portfolio[]         = usePortfolioStore.getState().portfolios.slice()
   let prevProfiles:    ProductProfile[]    = useProfileStore.getState().profiles.slice()
+  let prevContracts:   Contract[]          = useContractStore.getState().contracts.slice()
   let prevUsers:       AppUser[]           = usePermissionStore.getState().users.slice()
   let prevPermissions: ProjectPermission[] = usePermissionStore.getState().permissions.slice()
 
@@ -417,6 +424,10 @@ function startWatchers(hydrating: MutableRefObject<boolean>): void {
 
   useProfileStore.subscribe((s) => {
     watch(s.profiles, prevProfiles, 'profiles', (v) => { prevProfiles = v })
+  })
+
+  useContractStore.subscribe((s) => {
+    watch(s.contracts, prevContracts, 'contracts', (v) => { prevContracts = v })
   })
 
   usePermissionStore.subscribe((s) => {
