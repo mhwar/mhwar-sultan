@@ -9,7 +9,7 @@ import type {
   Project, Task, Plan, PlanPhase, Sprint, Note, ProductDoc,
   TeamMember, ScheduleEvent, Meeting, FinanceEntry, FinancePackage,
   Kpi, Client, GrowthMetric, GrowthExperiment, GrowthChannel,
-  ContentItem, Portfolio, ProductProfile, AppUser, ProjectPermission,
+  ContentItem, Portfolio, ProductProfile, AppUser, ProjectPermission, Contract,
 } from '@/types'
 
 // ── Base fetch ────────────────────────────────────────────
@@ -106,6 +106,7 @@ export interface SyncSnapshot {
   content:     ContentItem[]
   portfolios:  Portfolio[]
   profiles:    ProductProfile[]
+  contracts:   Contract[]
   users:       AppUser[]
   permissions: ProjectPermission[]
 }

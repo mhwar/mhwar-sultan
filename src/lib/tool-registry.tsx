@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Package, TrendingUp, Zap, FileText, BookUser,
-  Users2, CalendarDays, CalendarClock, Wallet, Gauge, Building2, Layers, type LucideIcon,
+  Users2, CalendarDays, CalendarClock, Wallet, Gauge, Building2, Layers, FileSignature, type LucideIcon,
 } from 'lucide-react'
 import type { Project } from '@/types'
 import OverviewTab from '@/components/projects/tabs/OverviewTab'
@@ -16,6 +16,7 @@ import ClientsTab from '@/components/projects/tabs/ClientsTab'
 import ContentTab from '@/components/projects/tabs/ContentTab'
 import MeetingsTab from '@/components/projects/tabs/MeetingsTab'
 import ProfileTab from '@/components/projects/tabs/ProfileTab'
+import ContractsTab from '@/components/projects/tabs/ContractsTab'
 
 /**
  * A tool = a tab = a page within a project. The registry is the single source
@@ -38,6 +39,8 @@ export interface ToolDef {
   allowedTypes?: string[]
   /** Grouping label in the tools library. */
   group?: string
+  /** Admin-only: hidden from members regardless of per-project permissions. */
+  adminOnly?: boolean
 }
 
 export const TOOLS: ToolDef[] = [
@@ -105,6 +108,12 @@ export const TOOLS: ToolDef[] = [
     id: 'content', label: 'المحتوى', icon: Layers, group: 'إدارة العملاء',
     description: 'منشورات وتصاميم وتسليمات المحتوى لكل عميل',
     render: (p) => <ContentTab project={p} />,
+  },
+  {
+    id: 'contracts', label: 'العقود', icon: FileSignature, group: 'الإدارة',
+    description: 'عقود واتفاقيات المشروع — للمسؤول فقط',
+    adminOnly: true,
+    render: (p) => <ContractsTab project={p} />,
   },
 ]
 

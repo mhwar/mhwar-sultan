@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, TaskPriority, Feature, Sprint, SprintStatus, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, FinancePackage, Kpi, Client, ContentItem, Portfolio, Meeting, ProductProfile } from '@/types'
+import type { Project, Task, Plan, PlanPhase, Note, TaskStatus, TaskPriority, Feature, Sprint, SprintStatus, ProductDoc, GrowthMetric, GrowthExperiment, GrowthChannel, TeamMember, ScheduleEvent, FinanceEntry, FinancePackage, Kpi, Client, ContentItem, Portfolio, Meeting, ProductProfile, Contract } from '@/types'
 import { SEED_PROJECTS, SEED_TASKS, SEED_PLANS, SEED_PHASES, SEED_NOTES, SEED_SPRINTS, SEED_DOCS, SEED_METRICS, SEED_EXPERIMENTS, SEED_CHANNELS, SEED_TEAM, SEED_SCHEDULE, SEED_FINANCE, SEED_PACKAGES, SEED_KPIS, SEED_CLIENTS, SEED_CONTENT, SEED_PORTFOLIOS, SEED_MEETINGS } from '@/lib/seed-data'
 import { domainForKind } from '@/lib/plan-kinds'
 import { FALLBACK_TOOL_IDS, DEFAULT_PROJECT_TYPE } from '@/lib/project-types'
@@ -1530,3 +1530,38 @@ export const useNavStore = create<NavStore>()((set) => ({
   clearTab: () => set({ targetTab: undefined }),
   clearSprintId: () => set({ targetSprintId: undefined }),
 }))
+
+// ── Contract Store (admin-only) ───────────────────────────
+interface ContractStore {
+  contracts: Contract[]
+  addContract: (data: Omit<Contract, 'id' | 'order' | 'createdAt' | 'updatedAt'>) => string
+  updateContract: (id: string, data: Partial<Contract>) => void
+  deleteContract: (id: string) => void
+}
+
+export const useContractStore = create<ContractStore>()(
+  persist(
+    (set) => ({
+      contracts: [],
+
+      addContract: (data) => {
+        const id = generateId()
+        set((s) => {
+          const existing = s.contracts.filter((c) => c.projectId === data.projectId)
+          const order = existing.length > 0 ? Math.max(...existing.map((c) => c.order)) + 1 : 0
+          return { contracts: [...s.contracts, { ...data, id, order, createdAt: now(), updatedAt: now() }] }
+        })
+        return id
+      },
+
+      updateContract: (id, data) =>
+        set((s) => ({
+          contracts: s.contracts.map((c) => (c.id === id ? { ...c, ...data, updatedAt: now() } : c)),
+        })),
+
+      deleteContract: (id) =>
+        set((s) => ({ contracts: s.contracts.filter((c) => c.id !== id) })),
+    }),
+    { name: 'mhwar-contracts', version: 1, skipHydration: true }
+  )
+)

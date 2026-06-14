@@ -404,6 +404,44 @@ CREATE TABLE IF NOT EXISTS product_profiles (
   FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
 );
 
+-- ── Contracts (admin-only — not synced to member clients) ──
+CREATE TABLE IF NOT EXISTS contracts (
+  id              TEXT PRIMARY KEY,
+  project_id      TEXT NOT NULL,
+  title           TEXT NOT NULL,
+  contract_type   TEXT NOT NULL DEFAULT 'اتفاقية مرافقة تقنية',
+  status          TEXT NOT NULL DEFAULT 'draft'
+                  CHECK (status IN ('draft','active','completed','expired','cancelled')),
+  contract_date   TEXT,
+  party1_name     TEXT,
+  party1_id_num   TEXT,
+  party1_phone    TEXT,
+  party1_email    TEXT,
+  party1_address  TEXT,
+  party2_name     TEXT,
+  party2_rep      TEXT,
+  party2_reg_num  TEXT,
+  party2_phone    TEXT,
+  party2_email    TEXT,
+  party2_address  TEXT,
+  monthly_amount  REAL,
+  currency        TEXT NOT NULL DEFAULT 'SAR',
+  payment_schedule TEXT NOT NULL DEFAULT '[]',
+  start_date      TEXT,
+  end_date        TEXT,
+  subject         TEXT,
+  scope           TEXT,
+  work_mechanism  TEXT,
+  out_of_scope    TEXT,
+  notes           TEXT,
+  signed_at       TEXT,
+  order_index     INTEGER NOT NULL DEFAULT 0,
+  created_at      TEXT NOT NULL,
+  updated_at      TEXT NOT NULL,
+  FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_contracts_project ON contracts(project_id);
+
 -- ── Indexes ───────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_profiles_project    ON product_profiles(project_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_project       ON tasks           (project_id);

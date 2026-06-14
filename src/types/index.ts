@@ -438,6 +438,57 @@ export interface ProductProfile {
   updatedAt: string
 }
 
+// ── Contracts ─────────────────────────────────────────────
+
+export type ContractStatus = 'draft' | 'active' | 'completed' | 'expired' | 'cancelled'
+
+export interface ContractPaymentItem {
+  label: string
+  amount: number
+  percentage?: number
+  dueDate?: string
+  status: 'pending' | 'paid'
+}
+
+export interface Contract {
+  id: string
+  projectId: string
+  title: string
+  contractType: string
+  status: ContractStatus
+  contractDate?: string
+  // الطرف الأول
+  party1Name?: string
+  party1IdNum?: string
+  party1Phone?: string
+  party1Email?: string
+  party1Address?: string
+  // الطرف الثاني
+  party2Name?: string
+  party2Rep?: string
+  party2RegNum?: string
+  party2Phone?: string
+  party2Email?: string
+  party2Address?: string
+  // المالية
+  monthlyAmount?: number
+  currency: string
+  paymentSchedule: ContractPaymentItem[]
+  // المدة
+  startDate?: string
+  endDate?: string
+  // الأقسام النصية
+  subject?: string
+  scope?: string
+  workMechanism?: string
+  outOfScope?: string
+  notes?: string
+  signedAt?: string
+  order: number
+  createdAt: string
+  updatedAt: string
+}
+
 // ── App Users & Permissions ───────────────────────────────
 export interface AppUser {
   id: string

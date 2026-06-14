@@ -669,7 +669,7 @@ type Table =
   | 'product_docs' | 'team_members' | 'schedule_events' | 'meetings'
   | 'finance_entries' | 'finance_packages' | 'kpis' | 'clients'
   | 'growth_metrics' | 'growth_experiments' | 'growth_channels' | 'content_items'
-  | 'product_profiles'
+  | 'product_profiles' | 'contracts'
 
 const ORDER_COL: Record<string, string> = {
   tasks: 'created_at',
@@ -690,6 +690,7 @@ const ORDER_COL: Record<string, string> = {
   growth_channels: 'order_index',
   content_items: 'order_index',
   product_profiles: 'created_at',
+  contracts: 'order_index',
 }
 
 async function handleList(
@@ -704,6 +705,8 @@ async function handleList(
     if (['finance_entries', 'finance_packages', 'kpis'].includes(table) && !caller.is_finance) return json([])
     // Content-only tables
     if (['content_items', 'clients'].includes(table) && !caller.is_content) return json([])
+    // Admin-only tables
+    if (table === 'contracts') return json([])
   }
   const order = ORDER_COL[table] ?? 'created_at'
   const { results } = await db
@@ -732,6 +735,7 @@ async function handleCreate(
     if (projectId && !(await canAccessProject(db, caller.id, projectId))) return err('غير مصرح', 403)
     if (['finance_entries', 'finance_packages', 'kpis'].includes(table) && !caller.is_finance) return err('غير مصرح', 403)
     if (['content_items', 'clients'].includes(table) && !caller.is_content) return err('غير مصرح', 403)
+    if (table === 'contracts') return err('غير مصرح', 403)
   }
   const { sql, vals } = buildInsert(table, body)
   await db.prepare(sql).bind(...vals).run()
@@ -830,7 +834,7 @@ async function handleSyncPull(db: D1Database, caller: UserRow): Promise<Response
   const [
     projects, tasks, plans, phases, sprints, notes, docs, team, schedule,
     meetings, finance, packages, kpis, clients, metrics, experiments,
-    channels, content, portfolios, profiles, users, permissions,
+    channels, content, portfolios, profiles, users, permissions, contracts,
   ] = await Promise.all([
     handleListProjects(db, caller).then((r) => r.json()),
     (async () => {
@@ -910,6 +914,14 @@ async function handleSyncPull(db: D1Database, caller: UserRow): Promise<Response
     isAdm
       ? db.prepare('SELECT * FROM project_permissions').all().then((r) => r.results.map(rowToCamel))
       : db.prepare('SELECT * FROM project_permissions WHERE user_id = ?').bind(caller.id).all().then((r) => r.results.map(rowToCamel)),
+    isAdm
+      ? (async () => {
+          try {
+            const { results } = await db.prepare('SELECT * FROM contracts ORDER BY order_index').all()
+            return results.map(rowToCamel)
+          } catch { return [] }
+        })()
+      : Promise.resolve([]),
   ])
 
   // `seeded` reflects whether D1 holds any projects at all (unfiltered), so the
@@ -921,7 +933,7 @@ async function handleSyncPull(db: D1Database, caller: UserRow): Promise<Response
     seeded,
     projects, tasks, plans, phases, sprints, notes, docs, team, schedule,
     meetings, finance, packages, kpis, clients, metrics, experiments,
-    channels, content, portfolios, profiles, users, permissions,
+    channels, content, portfolios, profiles, contracts, users, permissions,
   })
 }
 
@@ -959,7 +971,7 @@ async function handleSyncPush(req: Request, db: D1Database, caller: UserRow): Pr
     schedule?: AnyObj[]; meetings?: AnyObj[]; finance?: AnyObj[]; packages?: AnyObj[]
     kpis?: AnyObj[]; clients?: AnyObj[]; metrics?: AnyObj[]; experiments?: AnyObj[]
     channels?: AnyObj[]; content?: AnyObj[]; portfolios?: AnyObj[]
-    profiles?: AnyObj[]; users?: AnyObj[]; permissions?: AnyObj[]
+    profiles?: AnyObj[]; contracts?: AnyObj[]; users?: AnyObj[]; permissions?: AnyObj[]
   }
 
   await upsertBatch(db, 'projects',           body.projects    ?? [])
@@ -983,8 +995,9 @@ async function handleSyncPush(req: Request, db: D1Database, caller: UserRow): Pr
   await upsertBatch(db, 'portfolios',         body.portfolios  ?? [])
   await upsertBatch(db, 'product_profiles',   body.profiles    ?? [])
 
-  // Users & permissions: only admin-provided data
+  // Admin-only data
   if (isAdmin(caller)) {
+    await upsertBatch(db, 'contracts',            body.contracts   ?? [])
     await upsertBatch(db, 'app_users',            body.users       ?? [])
     await upsertBatch(db, 'project_permissions',  body.permissions ?? [])
   }

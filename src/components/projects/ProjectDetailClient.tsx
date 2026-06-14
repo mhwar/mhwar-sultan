@@ -59,8 +59,14 @@ export default function ProjectDetailClient({ id }: Props) {
   }, [menuOpen])
 
   // Tools enabled for this project (with legacy fallback), resolved via the registry,
-  // then filtered by active user's permissions.
-  const rawToolIds = (project?.tools?.length ? project.tools : FALLBACK_TOOL_IDS).filter((t) => getTool(t))
+  // then filtered by active user's permissions. Admin-only tools are hidden from members.
+  const rawToolIds = (project?.tools?.length ? project.tools : FALLBACK_TOOL_IDS)
+    .filter((t) => {
+      const def = getTool(t)
+      if (!def) return false
+      if (def.adminOnly && !isAdminView) return false
+      return true
+    })
   const toolIds = hydrated ? getEffectiveTools(id, rawToolIds) : rawToolIds
 
   // Keep the active tab valid: default to the first tool, and recover if the
