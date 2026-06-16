@@ -82,6 +82,7 @@ export default function ProfileTab({ project }: ProfileTabProps) {
   const upsertProfile = useProfileStore((s) => s.upsertProfile)
 
   const [exporting, setExporting] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
   const [exportErr, setExportErr] = useState('')
 
   const done = completedCount(profile)
@@ -101,6 +102,20 @@ export default function ProfileTab({ project }: ProfileTabProps) {
     }
   }
 
+  async function handleExportPdf() {
+    if (!profile || done === 0) return
+    setExportingPdf(true)
+    setExportErr('')
+    try {
+      const { exportProfilePdf } = await import('@/lib/profile-pdf')
+      exportProfilePdf(project, profile)
+    } catch {
+      setExportErr('تعذّر إنشاء ملف PDF — أعد المحاولة')
+    } finally {
+      setExportingPdf(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
 
@@ -112,7 +127,7 @@ export default function ProfileTab({ project }: ProfileTabProps) {
               الملف التعريفي
             </h2>
             <p className="text-xs mt-1" style={{ color: 'var(--fg-3)' }}>
-              عبّئ الأقسام التالية ثم صدّرها كعرض تقديمي بمقاس 16:9 جاهز للمستثمرين والشركاء
+              عبّئ الأقسام التالية ثم صدّرها كملف PDF منسّق أو عرض تقديمي جاهز للمستثمرين والشركاء
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -133,11 +148,20 @@ export default function ProfileTab({ project }: ProfileTabProps) {
             <Button
               variant="primary"
               size="sm"
+              onClick={handleExportPdf}
+              disabled={exportingPdf || done === 0}
+            >
+              <Download size={14} strokeWidth={1.5} />
+              {exportingPdf ? 'جارٍ التصدير...' : 'تصدير PDF'}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={handleExport}
               disabled={exporting || done === 0}
             >
               <Download size={14} strokeWidth={1.5} />
-              {exporting ? 'جارٍ التصدير...' : 'تصدير عرض تقديمي'}
+              {exporting ? 'جارٍ التصدير...' : 'عرض تقديمي'}
             </Button>
           </div>
         </div>
