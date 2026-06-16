@@ -52,6 +52,10 @@ interface Env {
   CF_ACCOUNT_ID?: string
   /** HMAC secret used to sign session cookies. Required for password auth. */
   SESSION_SECRET?: string
+  /** Master admin email — provisions a primary admin login from environment config. */
+  BOOTSTRAP_ADMIN_EMAIL?: string
+  /** Master admin password — checked at login for BOOTSTRAP_ADMIN_EMAIL only. */
+  BOOTSTRAP_ADMIN_PASSWORD?: string
 }
 
 // ── Helpers ───────────────────────────────────────────────
@@ -330,6 +334,7 @@ async function handleHealth(db: D1Database, req: Request, env: Env): Promise<Res
     db: dbOk,
     sessionConfigured: !!env.SESSION_SECRET,
     emailConfigured: !!env.RESEND_API_KEY,
+    masterAdminConfigured: !!(env.BOOTSTRAP_ADMIN_EMAIL && env.BOOTSTRAP_ADMIN_PASSWORD),
     authenticated: !!email,
     email,
     userCount,
@@ -357,6 +362,33 @@ async function handleLogin(req: Request, db: D1Database, env: Env): Promise<Resp
   if (!email || !password) return err('البريد وكلمة المرور مطلوبان', 400)
 
   const generic = () => err('بريد أو كلمة مرور غير صحيحة', 401)
+
+  // Master admin login: a primary admin credential provisioned from environment
+  // config (BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD). Lets the owner sign
+  // in without the email-based set-password flow. The password lives only in the
+  // Cloudflare environment — never in the database or the repo — and is compared in
+  // constant time. Bypasses user_credentials entirely for this one account.
+  const bootEmail = (env.BOOTSTRAP_ADMIN_EMAIL ?? '').trim().toLowerCase()
+  const bootPass = env.BOOTSTRAP_ADMIN_PASSWORD ?? ''
+  if (bootEmail && bootPass && email === bootEmail && timingSafeEqual(password, bootPass)) {
+    const now = new Date().toISOString()
+    await db
+      .prepare(`INSERT INTO app_users (id, name, email, avatar, system_role, is_finance, is_content, created_at)
+                VALUES (?, ?, ?, NULL, 'admin', 1, 1, ?)
+                ON CONFLICT(email) DO UPDATE SET system_role = 'admin'`)
+      .bind(`admin-${crypto.randomUUID()}`, email.split('@')[0] || 'المسؤول', email, now)
+      .run()
+    const admin = await db.prepare('SELECT * FROM app_users WHERE lower(email) = ?').bind(email).first<UserRow>()
+    const token = await signSession(email, env.SESSION_SECRET)
+    return new Response(JSON.stringify({ ok: true, user: rowToCamel(admin as unknown as Record<string, unknown>) }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store',
+        'Set-Cookie': sessionCookie(token, SESSION_TTL_SECONDS),
+      },
+    })
+  }
 
   const user = await db.prepare('SELECT * FROM app_users WHERE lower(email) = ?').bind(email).first<UserRow>()
   if (!user) return generic()
