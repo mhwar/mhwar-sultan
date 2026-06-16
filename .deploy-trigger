@@ -1,0 +1,6 @@
+# Deploy trigger
+
+Bumped to rebind Cloudflare Pages environment after setting the master
+admin login variables. Safe to edit; contents are not used at runtime.
+
+last-bump: 2026-06-16T07:39Z
