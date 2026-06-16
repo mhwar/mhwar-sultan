@@ -1,0 +1,34 @@
+# Set the primary-admin login env vars on the Cloudflare Pages project so the
+# owner can sign in with email + a chosen password — without the email-based
+# set-password flow.
+#
+# The email is fixed; the password is supplied at run time as a workflow input,
+# so it is never stored in the repository. Reuses the existing
+# CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID Actions secrets.
+#
+# Run it from: Actions -> "Set master admin (Cloudflare Pages)" -> Run workflow.
+# After it succeeds, redeploy the Pages project so the new secrets bind.
+
+name: Set master admin (Cloudflare Pages)
+
+on:
+  workflow_dispatch:
+    inputs:
+      password:
+        description: 'Master admin password for sultan.sa41@gmail.com'
+        required: true
+
+jobs:
+  set:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Set BOOTSTRAP_ADMIN_EMAIL (production)
+        run: printf '%s' 'sultan.sa41@gmail.com' | npx wrangler@latest pages secret put BOOTSTRAP_ADMIN_EMAIL --project-name=mhwar-sultan
+
+      - name: Set BOOTSTRAP_ADMIN_PASSWORD (production)
+        run: printf '%s' "$ADMIN_PW" | npx wrangler@latest pages secret put BOOTSTRAP_ADMIN_PASSWORD --project-name=mhwar-sultan
+        env:
+          ADMIN_PW: ${{ inputs.password }}
