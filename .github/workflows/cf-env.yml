@@ -1,0 +1,33 @@
+# Sync Cloudflare Pages environment secrets from GitHub Actions secrets.
+#
+# Why: the app's auth email (invite + password-reset links) is sent through
+# Resend, which the Pages Function reads from env.RESEND_API_KEY. This workflow
+# writes that value as an *encrypted* Cloudflare Pages secret so it is never
+# stored in the repository.
+#
+# Required GitHub Actions secrets (Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN   — already configured (used by d1-setup.yml)
+#   CLOUDFLARE_ACCOUNT_ID  — already configured (used by d1-setup.yml)
+#   RESEND_API_KEY         — the Resend API key (add this one)
+#
+# After it runs, redeploy the Pages project (or push to main) so the Function
+# picks up the new secret.
+
+name: Sync Cloudflare Pages secrets
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sync-secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Put RESEND_API_KEY on Cloudflare Pages (production)
+        run: printf '%s' "$RESEND_API_KEY" | npx wrangler@latest pages secret put RESEND_API_KEY --project-name=mhwar-sultan
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
